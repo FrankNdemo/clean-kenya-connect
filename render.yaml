@@ -25,8 +25,9 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.6"
 
-  - type: static_site
+  - type: web
     name: mtaka-frontend
+    runtime: static
     rootDir: mtaka-frontend
     buildCommand: npm ci && VITE_API_BASE_URL=https://$BACKEND_HOST/api/auth/ npm run build
     staticPublishPath: dist

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { Button } from '@/components/ui/button';
@@ -24,18 +23,11 @@ import { Link } from 'react-router-dom';
 
 export default function CollectorDashboard() {
   const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
   const [myRequests, setMyRequests] = useState<WasteRequest[]>([]);
   const [myTransactions, setMyTransactions] = useState<CollectorTransaction[]>([]);
 
   useEffect(() => {
-    if (!user || user.role !== 'collector') {
-      navigate('/login');
-    }
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (user) refreshData();
+    if (user && user.role === 'collector') refreshData();
   }, [user]);
 
   if (isLoading) {

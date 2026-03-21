@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,7 @@ import { Users, Truck, MapPin, Calendar, BarChart3, CheckCircle, XCircle, Recycl
 import { toast } from 'sonner';
 
 export default function AuthorityDashboard() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const { user, isLoading } = useAuth();
   const [reports, setReports] = useState<DumpingReport[]>([]);
   const [pendingEvents, setPendingEvents] = useState<BackendEvent[]>([]);
   const [requests, setRequests] = useState<BackendCollectionRequest[]>([]);
@@ -38,10 +37,6 @@ export default function AuthorityDashboard() {
     totalRecycled: 0,
     totalRecyclingValue: 0,
   });
-
-  useEffect(() => {
-    if (!user || user.role !== 'authority') { navigate('/login'); }
-  }, [user, navigate]);
 
   const refreshPendingEvents = async (shouldFilterToNairobi: boolean) => {
     try {
@@ -57,7 +52,7 @@ export default function AuthorityDashboard() {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && user.role === 'authority') {
       Promise.all([
         getProfile(),
         fetchDumpingReportsDb(),
@@ -118,7 +113,7 @@ export default function AuthorityDashboard() {
     }
   }, [user]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const handleApproveEvent = async (eventId: number) => {
     try {

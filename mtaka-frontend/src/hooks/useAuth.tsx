@@ -233,6 +233,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const switchUser = async (userId: string) => {
     try {
+      const data = await getProfile();
+      if (data?.user && String(data.user.id) === String(userId)) {
+        const u = mapBackendUserToFrontend(data);
+        setUser(u);
+        getSessionStorage()?.setItem(AUTH_CACHE_KEY, JSON.stringify(u));
+        return;
+      }
+
       const res = await API.get('users/');
       const users = res.data as any[];
       const found = users.find(u => String(u.id) === String(userId));

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, Mail, Phone, MapPin, Award, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { getProfile, updateProfile } from '@/api';
+import axios from 'axios';
 
 export default function ProfilePage() {
-  const { user, switchUser } = useAuth();
-  const navigate = useNavigate();
+  const { user, switchUser, isLoading } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -24,10 +23,7 @@ export default function ProfilePage() {
     let active = true;
 
     const loadProfile = async () => {
-      if (!user) {
-        navigate('/login');
-        return;
-      }
+      if (!user) return;
       try {
         const data = await getProfile();
         if (!active) return;
@@ -56,18 +52,16 @@ export default function ProfilePage() {
       }
     };
 
-    if (!user) {
-      navigate('/login');
-    } else {
+    if (user) {
       loadProfile();
     }
 
     return () => {
       active = false;
     };
-  }, [user, navigate]);
+  }, [user]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +74,16 @@ export default function ProfilePage() {
       });
       await switchUser(String(user.id));
       toast.success('Profile updated successfully!');
-    } catch {
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const payload = error.response.data as Record<string, unknown>;
+        const firstMessage = Object.values(payload)[0];
+        const msg = Array.isArray(firstMessage)
+          ? String(firstMessage[0])
+          : String(firstMessage || 'Failed to update profile');
+        toast.error(msg);
+        return;
+      }
       toast.error('Failed to update profile');
     }
   };

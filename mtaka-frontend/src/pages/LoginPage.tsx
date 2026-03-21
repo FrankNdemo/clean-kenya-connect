@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isStandaloneApp = isStandaloneAppMode();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,6 +34,17 @@ export default function LoginPage() {
       const user = await login(email, password);
       if (user) {
         toast.success(`Welcome back, ${user.name || user.email}`);
+        const fromPath =
+          typeof location.state === 'object' &&
+          location.state &&
+          'from' in location.state &&
+          typeof (location.state as { from?: { pathname?: string; search?: string; hash?: string } }).from?.pathname === 'string'
+            ? `${(location.state as { from: { pathname: string; search?: string; hash?: string } }).from.pathname}${(location.state as { from: { search?: string } }).from.search || ''}${(location.state as { from: { hash?: string } }).from.hash || ''}`
+            : '';
+        if (fromPath && fromPath !== '/login') {
+          navigate(fromPath, { replace: true });
+          return;
+        }
         switch (user.role) {
           case 'resident': navigate('/dashboard/resident'); break;
           case 'collector': navigate('/dashboard/collector'); break;

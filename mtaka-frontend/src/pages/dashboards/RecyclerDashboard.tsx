@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { Button } from '@/components/ui/button';
@@ -27,8 +26,7 @@ const materialTypes = [
 ] as const;
 
 export default function RecyclerDashboard() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const { user, isLoading } = useAuth();
   const [transactions, setTransactions] = useState<RecyclingTransaction[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -40,20 +38,14 @@ export default function RecyclerDashboard() {
   });
 
   useEffect(() => {
-    if (!user || user.role !== 'recycler') {
-      navigate('/login');
-    }
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (!user) return;
+    if (!user || user.role !== 'recycler') return;
     (async () => {
       const rows = await fetchRecyclerTransactionsDb();
       setTransactions(rows.filter((tx) => String(tx.recyclerId) === String(user.id)));
     })();
   }, [user]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const totalWeight = transactions.reduce((sum, t) => sum + t.weight, 0);
   const totalValue = transactions.reduce((sum, t) => sum + t.price, 0);

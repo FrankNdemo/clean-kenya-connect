@@ -5,14 +5,6 @@ import API, {
   registerUser as apiRegister,
   getProfile,
   logoutUser as apiLogout,
-  listCollectionRequests,
-  listCollectorTransactionsApi,
-  listDumpingReportsApi,
-  listEvents,
-  listPriceOffersApi,
-  listRecyclableListings,
-  listRecyclerTransactionsApi,
-  listUsers,
 } from '@/api';
 
 interface AuthContextType {
@@ -53,33 +45,24 @@ const ACCESS_TOKEN_KEY = 'mtaka_access_token';
 const REFRESH_TOKEN_KEY = 'mtaka_refresh_token';
 const AUTH_EXPIRED_EVENT = 'mtaka-auth-expired';
 const LOGIN_FORM_CLEAR_KEY = 'mtaka_clear_login_form';
+const TAB_AUTH_SESSION_KEY = 'mtaka_tab_auth_session';
+const TAB_CLOSE_MARKER_KEY = 'mtaka_tab_close_marker';
 
 const getPrimaryStorage = () => {
   if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return window.sessionStorage;
-  }
+  return window.sessionStorage;
 };
 
 const getLegacyStorage = () => {
   if (typeof window === 'undefined') return null;
-  return window.sessionStorage;
+  return window.localStorage;
 };
 
 const readStoredValue = (key: string) => {
   const primary = getPrimaryStorage();
   const direct = primary?.getItem(key);
   if (direct) return direct;
-
-  const legacy = getLegacyStorage();
-  const legacyValue = legacy?.getItem(key) || '';
-  if (legacyValue && primary) {
-    primary.setItem(key, legacyValue);
-    legacy?.removeItem(key);
-  }
-  return legacyValue;
+  return '';
 };
 
 const storeCachedUser = (user: User | null) => {
@@ -101,6 +84,54 @@ const clearAuthStorage = () => {
   primary?.removeItem(AUTH_CACHE_KEY);
   primary?.removeItem(ACCESS_TOKEN_KEY);
   primary?.removeItem(REFRESH_TOKEN_KEY);
+  legacy?.removeItem(AUTH_CACHE_KEY);
+  legacy?.removeItem(ACCESS_TOKEN_KEY);
+  legacy?.removeItem(REFRESH_TOKEN_KEY);
+};
+
+const setActiveTabSession = () => {
+  const primary = getPrimaryStorage();
+  primary?.setItem(TAB_AUTH_SESSION_KEY, '1');
+};
+
+const hasActiveTabSession = () => {
+  const primary = getPrimaryStorage();
+  return primary?.getItem(TAB_AUTH_SESSION_KEY) === '1';
+};
+
+const clearActiveTabSession = () => {
+  const primary = getPrimaryStorage();
+  primary?.removeItem(TAB_AUTH_SESSION_KEY);
+};
+
+const markTabClosing = () => {
+  const primary = getPrimaryStorage();
+  primary?.setItem(TAB_CLOSE_MARKER_KEY, String(Date.now()));
+};
+
+const clearTabCloseMarker = () => {
+  const primary = getPrimaryStorage();
+  primary?.removeItem(TAB_CLOSE_MARKER_KEY);
+};
+
+const getNavigationType = () => {
+  if (typeof window === 'undefined') return 'navigate';
+  const navigationEntries = window.performance?.getEntriesByType?.('navigation') as
+    | PerformanceNavigationTiming[]
+    | undefined;
+  const navigationType = navigationEntries?.[0]?.type;
+  if (navigationType) return navigationType;
+
+  const legacyNavigation = (window.performance as Performance & {
+    navigation?: { type?: number };
+  })?.navigation;
+  if (legacyNavigation?.type === 1) return 'reload';
+  if (legacyNavigation?.type === 2) return 'back_forward';
+  return 'navigate';
+};
+
+const clearLegacyPersistentAuth = () => {
+  const legacy = getLegacyStorage();
   legacy?.removeItem(AUTH_CACHE_KEY);
   legacy?.removeItem(ACCESS_TOKEN_KEY);
   legacy?.removeItem(REFRESH_TOKEN_KEY);
@@ -128,29 +159,21 @@ const mapBackendUserToFrontend = (data: any): User => {
   };
 };
 
-const preloadDashboardData = (role: User['role']) => {
-  const tasksByRole: Record<User['role'], Array<Promise<unknown>>> = {
-    resident: [listEvents(), listCollectionRequests(), listRecyclableListings()],
-    collector: [listCollectionRequests(), listCollectorTransactionsApi()],
-    recycler: [listRecyclableListings(), listPriceOffersApi(), listRecyclerTransactionsApi()],
-    authority: [
-      listUsers(),
-      listCollectionRequests(),
-      listRecyclerTransactionsApi(),
-      listRecyclableListings(),
-      listDumpingReportsApi(),
-      listEvents(),
-    ],
-  };
-
-  void Promise.allSettled(tasksByRole[role]);
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    clearLegacyPersistentAuth();
+
+    const primaryStorage = getPrimaryStorage();
+    const closeMarker = primaryStorage?.getItem(TAB_CLOSE_MARKER_KEY);
+    if (closeMarker && getNavigationType() !== 'reload') {
+      clearActiveTabSession();
+      clearAuthStorage();
+    }
+    clearTabCloseMarker();
+
     const cached = readStoredValue(AUTH_CACHE_KEY);
     if (cached) {
       try {
@@ -160,6 +183,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const handleAuthExpired = () => {
+      setUser(null);
+      clearActiveTabSession();
+      clearTabCloseMarker();
+      clearAuthStorage();
+    };
+
+    const handleBeforeUnload = () => {
+      markTabClosing();
+    };
+
+    const handlePageHide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+      markTabClosing();
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+
+    if (!hasActiveTabSession()) {
+      setUser(null);
+      clearActiveTabSession();
+      clearTabCloseMarker();
+      clearAuthStorage();
+      setIsLoading(false);
+      void apiLogout().catch(() => {
+        // ignore
+      });
+
+      return () => {
+        window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.removeEventListener('pagehide', handlePageHide);
+      };
+    }
+
     // Try to retrieve profile from backend (cookie-based auth)
     (async () => {
       try {
@@ -167,13 +227,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data && data.user) {
           const u = mapBackendUserToFrontend(data);
           setUser(u);
+          setActiveTabSession();
+          clearTabCloseMarker();
           storeCachedUser(u);
-          preloadDashboardData(u.role);
         }
       } catch (err: any) {
         const status = err?.response?.status;
         if (status === 401 || status === 403) {
           setUser(null);
+          clearActiveTabSession();
+          clearTabCloseMarker();
           clearAuthStorage();
         }
       } finally {
@@ -181,15 +244,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })();
 
-    const handleAuthExpired = () => {
-      setUser(null);
-      clearAuthStorage();
-    };
-
-    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
-
     return () => {
       window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
     };
   }, []);
 
@@ -200,8 +258,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data && data.user) {
         const u = mapBackendUserToFrontend(data);
         setUser(u);
+        setActiveTabSession();
+        clearTabCloseMarker();
         storeCachedUser(u);
-        preloadDashboardData(u.role);
         return u;
       }
       return null;
@@ -231,6 +290,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     setUser(null);
+    clearActiveTabSession();
+    clearTabCloseMarker();
     clearAuthStorage();
   };
 
@@ -275,8 +336,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data && data.user) {
       const u = mapBackendUserToFrontend(data);
       setUser(u);
+      setActiveTabSession();
+      clearTabCloseMarker();
       storeCachedUser(u);
-      preloadDashboardData(u.role);
       return u;
     }
     throw new Error('Registration failed');
@@ -288,6 +350,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data?.user && String(data.user.id) === String(userId)) {
         const u = mapBackendUserToFrontend(data);
         setUser(u);
+        setActiveTabSession();
+        clearTabCloseMarker();
         storeCachedUser(u);
         return;
       }
@@ -308,6 +372,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           createdAt: '',
         };
         setUser(u);
+        setActiveTabSession();
+        clearTabCloseMarker();
         storeCachedUser(u);
       }
     } catch (e) {

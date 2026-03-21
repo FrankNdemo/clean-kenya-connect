@@ -7,30 +7,19 @@ const AUTH_EXPIRED_EVENT = "mtaka-auth-expired";
 
 const getPrimaryStorage = () => {
   if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return window.sessionStorage;
-  }
+  return window.sessionStorage;
 };
 
 const getLegacyStorage = () => {
   if (typeof window === "undefined") return null;
-  return window.sessionStorage;
+  return window.localStorage;
 };
 
 const readStoredToken = (key: string) => {
   const primary = getPrimaryStorage();
   const direct = primary?.getItem(key);
   if (direct) return direct;
-
-  const legacy = getLegacyStorage();
-  const legacyValue = legacy?.getItem(key) || "";
-  if (legacyValue && primary) {
-    primary.setItem(key, legacyValue);
-    legacy?.removeItem(key);
-  }
-  return legacyValue;
+  return "";
 };
 
 const storeTokens = (payload?: { access?: unknown; refresh?: unknown }) => {

@@ -51,6 +51,19 @@ def _get_profile_data_for_user(user):
     return {}
 
 
+def _get_jwt_cookie_kwargs(max_age=None):
+    cookie_kwargs = {
+        'httponly': True,
+        'secure': getattr(settings, 'JWT_COOKIE_SECURE', False),
+        'samesite': getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
+        'domain': getattr(settings, 'JWT_COOKIE_DOMAIN', None),
+        'path': '/',
+    }
+    if getattr(settings, 'JWT_COOKIE_PERSISTENT', False) and max_age is not None:
+        cookie_kwargs['max_age'] = max_age
+    return cookie_kwargs
+
+
 def _build_auth_response(user, refresh, access, status_code=200):
     resp = JsonResponse({
         'user': UserSerializer(user).data,
@@ -74,20 +87,12 @@ def _build_auth_response(user, refresh, access, status_code=200):
     resp.set_cookie(
         'refresh_token',
         str(refresh),
-        httponly=True,
-        secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
-        samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
-        domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
-        max_age=refresh_max_age,
+        **_get_jwt_cookie_kwargs(max_age=refresh_max_age),
     )
     resp.set_cookie(
         'access_token',
         str(access),
-        httponly=True,
-        secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
-        samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
-        domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
-        max_age=access_max_age,
+        **_get_jwt_cookie_kwargs(max_age=access_max_age),
     )
     return resp
 
@@ -238,11 +243,7 @@ def refresh_token_cookie(request):
         resp.set_cookie(
             'access_token',
             str(new_access),
-            httponly=True,
-            secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
-            samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
-            domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
-            max_age=access_max_age,
+            **_get_jwt_cookie_kwargs(max_age=access_max_age),
         )
         return resp
     except Exception:
@@ -254,8 +255,10 @@ def refresh_token_cookie(request):
 def logout_user(request):
     # Clear auth cookies
     resp = Response({'detail': 'Logged out'}, status=status.HTTP_200_OK)
-    resp.delete_cookie('access_token')
-    resp.delete_cookie('refresh_token')
+    cookie_domain = getattr(settings, 'JWT_COOKIE_DOMAIN', None)
+    cookie_samesite = getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax')
+    resp.delete_cookie('access_token', path='/', domain=cookie_domain, samesite=cookie_samesite)
+    resp.delete_cookie('refresh_token', path='/', domain=cookie_domain, samesite=cookie_samesite)
     return resp
 
 @api_view(['GET', 'PATCH'])

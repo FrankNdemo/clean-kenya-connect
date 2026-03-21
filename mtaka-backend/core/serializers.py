@@ -161,6 +161,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             return email.split('@')[0]
 
         return f'user_{int(__import__("time").time())}'
+
+    def validate_email(self, value):
+        normalized = (value or '').strip().lower()
+        if User.objects.filter(email__iexact=normalized).exists():
+            raise serializers.ValidationError('An account with this email already exists.')
+        return normalized
     
     def create(self, validated_data):
         validated_data.pop('password2')

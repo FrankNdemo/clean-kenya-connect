@@ -130,10 +130,12 @@ def login_user(request):
     user = None
     if identifier:
         if '@' in identifier:
-            # Fast path for email login: one DB lookup + one password hash check.
-            user_obj = User.objects.filter(email__iexact=identifier).first()
-            if user_obj and user_obj.is_active and user_obj.check_password(password):
-                user = user_obj
+            # Email may not be unique in legacy data; pick the account whose password matches.
+            candidates = User.objects.filter(email__iexact=identifier, is_active=True).order_by('-id')
+            for candidate in candidates:
+                if candidate.check_password(password):
+                    user = candidate
+                    break
         else:
             # Username login remains compatible with default auth backend.
             user = authenticate(username=identifier, password=password)

@@ -76,7 +76,7 @@ const mapBackendUserToAuthorityUser = (backendUser: BackendUser): User => {
     email: backendUser.email,
     role: roleByType[backendUser.user_type],
     phone: backendUser.phone || '',
-    location: '',
+    location: backendUser.location || '',
     rewardPoints: backendUser.reward_points ?? 0,
     createdAt: '',
   };

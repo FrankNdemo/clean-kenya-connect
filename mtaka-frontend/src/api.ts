@@ -1,5 +1,39 @@
 import axios from "axios";
 
+const AUTH_CACHE_KEY = "mtaka_auth_user_cache";
+const ACCESS_TOKEN_KEY = "mtaka_access_token";
+const REFRESH_TOKEN_KEY = "mtaka_refresh_token";
+const AUTH_EXPIRED_EVENT = "mtaka-auth-expired";
+
+const getSessionStorage = () => {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage;
+};
+
+const readStoredToken = (key: string) => getSessionStorage()?.getItem(key) || "";
+
+const storeTokens = (payload?: { access?: unknown; refresh?: unknown }) => {
+  const storage = getSessionStorage();
+  if (!storage || !payload) return;
+
+  if (typeof payload.access === "string" && payload.access.trim()) {
+    storage.setItem(ACCESS_TOKEN_KEY, payload.access);
+  }
+  if (typeof payload.refresh === "string" && payload.refresh.trim()) {
+    storage.setItem(REFRESH_TOKEN_KEY, payload.refresh);
+  }
+};
+
+const clearStoredAuth = () => {
+  const storage = getSessionStorage();
+  storage?.removeItem(ACCESS_TOKEN_KEY);
+  storage?.removeItem(REFRESH_TOKEN_KEY);
+  storage?.removeItem(AUTH_CACHE_KEY);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+  }
+};
+
 const normalizeApiBaseUrl = (rawValue: unknown): string => {
   const value = String(rawValue || "").trim();
   if (!value) return "";
@@ -109,8 +143,25 @@ const cachedGet = async <T>(
 let isRefreshingToken = false;
 let refreshPromise: Promise<void> | null = null;
 
+API.interceptors.request.use((config) => {
+  const accessToken = readStoredToken(ACCESS_TOKEN_KEY);
+  if (accessToken) {
+    config.headers = config.headers || {};
+    if (!config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+  }
+  return config;
+});
+
 API.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const url = String(response?.config?.url || "");
+    if (url.includes("login/") || url.includes("register/") || url.includes("token/refresh/")) {
+      storeTokens(response.data);
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error?.config as any;
     const status = error?.response?.status;
@@ -131,7 +182,8 @@ API.interceptors.response.use(
     try {
       if (!isRefreshingToken) {
         isRefreshingToken = true;
-        refreshPromise = API.post("token/refresh/")
+        const refreshToken = readStoredToken(REFRESH_TOKEN_KEY);
+        refreshPromise = API.post("token/refresh/", refreshToken ? { refresh: refreshToken } : {})
           .then(() => undefined)
           .finally(() => {
             isRefreshingToken = false;
@@ -145,6 +197,18 @@ API.interceptors.response.use(
 
       return API(originalRequest);
     } catch (refreshError) {
+      clearStoredAuth();
+      if (refreshError && typeof refreshError === "object" && "response" in refreshError) {
+        const refreshAxiosError = refreshError as {
+          response?: { status?: number; data?: Record<string, unknown> };
+        };
+        if (refreshAxiosError.response?.status === 401) {
+          refreshAxiosError.response.data = {
+            ...(refreshAxiosError.response.data || {}),
+            detail: "Session expired. Please sign in again.",
+          };
+        }
+      }
       return Promise.reject(refreshError);
     }
   }
@@ -179,6 +243,7 @@ export const updateProfile = async (payload: {
 
 export const logoutUser = async () => {
   const response = await API.post("logout/");
+  clearStoredAuth();
   invalidateGetCache([
     "profile",
     "events",
@@ -292,6 +357,7 @@ export interface BackendWasteType {
 export interface BackendCollectionRequest {
   id: number;
   household: number;
+  household_user_id?: number;
   household_name: string;
   household_phone?: string;
   waste_type: number;

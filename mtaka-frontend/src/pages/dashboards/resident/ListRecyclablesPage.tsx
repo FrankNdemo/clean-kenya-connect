@@ -24,6 +24,7 @@ import {
 } from '@/lib/recyclablesDb';
 import { Recycle, Plus, Package, Clock, CheckCircle, Calendar, Trash2, Edit, Eye, DollarSign, MessageSquare, LocateFixed } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 const materialTypes = [
   { value: 'plastic', label: '♳ Plastic', pricePerKg: 20 },
@@ -144,29 +145,42 @@ export default function ListRecyclablesPage() {
     const coords = await ensureResidentCoordinates();
     if (!coords) return;
 
-    await createRecyclableListingDb({
-      residentId: user.id,
-      residentName: user.name,
-      residentPhone: user.phone,
-      residentLocation: user.location,
-      residentCoordinates: coords,
-      materialType: formData.materialType,
-      estimatedWeight: parseFloat(formData.estimatedWeight),
-      description: formData.description,
-      preferredDate: formData.preferredDate,
-      preferredTime: formData.preferredTime,
-    });
+    try {
+      await createRecyclableListingDb({
+        residentId: user.id,
+        residentName: user.name,
+        residentPhone: user.phone,
+        residentLocation: user.location,
+        residentCoordinates: coords,
+        materialType: formData.materialType,
+        estimatedWeight: parseFloat(formData.estimatedWeight),
+        description: formData.description,
+        preferredDate: formData.preferredDate,
+        preferredTime: formData.preferredTime,
+      });
 
-    toast.success('Recyclable materials listed successfully! Recyclers can now send price offers.');
-    setFormData({
-      materialType: 'plastic',
-      estimatedWeight: '',
-      description: '',
-      preferredDate: '',
-      preferredTime: '09:00',
-    });
-    setShowForm(false);
-    await refreshListings();
+      toast.success('Recyclable materials listed successfully! Recyclers can now send price offers.');
+      setFormData({
+        materialType: 'plastic',
+        estimatedWeight: '',
+        description: '',
+        preferredDate: '',
+        preferredTime: '09:00',
+      });
+      setShowForm(false);
+      await refreshListings();
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const payload = error.response.data as Record<string, unknown>;
+        const firstMessage = Object.values(payload)[0];
+        const msg = Array.isArray(firstMessage)
+          ? String(firstMessage[0])
+          : String(firstMessage || 'Failed to list recyclable materials');
+        toast.error(msg);
+        return;
+      }
+      toast.error('Failed to list recyclable materials');
+    }
   };
 
   const handleEdit = (listing: RecyclableListing) => {

@@ -49,6 +49,9 @@ export interface AuthError extends Error {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_CACHE_KEY = 'mtaka_auth_user_cache';
+const ACCESS_TOKEN_KEY = 'mtaka_access_token';
+const REFRESH_TOKEN_KEY = 'mtaka_refresh_token';
+const AUTH_EXPIRED_EVENT = 'mtaka-auth-expired';
 
 const getSessionStorage = () => {
   if (typeof window === 'undefined') return null;
@@ -62,6 +65,7 @@ const mapBackendUserToFrontend = (data: any): User => {
     data?.profile?.service_areas ||
     data?.profile?.location ||
     data?.profile?.county ||
+    data?.user?.location ||
     '';
 
   return {
@@ -129,6 +133,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     })();
+
+    const handleAuthExpired = () => {
+      setUser(null);
+      storage?.removeItem(AUTH_CACHE_KEY);
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    };
   }, []);
 
   const login = async (email: string, password?: string) => {
@@ -162,7 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore
     }
     setUser(null);
-    getSessionStorage()?.removeItem(AUTH_CACHE_KEY);
+    const storage = getSessionStorage();
+    storage?.removeItem(AUTH_CACHE_KEY);
+    storage?.removeItem(ACCESS_TOKEN_KEY);
+    storage?.removeItem(REFRESH_TOKEN_KEY);
   };
 
   const register = async (
@@ -195,6 +213,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             county_of_operation: userData.countyOfOperation || '',
           }
         : {}),
+      ...(mappedRole !== 'authority'
+        ? {
+            location: userData.location || '',
+          }
+        : {}),
     } as Record<string, unknown>;
 
     const data = await apiRegister(payload);
@@ -221,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: found.email,
           phone: found.phone || '',
           role: (found.user_type === 'household' ? 'resident' : (found.user_type as any)) as any,
-          location: '',
+          location: found.location || '',
           rewardPoints: found.reward_points ?? 0,
           createdAt: '',
         };

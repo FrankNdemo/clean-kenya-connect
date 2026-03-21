@@ -125,7 +125,7 @@ const toFrontendRequest = (item: BackendCollectionRequest): WasteRequest => {
 
   return {
     id: String(item.id),
-    userId: String(item.household),
+    userId: String(item.household_user_id ?? item.household),
     userName: item.household_name || "Resident",
     userPhone: item.household_phone || undefined,
     wasteType: mappedWasteType,

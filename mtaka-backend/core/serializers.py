@@ -86,6 +86,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
     full_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    location = serializers.CharField(write_only=True, required=False, allow_blank=True)
     company_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     license_number = serializers.CharField(write_only=True, required=False, allow_blank=True)
     county_of_operation = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -93,7 +94,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['email', 'password', 'password2', 'user_type', 'phone',
-                  'full_name', 'company_name', 'license_number', 'county_of_operation', 'first_name', 'last_name']
+                  'full_name', 'location', 'company_name', 'license_number', 'county_of_operation', 'first_name', 'last_name']
     
     def validate(self, attrs):
         if attrs.get('password') != attrs.get('password2'):
@@ -171,6 +172,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password2')
         full_name = validated_data.pop('full_name', '')
+        location = (validated_data.pop('location', '') or '').strip()
         company_name = validated_data.pop('company_name', '')
         license_number = validated_data.pop('license_number', '')
         county_of_operation = validated_data.pop('county_of_operation', '')
@@ -207,18 +209,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.save()
         
         if user.user_type == 'household':
-            Household.objects.create(user=user, full_name=full_name or user.username)
+            Household.objects.create(
+                user=user,
+                full_name=full_name or user.username,
+                address=location or None,
+            )
         elif user.user_type == 'collector':
             Collector.objects.create(
                 user=user,
                 company_name=company_name or user.username,
-                license_number=license_number
+                license_number=license_number,
+                service_areas=location or None,
             )
         elif user.user_type == 'recycler':
             Recycler.objects.create(
                 user=user,
                 company_name=company_name or user.username,
-                business_reg=license_number
+                business_reg=license_number,
+                location=location or None,
             )
         elif user.user_type == 'authority':
             Authority.objects.create(
@@ -284,6 +292,7 @@ class FlexibleCollectorField(serializers.PrimaryKeyRelatedField):
         return super().to_internal_value(data)
 
 class CollectionRequestSerializer(serializers.ModelSerializer):
+    household_user_id = serializers.IntegerField(source='household.user.id', read_only=True)
     household_name = serializers.CharField(source='household.full_name', read_only=True)
     household_phone = serializers.CharField(source='household.user.phone', read_only=True)
     waste_type_name = serializers.CharField(source='waste_type.type_name', read_only=True)

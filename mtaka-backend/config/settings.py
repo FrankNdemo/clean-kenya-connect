@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import timedelta
+from importlib.util import find_spec
 import os
 import secrets
 from urllib.parse import urlparse, parse_qs
@@ -54,7 +55,6 @@ AUTH_USER_MODEL = 'core.User'
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.gzip.GZipMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -64,6 +64,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+if find_spec('whitenoise') is not None:
+    MIDDLEWARE.insert(
+        MIDDLEWARE.index('django.middleware.gzip.GZipMiddleware'),
+        'whitenoise.middleware.WhiteNoiseMiddleware',
+    )
 
 if env_bool('DJANGO_LOG_AUTH_DEBUG', False):
     MIDDLEWARE.insert(MIDDLEWARE.index('django.middleware.csrf.CsrfViewMiddleware'), 'core.middleware.LogRequestMiddleware')

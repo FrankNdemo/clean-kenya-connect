@@ -22,6 +22,76 @@ from .serializers import *
 
 logger = logging.getLogger(__name__)
 
+
+def _get_profile_data_for_user(user):
+    if user.user_type == 'household':
+        profile, _ = Household.objects.get_or_create(
+            user=user,
+            defaults={'full_name': user.get_full_name() or user.username},
+        )
+        return HouseholdSerializer(profile).data
+    if user.user_type == 'collector':
+        profile, _ = Collector.objects.get_or_create(
+            user=user,
+            defaults={'company_name': user.username},
+        )
+        return CollectorSerializer(profile).data
+    if user.user_type == 'recycler':
+        profile, _ = Recycler.objects.get_or_create(
+            user=user,
+            defaults={'company_name': user.username},
+        )
+        return RecyclerSerializer(profile).data
+    if user.user_type == 'authority':
+        profile, _ = Authority.objects.get_or_create(
+            user=user,
+            defaults={'staff_name': user.get_full_name() or user.username},
+        )
+        return AuthoritySerializer(profile).data
+    return {}
+
+
+def _build_auth_response(user, refresh, access, status_code=200):
+    resp = JsonResponse({
+        'user': UserSerializer(user).data,
+        'profile': _get_profile_data_for_user(user),
+        'access': str(access),
+        'refresh': str(refresh),
+    }, status=status_code)
+
+    refresh_max_age = getattr(settings, 'SIMPLE_JWT', {}).get('REFRESH_TOKEN_LIFETIME', None)
+    if isinstance(refresh_max_age, timedelta):
+        refresh_max_age = int(refresh_max_age.total_seconds())
+    else:
+        refresh_max_age = 60 * 60 * 24 * 7
+
+    access_max_age = getattr(settings, 'SIMPLE_JWT', {}).get('ACCESS_TOKEN_LIFETIME', None)
+    if isinstance(access_max_age, timedelta):
+        access_max_age = int(access_max_age.total_seconds())
+    else:
+        access_max_age = 60 * 5
+
+    resp.set_cookie(
+        'refresh_token',
+        str(refresh),
+        httponly=True,
+        secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
+        samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
+        domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
+        max_age=refresh_max_age,
+    )
+    resp.set_cookie(
+        'access_token',
+        str(access),
+        httponly=True,
+        secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
+        samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
+        domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
+        max_age=access_max_age,
+    )
+    return resp
+
+
 def award_household_credits(user, points, description, reference_id=None):
     if not user or user.user_type != 'household' or points <= 0:
         return
@@ -61,45 +131,7 @@ def register_user(request):
         refresh['sid'] = getattr(settings, 'RUNTIME_SESSION_ID', '')
         access = refresh.access_token
 
-        resp = JsonResponse({
-            'user': UserSerializer(user).data,
-            'profile': {},
-        }, status=201)
-
-        # Set tokens as HttpOnly cookies
-        # Refresh cookie: longer lived
-        refresh_max_age = getattr(settings, 'SIMPLE_JWT', {}).get('REFRESH_TOKEN_LIFETIME', None)
-        if isinstance(refresh_max_age, timedelta):
-            refresh_max_age = int(refresh_max_age.total_seconds())
-        else:
-            refresh_max_age = 60 * 60 * 24 * 7  # 7 days fallback
-
-        resp.set_cookie(
-            'refresh_token',
-            str(refresh),
-            httponly=True,
-            secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
-            samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
-            domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
-            max_age=refresh_max_age,
-        )
-
-        # Access cookie: short-lived
-        access_max_age = getattr(settings, 'SIMPLE_JWT', {}).get('ACCESS_TOKEN_LIFETIME', None)
-        if isinstance(access_max_age, timedelta):
-            access_max_age = int(access_max_age.total_seconds())
-        else:
-            access_max_age = 60 * 5  # 5 minutes fallback
-
-        resp.set_cookie(
-            'access_token',
-            str(access),
-            httponly=True,
-            secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
-            samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
-            domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
-            max_age=access_max_age,
-        )
+        resp = _build_auth_response(user, refresh, access, status_code=201)
         cache.delete("api:list_users:v1")
 
         return resp
@@ -166,38 +198,6 @@ def login_user(request):
         refresh['sid'] = getattr(settings, 'RUNTIME_SESSION_ID', '')
         access = refresh.access_token
 
-        # Get user profile based on type
-        profile_data = {}
-        if user.user_type == 'household':
-            try:
-                profile = Household.objects.get(user=user)
-                profile_data = HouseholdSerializer(profile).data
-            except Household.DoesNotExist:
-                pass
-        elif user.user_type == 'collector':
-            try:
-                profile = Collector.objects.get(user=user)
-                profile_data = CollectorSerializer(profile).data
-            except Collector.DoesNotExist:
-                pass
-        elif user.user_type == 'recycler':
-            try:
-                profile = Recycler.objects.get(user=user)
-                profile_data = RecyclerSerializer(profile).data
-            except Recycler.DoesNotExist:
-                pass
-        elif user.user_type == 'authority':
-            try:
-                profile = Authority.objects.get(user=user)
-                profile_data = AuthoritySerializer(profile).data
-            except Authority.DoesNotExist:
-                pass
-
-        resp = JsonResponse({
-            'user': UserSerializer(user).data,
-            'profile': profile_data,
-        })
-
         if getattr(settings, 'DEBUG', False):
             logger.debug(
                 "[LOGIN DEBUG] Login successful for user_id=%s user_type=%s",
@@ -205,39 +205,7 @@ def login_user(request):
                 user.user_type,
             )
 
-        # Set cookies
-        refresh_max_age = getattr(settings, 'SIMPLE_JWT', {}).get('REFRESH_TOKEN_LIFETIME', None)
-        if isinstance(refresh_max_age, timedelta):
-            refresh_max_age = int(refresh_max_age.total_seconds())
-        else:
-            refresh_max_age = 60 * 60 * 24 * 7
-
-        access_max_age = getattr(settings, 'SIMPLE_JWT', {}).get('ACCESS_TOKEN_LIFETIME', None)
-        if isinstance(access_max_age, timedelta):
-            access_max_age = int(access_max_age.total_seconds())
-        else:
-            access_max_age = 60 * 5
-
-        resp.set_cookie(
-            'refresh_token',
-            str(refresh),
-            httponly=True,
-            secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
-            samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
-            domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
-            max_age=refresh_max_age,
-        )
-        resp.set_cookie(
-            'access_token',
-            str(access),
-            httponly=True,
-            secure=getattr(settings, 'JWT_COOKIE_SECURE', False),
-            samesite=getattr(settings, 'JWT_COOKIE_SAMESITE', 'Lax'),
-            domain=getattr(settings, 'JWT_COOKIE_DOMAIN', None),
-            max_age=access_max_age,
-        )
-
-        return resp
+        return _build_auth_response(user, refresh, access)
     
     if getattr(settings, 'DEBUG', False):
         logger.debug("[LOGIN DEBUG] Authentication failed.")
@@ -248,7 +216,7 @@ def login_user(request):
 @permission_classes([AllowAny])
 def refresh_token_cookie(request):
     # Read refresh token from cookie and issue a new access token
-    refresh_token = request.COOKIES.get('refresh_token')
+    refresh_token = request.COOKIES.get('refresh_token') or request.data.get('refresh')
     if not refresh_token:
         return Response({'detail': 'Refresh token missing'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -259,7 +227,7 @@ def refresh_token_cookie(request):
             raise ValueError('Stale server session token')
         new_access = refresh.access_token
 
-        resp = Response({'access': str(new_access)})
+        resp = Response({'access': str(new_access), 'refresh': str(refresh)})
 
         access_max_age = getattr(settings, 'SIMPLE_JWT', {}).get('ACCESS_TOKEN_LIFETIME', None)
         if isinstance(access_max_age, timedelta):
@@ -294,7 +262,6 @@ def logout_user(request):
 @permission_classes([IsAuthenticated])
 def get_user_profile(request):
     user = request.user
-    profile_data = {}
 
     if request.method == 'PATCH':
         payload = request.data
@@ -341,22 +308,9 @@ def get_user_profile(request):
                 authority.county = location_value
                 authority.save(update_fields=['county'])
 
-    if user.user_type == 'household':
-        profile = Household.objects.get(user=user)
-        profile_data = HouseholdSerializer(profile).data
-    elif user.user_type == 'collector':
-        profile = Collector.objects.get(user=user)
-        profile_data = CollectorSerializer(profile).data
-    elif user.user_type == 'recycler':
-        profile = Recycler.objects.get(user=user)
-        profile_data = RecyclerSerializer(profile).data
-    elif user.user_type == 'authority':
-        profile = Authority.objects.get(user=user)
-        profile_data = AuthoritySerializer(profile).data
-    
     return Response({
         'user': UserSerializer(user).data,
-        'profile': profile_data
+        'profile': _get_profile_data_for_user(user)
     })
 
 

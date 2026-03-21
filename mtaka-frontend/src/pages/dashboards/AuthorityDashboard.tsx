@@ -93,20 +93,8 @@ export default function AuthorityDashboard() {
             ? allReports.filter((report) => isNairobiText(report.location))
             : allReports;
 
-          const nairobiUserIds = new Set<number>();
-          filteredRequests.forEach((request) => {
-            nairobiUserIds.add(request.household);
-            if (request.collector_user_id) nairobiUserIds.add(request.collector_user_id);
-          });
-          listings.forEach((listing) => {
-            if (isNairobiText(listing.resident_location)) {
-              nairobiUserIds.add(listing.resident);
-              if (listing.recycler) nairobiUserIds.add(listing.recycler);
-            }
-          });
-
           const filteredUsers = shouldFilterToNairobi
-            ? dbUsers.filter((dbUser) => nairobiUserIds.has(dbUser.id))
+            ? dbUsers.filter((dbUser) => isNairobiText(dbUser.location))
             : dbUsers;
 
           setRequests(filteredRequests);

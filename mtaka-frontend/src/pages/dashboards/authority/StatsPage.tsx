@@ -109,21 +109,9 @@ export default function StatsPage() {
           return isNairobiText(transaction.source);
         });
 
-        const nairobiUserIds = new Set<number>();
-        nairobiRequests.forEach((request) => {
-          nairobiUserIds.add(request.household);
-          if (request.collector_user_id) nairobiUserIds.add(request.collector_user_id);
-        });
-        listingsRes.forEach((listing) => {
-          if (isNairobiText(listing.resident_location)) {
-            nairobiUserIds.add(listing.resident);
-            if (listing.recycler) nairobiUserIds.add(listing.recycler);
-          }
-        });
-
         setRequests(nairobiRequests);
         setTransactions(nairobiTransactions);
-        setUsers(usersRes.filter((user) => nairobiUserIds.has(user.id)));
+        setUsers(usersRes.filter((user) => isNairobiText(user.location)));
         setReports(reportsRes.filter((report) => isNairobiText(report.location)));
       } catch {
         if (!active) return;
@@ -190,7 +178,7 @@ export default function StatsPage() {
   const activeUsersInPeriod = useMemo(() => {
     const ids = new Set<number>();
     periodRequests.forEach((request) => {
-      ids.add(request.household);
+      if (request.household_user_id) ids.add(request.household_user_id);
       if (request.collector_user_id) ids.add(request.collector_user_id);
     });
     periodTransactions.forEach((transaction) => ids.add(transaction.recycler));

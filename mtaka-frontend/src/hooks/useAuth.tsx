@@ -52,6 +52,7 @@ const AUTH_CACHE_KEY = 'mtaka_auth_user_cache';
 const ACCESS_TOKEN_KEY = 'mtaka_access_token';
 const REFRESH_TOKEN_KEY = 'mtaka_refresh_token';
 const AUTH_EXPIRED_EVENT = 'mtaka-auth-expired';
+const LOGIN_FORM_CLEAR_KEY = 'mtaka_clear_login_form';
 
 const getPrimaryStorage = () => {
   if (typeof window === 'undefined') return null;
@@ -221,6 +222,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiLogout();
     } catch (e) {
       // ignore
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.setItem(LOGIN_FORM_CLEAR_KEY, '1');
+      } catch {
+        // ignore
+      }
     }
     setUser(null);
     clearAuthStorage();

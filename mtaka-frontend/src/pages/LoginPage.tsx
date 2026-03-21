@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +12,13 @@ import { AuthError, useAuth } from '@/hooks/useAuth';
 import { isStandaloneAppMode } from '@/lib/appMode';
 import { toast } from 'sonner';
 
+const LOGIN_FORM_CLEAR_KEY = 'mtaka_clear_login_form';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [manualEntryEnabled, setManualEntryEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [complaintOpen, setComplaintOpen] = useState(false);
   const [complaintText, setComplaintText] = useState('');
@@ -26,6 +29,49 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isStandaloneApp = isStandaloneAppMode();
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
+
+  const clearLoginForm = useCallback(() => {
+    setEmail('');
+    setPassword('');
+    setShowPassword(false);
+    setManualEntryEnabled(false);
+    formRef.current?.reset();
+    if (emailInputRef.current) emailInputRef.current.value = '';
+    if (passwordInputRef.current) passwordInputRef.current.value = '';
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem(LOGIN_FORM_CLEAR_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const clearSoon = () => {
+      clearLoginForm();
+    };
+
+    clearSoon();
+    const frameId = window.requestAnimationFrame(clearSoon);
+    const timeoutA = window.setTimeout(clearSoon, 75);
+    const timeoutB = window.setTimeout(clearSoon, 250);
+    const handlePageShow = () => {
+      clearSoon();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutA);
+      window.clearTimeout(timeoutB);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [clearLoginForm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,18 +160,32 @@ export default function LoginPage() {
               <CardDescription>Sign in to your M-Taka account</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+                <div className="sr-only" aria-hidden="true">
+                  <input type="text" name="mtaka_fake_username" autoComplete="username" tabIndex={-1} />
+                  <input type="password" name="mtaka_fake_password" autoComplete="current-password" tabIndex={-1} />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
+                      ref={emailInputRef}
                       id="email"
+                      name="mtaka_login_email"
                       type="email"
                       placeholder="your@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onFocus={() => setManualEntryEnabled(true)}
                       className="pl-10"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      readOnly={!manualEntryEnabled}
                       required
                     />
                   </div>
@@ -139,12 +199,22 @@ export default function LoginPage() {
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
+                      ref={passwordInputRef}
                       id="password"
+                      name="mtaka_login_password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setManualEntryEnabled(true)}
                       className="pl-10 pr-10"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      readOnly={!manualEntryEnabled}
                       required
                       minLength={8}
                     />

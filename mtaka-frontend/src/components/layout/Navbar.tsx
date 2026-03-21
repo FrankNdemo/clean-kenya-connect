@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Recycle, Menu, X, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const getDashboardLink = () => {
     if (!user) return '/login';
@@ -21,6 +22,12 @@ export function Navbar() {
   };
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = async () => {
+    await logout();
+    setIsOpen(false);
+    navigate('/login', { replace: true });
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass">
@@ -66,7 +73,7 @@ export function Navbar() {
                     {user.name.split(' ')[0]}
                   </Button>
                 </Link>
-                <Button variant="outline" size="sm" onClick={logout} className="gap-2">
+                <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
                   <LogOut className="w-4 h-4" />
                   Logout
                 </Button>
@@ -128,7 +135,7 @@ export function Navbar() {
                       Dashboard
                     </Link>
                     <button 
-                      onClick={() => { logout(); setIsOpen(false); }}
+                      onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-sm font-medium rounded-lg hover:bg-secondary transition-colors text-destructive"
                     >
                       Logout

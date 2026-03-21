@@ -85,9 +85,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navigation = roleNavigation[user.role] || [];
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   const getRoleBadgeClass = () => {

@@ -101,6 +101,41 @@ class CollectionRequest(models.Model):
             models.Index(fields=['created_at'], name='cr_created_at_idx'),
         ]
 
+
+class CollectionRequestUpdate(models.Model):
+    UPDATE_TYPES = (
+        ('delay', 'Delay'),
+        ('reschedule', 'Reschedule'),
+        ('declined', 'Declined'),
+        ('message', 'Message'),
+        ('resident_reply', 'Resident Reply'),
+    )
+
+    collection_request = models.ForeignKey(
+        CollectionRequest,
+        on_delete=models.CASCADE,
+        related_name='updates',
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='collection_request_updates',
+    )
+    update_type = models.CharField(max_length=20, choices=UPDATE_TYPES)
+    message = models.TextField()
+    new_date = models.DateField(null=True, blank=True)
+    new_time = models.TimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'collection_request_updates'
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['collection_request', 'created_at'], name='cru_request_time_idx'),
+        ]
+
 class Event(models.Model):
     EVENT_TYPES = (
         ('cleanup', 'Cleanup'),

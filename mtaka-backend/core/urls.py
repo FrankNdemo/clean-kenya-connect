@@ -5,6 +5,7 @@ from . import views
 router = DefaultRouter()
 router.register(r'waste-types', views.WasteTypeViewSet)
 router.register(r'collections', views.CollectionRequestViewSet, basename='collection')
+router.register(r'collection-updates', views.CollectionRequestUpdateViewSet, basename='collection-update')
 router.register(r'events', views.EventViewSet)
 router.register(r'recyclers', views.RecyclerViewSet)
 router.register(r'recyclable-listings', views.RecyclableListingViewSet, basename='recyclable-listing')

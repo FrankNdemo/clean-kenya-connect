@@ -1,28 +1,34 @@
 import {
   createCollectorTransactionApi,
+  createCollectionUpdateApi,
   createCollectionRequest,
   deleteCollectionRequest,
   listCollectorTransactionsApi,
+  listCollectionUpdatesApi,
   listCollectionRequests,
   listUsers,
   listWasteTypes,
   updateCollectionRequest,
+  type BackendCollectionUpdate,
   type BackendCollectorTransaction,
   type BackendCollectionRequest,
 } from "@/api";
-import type { User, WasteRequest } from "@/lib/store";
+import type { CollectorUpdate, User, WasteRequest } from "@/lib/store";
 
 let wasteTypeIdByName: Record<string, number> | null = null;
 let collectionRequestsCache: { at: number; data: WasteRequest[] } | null = null;
 let collectorTransactionsCache: { at: number; data: CollectorTransaction[] } | null = null;
+let collectionUpdatesCache: { at: number; data: CollectorUpdate[] } | null = null;
 let collectionRequestsInFlight: Promise<WasteRequest[]> | null = null;
 let collectorTransactionsInFlight: Promise<CollectorTransaction[]> | null = null;
+let collectionUpdatesInFlight: Promise<CollectorUpdate[]> | null = null;
 
 const CACHE_TTL_MS = 15_000;
 
 const clearCollectionCaches = () => {
   collectionRequestsCache = null;
   collectorTransactionsCache = null;
+  collectionUpdatesCache = null;
 };
 
 const toFrontendStatus = (
@@ -140,6 +146,7 @@ const toFrontendRequest = (item: BackendCollectionRequest): WasteRequest => {
         ? String(item.collector)
         : undefined,
     collectorName: item.collector_name || undefined,
+    collectorPhone: item.collector_phone || undefined,
     notes: parsed.notes,
     completionNotes: parsed.completionNotes || undefined,
     declineReason: parsed.declineReason || undefined,
@@ -147,6 +154,20 @@ const toFrontendRequest = (item: BackendCollectionRequest): WasteRequest => {
     updatedAt: parsed.completedAt || undefined,
   };
 };
+
+const toFrontendCollectionUpdate = (item: BackendCollectionUpdate): CollectorUpdate => ({
+  id: String(item.id),
+  requestId: String(item.requestId ?? item.collection_request),
+  collectorId: item.collectorId ? String(item.collectorId) : "",
+  collectorName: item.collectorName || "Collector",
+  type: item.type || item.update_type || "message",
+  message: item.message,
+  newDate: item.newDate || item.new_date || undefined,
+  newTime: item.newTime || (item.new_time ? normalizeTime(item.new_time) : undefined),
+  residentId: item.residentId ? String(item.residentId) : undefined,
+  residentName: item.residentName || undefined,
+  createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+});
 
 const ensureWasteTypeCache = async () => {
   if (wasteTypeIdByName) return wasteTypeIdByName;
@@ -193,7 +214,7 @@ export const fetchCurrentUserCollectionRequests = async (force = false): Promise
     return collectionRequestsInFlight;
   }
 
-  collectionRequestsInFlight = listCollectionRequests()
+  collectionRequestsInFlight = listCollectionRequests({ force })
     .then((rows) => rows.map(toFrontendRequest))
     .then((mapped) => {
       collectionRequestsCache = { at: Date.now(), data: mapped };
@@ -299,6 +320,49 @@ export const fetchCollectorsFromDb = async (): Promise<User[]> => {
     });
 };
 
+export const fetchCollectionUpdatesDb = async (
+  requestId?: string,
+  force = false
+): Promise<CollectorUpdate[]> => {
+  const now = Date.now();
+  if (!force && collectionUpdatesCache && now - collectionUpdatesCache.at < CACHE_TTL_MS) {
+    return requestId
+      ? collectionUpdatesCache.data.filter((item) => item.requestId === requestId)
+      : collectionUpdatesCache.data;
+  }
+  if (!force && collectionUpdatesInFlight) {
+    const pending = await collectionUpdatesInFlight;
+    return requestId ? pending.filter((item) => item.requestId === requestId) : pending;
+  }
+
+  collectionUpdatesInFlight = listCollectionUpdatesApi(undefined, { force })
+    .then((rows) => rows.map(toFrontendCollectionUpdate))
+    .then((mapped) => {
+      collectionUpdatesCache = { at: Date.now(), data: mapped };
+      return mapped;
+    })
+    .finally(() => {
+      collectionUpdatesInFlight = null;
+    });
+
+  const mapped = await collectionUpdatesInFlight;
+  return requestId ? mapped.filter((item) => item.requestId === requestId) : mapped;
+};
+
+export const createCollectionUpdateDb = async (payload: {
+  requestId: string;
+  type: CollectorUpdate["type"];
+  message: string;
+}) => {
+  const created = await createCollectionUpdateApi({
+    collection_request: Number(payload.requestId),
+    type: payload.type,
+    message: payload.message,
+  });
+  clearCollectionCaches();
+  return toFrontendCollectionUpdate(created);
+};
+
 export interface CollectorTransaction {
   id: string;
   collectionRequestId: string;
@@ -344,7 +408,7 @@ export const fetchCollectorTransactionsDb = async (force = false): Promise<Colle
     return collectorTransactionsInFlight;
   }
 
-  collectorTransactionsInFlight = listCollectorTransactionsApi()
+  collectorTransactionsInFlight = listCollectorTransactionsApi({ force })
     .then((rows) => rows.map(toFrontendCollectorTransaction))
     .then((mapped) => {
       collectorTransactionsCache = { at: Date.now(), data: mapped };

@@ -430,6 +430,49 @@ class CollectionRequestViewSet(viewsets.ModelViewSet):
             return
         serializer.save()
 
+
+class CollectionRequestUpdateViewSet(viewsets.ModelViewSet):
+    serializer_class = CollectionRequestUpdateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = CollectionRequestUpdate.objects.select_related(
+            'collection_request',
+            'collection_request__household',
+            'collection_request__household__user',
+            'collection_request__collector',
+            'collection_request__collector__user',
+            'sender',
+        )
+
+        request_id = self.request.query_params.get('collection_request') or self.request.query_params.get('request')
+        if request_id:
+            queryset = queryset.filter(collection_request_id=request_id)
+
+        if user.user_type == 'household':
+            return queryset.filter(collection_request__household__user=user)
+        if user.user_type == 'collector':
+            return queryset.filter(collection_request__collector__user=user)
+        if user.user_type == 'authority':
+            return queryset
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        collection_request = serializer.validated_data['collection_request']
+
+        if user.user_type == 'household':
+            if collection_request.household.user_id != user.id:
+                raise PermissionDenied('You can only reply on your own pickup requests')
+        elif user.user_type == 'collector':
+            if not collection_request.collector or collection_request.collector.user_id != user.id:
+                raise PermissionDenied('You can only message residents for pickups assigned to you')
+        elif user.user_type != 'authority':
+            raise PermissionDenied('You are not allowed to create pickup updates')
+
+        serializer.save(sender=user)
+
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all().select_related('creator').prefetch_related(
         Prefetch('participants', queryset=EventParticipant.objects.only('id', 'event_id', 'user_id'))

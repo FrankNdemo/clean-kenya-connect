@@ -64,6 +64,7 @@ export interface WasteRequest {
   status: 'pending' | 'accepted' | 'collected' | 'completed' | 'cancelled' | 'declined';
   collectorId?: string;
   collectorName?: string;
+  collectorPhone?: string;
   notes?: string;
   declineReason?: string;
   completionNotes?: string;

@@ -297,6 +297,7 @@ class CollectionRequestSerializer(serializers.ModelSerializer):
     household_phone = serializers.CharField(source='household.user.phone', read_only=True)
     waste_type_name = serializers.CharField(source='waste_type.type_name', read_only=True)
     collector_name = serializers.CharField(source='collector.company_name', read_only=True)
+    collector_phone = serializers.CharField(source='collector.user.phone', read_only=True)
     collector_user_id = serializers.IntegerField(source='collector.user.id', read_only=True)
     collector = FlexibleCollectorField(queryset=Collector.objects.all(), required=False, allow_null=True)
     
@@ -309,6 +310,37 @@ class CollectionRequestSerializer(serializers.ModelSerializer):
             'instructions': {'required': False, 'allow_blank': True},
             'status': {'required': False},
         }
+
+
+class CollectionRequestUpdateSerializer(serializers.ModelSerializer):
+    requestId = serializers.IntegerField(source='collection_request.id', read_only=True)
+    collectorId = serializers.SerializerMethodField()
+    collectorName = serializers.SerializerMethodField()
+    residentId = serializers.IntegerField(source='collection_request.household.user.id', read_only=True)
+    residentName = serializers.CharField(source='collection_request.household.full_name', read_only=True)
+    type = serializers.CharField(source='update_type', required=False)
+    message = serializers.CharField()
+    newDate = serializers.DateField(source='new_date', read_only=True)
+    newTime = serializers.TimeField(source='new_time', format='%H:%M', read_only=True)
+    createdAt = serializers.DateTimeField(source='created_at', read_only=True)
+
+    class Meta:
+        model = CollectionRequestUpdate
+        fields = '__all__'
+        extra_kwargs = {
+            'sender': {'read_only': True},
+            'new_date': {'required': False, 'allow_null': True},
+            'new_time': {'required': False, 'allow_null': True},
+            'update_type': {'required': False},
+        }
+
+    def get_collectorId(self, obj):
+        collector = getattr(obj.collection_request, 'collector', None)
+        return collector.user_id if collector else None
+
+    def get_collectorName(self, obj):
+        collector = getattr(obj.collection_request, 'collector', None)
+        return collector.company_name if collector else ''
 
 class EventSerializer(serializers.ModelSerializer):
     creator_name = serializers.CharField(source='creator.username', read_only=True)

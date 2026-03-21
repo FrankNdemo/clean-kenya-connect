@@ -9,12 +9,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { 
-  getRequestUpdates,
-  createCollectorUpdate,
-  getUser,
+  type CollectorUpdate,
   WasteRequest
 } from '@/lib/store';
-import { deleteWasteRequestDb, fetchCurrentUserCollectionRequests, updateWasteRequestDb } from '@/lib/collectionRequestsApi';
+import {
+  createCollectionUpdateDb,
+  deleteWasteRequestDb,
+  fetchCollectionUpdatesDb,
+  fetchCurrentUserCollectionRequests,
+  updateWasteRequestDb,
+} from '@/lib/collectionRequestsApi';
 import { 
   Truck, 
   Clock, 
@@ -36,6 +40,7 @@ import { Link } from 'react-router-dom';
 export default function MyPickupsPage() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<WasteRequest[]>([]);
+  const [updatesByRequest, setUpdatesByRequest] = useState<Record<string, CollectorUpdate[]>>({});
   const [editDialog, setEditDialog] = useState<{ open: boolean; request: WasteRequest | null }>({
     open: false,
     request: null,
@@ -60,18 +65,43 @@ export default function MyPickupsPage() {
   });
   const [replyMessage, setReplyMessage] = useState('');
 
-  const refreshRequests = async () => {
+  const groupUpdatesByRequest = (updates: CollectorUpdate[]) =>
+    updates.reduce<Record<string, CollectorUpdate[]>>((grouped, update) => {
+      if (!grouped[update.requestId]) {
+        grouped[update.requestId] = [];
+      }
+      grouped[update.requestId].push(update);
+      return grouped;
+    }, {});
+
+  const refreshRequests = async (force = false) => {
     try {
-      const data = await fetchCurrentUserCollectionRequests();
-      setRequests(data);
-    } catch (error) {
+      const [requestRows, updateRows] = await Promise.all([
+        fetchCurrentUserCollectionRequests(force),
+        fetchCollectionUpdatesDb(undefined, force),
+      ]);
+      setRequests(requestRows);
+      setUpdatesByRequest(groupUpdatesByRequest(updateRows));
+    } catch {
       setRequests([]);
+      setUpdatesByRequest({});
     }
   };
 
   useEffect(() => {
     if (!user) return;
-    refreshRequests();
+    void refreshRequests(true);
+    const timer = globalThis.setInterval(() => {
+      void refreshRequests(false);
+    }, 15000);
+    const onFocus = () => {
+      void refreshRequests(true);
+    };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      globalThis.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [user]);
 
   if (!user) return null;
@@ -96,54 +126,74 @@ export default function MyPickupsPage() {
 
   const handleSaveEdit = async () => {
     if (!editDialog.request) return;
-    
-    await updateWasteRequestDb(editDialog.request.id, {
-      date: editForm.date,
-      time: editForm.time,
-      location: editForm.location,
-      notes: editForm.notes,
-    });
-    
-    toast.success('Pickup request updated');
-    setEditDialog({ open: false, request: null });
-    await refreshRequests();
+
+    try {
+      await updateWasteRequestDb(editDialog.request.id, {
+        date: editForm.date,
+        time: editForm.time,
+        location: editForm.location,
+        notes: editForm.notes,
+      });
+
+      toast.success('Pickup request updated');
+      setEditDialog({ open: false, request: null });
+      await refreshRequests(true);
+    } catch {
+      toast.error('Failed to update pickup request');
+    }
   };
 
   const handleCancel = async () => {
-    await updateWasteRequestDb(cancelDialog.requestId, {
-      status: 'cancelled',
-    });
-    
-    toast.success('Pickup request cancelled');
-    setCancelDialog({ open: false, requestId: '' });
-    await refreshRequests();
+    try {
+      await updateWasteRequestDb(cancelDialog.requestId, {
+        status: 'cancelled',
+      });
+
+      toast.success('Pickup request cancelled');
+      setCancelDialog({ open: false, requestId: '' });
+      await refreshRequests(true);
+    } catch {
+      toast.error('Failed to cancel pickup request');
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this request?')) {
-      await deleteWasteRequestDb(id);
-      toast.success('Request deleted');
-      await refreshRequests();
+      try {
+        await deleteWasteRequestDb(id);
+        toast.success('Request deleted');
+        await refreshRequests(true);
+      } catch {
+        toast.error('Failed to delete request');
+      }
     }
   };
 
-  const handleSendReply = () => {
-    if (!replyDialog.request || !replyMessage.trim()) return;
-    
-    createCollectorUpdate({
-      requestId: replyDialog.request.id,
-      collectorId: replyDialog.request.collectorId || '',
-      collectorName: replyDialog.request.collectorName || 'Collector',
-      type: 'resident_reply',
-      message: replyMessage,
-      residentId: user.id,
-      residentName: user.name,
-    });
-    
-    toast.success('Reply sent to collector');
+  const closeReplyDialog = () => {
     setReplyDialog({ open: false, request: null });
     setReplyMessage('');
-    refreshRequests();
+  };
+
+  const handleSendReply = async () => {
+    if (!replyDialog.request || !replyMessage.trim()) return;
+    if (!replyDialog.request.collectorId) {
+      toast.error('This pickup has not been assigned to a collector yet');
+      return;
+    }
+
+    try {
+      await createCollectionUpdateDb({
+        requestId: replyDialog.request.id,
+        type: 'resident_reply',
+        message: replyMessage.trim(),
+      });
+
+      toast.success('Reply sent to collector');
+      closeReplyDialog();
+      await refreshRequests(true);
+    } catch {
+      toast.error('Failed to send reply');
+    }
   };
 
   const getStatusBadge = (status: WasteRequest['status']) => {
@@ -173,7 +223,7 @@ export default function MyPickupsPage() {
   };
 
   const RequestCard = ({ request, showActions = true }: { request: WasteRequest; showActions?: boolean }) => {
-    const updates = getRequestUpdates(request.id);
+    const updates = updatesByRequest[request.id] || [];
     
     return (
       <div className="p-4 rounded-xl border border-border bg-card">
@@ -200,16 +250,12 @@ export default function MyPickupsPage() {
                   Collector: {request.collectorName}
                 </div>
               )}
-              {(request.status === 'pending' || request.status === 'accepted') && request.collectorId && (() => {
-                const collector = getUser(request.collectorId!);
-                const phone = collector?.phone;
-                return phone ? (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    <a href={`tel:${phone}`} className="text-primary underline hover:text-primary/80">{phone}</a>
-                  </div>
-                ) : null;
-              })()}
+              {(request.status === 'pending' || request.status === 'accepted') && request.collectorPhone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  <a href={`tel:${request.collectorPhone}`} className="text-primary underline hover:text-primary/80">{request.collectorPhone}</a>
+                </div>
+              )}
             </div>
 
             {/* Collector Updates */}
@@ -277,7 +323,7 @@ export default function MyPickupsPage() {
               </Button>
               
               {/* Reply/Message button for active requests */}
-              {(request.status === 'pending' || request.status === 'accepted') && (
+              {request.status === 'accepted' && request.collectorId && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -457,7 +503,13 @@ export default function MyPickupsPage() {
       </Dialog>
 
       {/* Reply Dialog */}
-      <Dialog open={replyDialog.open} onOpenChange={(open) => setReplyDialog({ open, request: null })}>
+      <Dialog open={replyDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          closeReplyDialog();
+          return;
+        }
+        setReplyDialog((prev) => ({ ...prev, open }));
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reply to Collector</DialogTitle>
@@ -482,7 +534,7 @@ export default function MyPickupsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReplyDialog({ open: false, request: null })}>
+            <Button variant="outline" onClick={closeReplyDialog}>
               Cancel
             </Button>
             <Button onClick={handleSendReply} disabled={!replyMessage.trim()}>

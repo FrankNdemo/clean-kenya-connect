@@ -9,13 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  createCollectorUpdate,
-  getRequestUpdates,
-  getUser,
+  type CollectorUpdate,
   type WasteRequest,
 } from '@/lib/store';
 import {
+  createCollectionUpdateDb,
   fetchCollectorTransactionsDb,
+  fetchCollectionUpdatesDb,
   fetchCurrentUserCollectionRequests,
   type CollectorTransaction,
   updateWasteRequestDb,
@@ -36,6 +36,7 @@ export default function RequestsPage() {
   const navigate = useNavigate();
   const [requests, setRequests] = useState<WasteRequest[]>([]);
   const [transactions, setTransactions] = useState<CollectorTransaction[]>([]);
+  const [updatesByRequest, setUpdatesByRequest] = useState<Record<string, CollectorUpdate[]>>({});
   const [updateDialog, setUpdateDialog] = useState<{ open: boolean; request: WasteRequest | null; type: 'decline' | 'message' }>({
     open: false, request: null, type: 'message',
   });
@@ -80,17 +81,29 @@ export default function RequestsPage() {
       })
     : completedToday;
 
+  const groupUpdatesByRequest = (updates: CollectorUpdate[]) =>
+    updates.reduce<Record<string, CollectorUpdate[]>>((grouped, update) => {
+      if (!grouped[update.requestId]) {
+        grouped[update.requestId] = [];
+      }
+      grouped[update.requestId].push(update);
+      return grouped;
+    }, {});
+
   const refreshRequests = async (force = false) => {
     try {
-      const [requestRows, transactionRows] = await Promise.all([
+      const [requestRows, transactionRows, updateRows] = await Promise.all([
         fetchCurrentUserCollectionRequests(force),
         fetchCollectorTransactionsDb(force),
+        fetchCollectionUpdatesDb(undefined, force),
       ]);
       setRequests(requestRows);
       setTransactions(transactionRows);
+      setUpdatesByRequest(groupUpdatesByRequest(updateRows));
     } catch {
       setRequests([]);
       setTransactions([]);
+      setUpdatesByRequest({});
     }
   };
 
@@ -112,58 +125,72 @@ export default function RequestsPage() {
           : item
       )
     );
-    await updateWasteRequestDb(request.id, { status: 'accepted', collectorId: user.id, collectorName: user.name });
-    toast.success('Pickup request accepted');
-    void refreshRequests();
+    try {
+      await updateWasteRequestDb(request.id, { status: 'accepted', collectorId: user.id, collectorName: user.name });
+      toast.success('Pickup request accepted');
+      await refreshRequests(true);
+    } catch {
+      toast.error('Failed to accept pickup request');
+      await refreshRequests(true);
+    }
+  };
+
+  const closeUpdateDialog = () => {
+    setUpdateDialog({ open: false, request: null, type: 'message' });
+    setUpdateForm({ message: '', declineReason: '' });
   };
 
   const handleDecline = async () => {
     if (!updateDialog.request) return;
+    const declineReason = updateForm.declineReason.trim();
+    if (!declineReason) {
+      toast.error('Enter a reason for declining this request');
+      return;
+    }
     const declinedRequestId = updateDialog.request.id;
-    setRequests((prev) =>
-      prev.map((item) =>
-        item.id === declinedRequestId
-          ? { ...item, status: 'declined', declineReason: updateForm.declineReason }
-          : item
-      )
-    );
-    await updateWasteRequestDb(declinedRequestId, { status: 'declined', declineReason: updateForm.declineReason });
-    createCollectorUpdate({
-      requestId: updateDialog.request.id,
-      collectorId: user.id,
-      collectorName: user.name,
-      type: 'declined',
-      message: updateForm.declineReason,
-    });
-    toast.info('Request declined');
-    setUpdateDialog({ open: false, request: null, type: 'message' });
-    setUpdateForm({ message: '', declineReason: '' });
-    void refreshRequests();
+    try {
+      await updateWasteRequestDb(declinedRequestId, { status: 'declined', declineReason });
+      await createCollectionUpdateDb({
+        requestId: updateDialog.request.id,
+        type: 'declined',
+        message: declineReason,
+      });
+      toast.info('Request declined');
+      closeUpdateDialog();
+      await refreshRequests(true);
+    } catch {
+      toast.error('Failed to decline request');
+    }
   };
 
-  const handleSendUpdate = () => {
+  const handleSendUpdate = async () => {
     if (!updateDialog.request) return;
-    createCollectorUpdate({
-      requestId: updateDialog.request.id,
-      collectorId: user.id,
-      collectorName: user.name,
-      type: 'message',
-      message: updateForm.message,
-    });
-    toast.success('Message sent to resident');
-    setUpdateDialog({ open: false, request: null, type: 'message' });
-    setUpdateForm({ message: '', declineReason: '' });
+    const message = updateForm.message.trim();
+    if (!message) {
+      toast.error('Enter a message before sending');
+      return;
+    }
+
+    try {
+      await createCollectionUpdateDb({
+        requestId: updateDialog.request.id,
+        type: 'message',
+        message,
+      });
+      toast.success('Message sent to resident');
+      closeUpdateDialog();
+      await refreshRequests(true);
+    } catch {
+      toast.error('Failed to send message');
+    }
   };
 
   const openUpdateDialog = (request: WasteRequest, type: 'decline' | 'message') => {
+    setUpdateForm({ message: '', declineReason: '' });
     setUpdateDialog({ open: true, request, type });
   };
 
-  const getResidentPhone = (request: WasteRequest) => {
-    if (request.userPhone) return request.userPhone;
-    const residentUser = getUser(request.userId);
-    return residentUser?.phone || '';
-  };
+  const getResidentPhone = (request: WasteRequest) => request.userPhone || '';
 
   const handleDownloadReport = () => {
     const csvContent = [
@@ -248,7 +275,7 @@ export default function RequestsPage() {
               <div className="space-y-4">
                 {assignedRequests.map((request) => {
                   const phone = getResidentPhone(request);
-                  const updates = getRequestUpdates(request.id);
+                  const updates = updatesByRequest[request.id] || [];
                   return (
                     <div key={request.id} className="p-4 rounded-lg border border-primary/30 bg-primary/5">
                       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -396,7 +423,13 @@ export default function RequestsPage() {
         </Card>
       </div>
 
-      <Dialog open={updateDialog.open} onOpenChange={(open) => setUpdateDialog({ open, request: null, type: 'message' })}>
+      <Dialog open={updateDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          closeUpdateDialog();
+          return;
+        }
+        setUpdateDialog((prev) => ({ ...prev, open }));
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -427,7 +460,7 @@ export default function RequestsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdateDialog({ open: false, request: null, type: 'message' })}>Cancel</Button>
+            <Button variant="outline" onClick={closeUpdateDialog}>Cancel</Button>
             {updateDialog.type === 'decline' ? (
               <Button variant="destructive" onClick={handleDecline}>Decline Request</Button>
             ) : (

@@ -393,6 +393,7 @@ export interface BackendCollectionRequest {
   collector: number | null;
   collector_user_id?: number | null;
   collector_name: string;
+  collector_phone?: string;
   scheduled_date: string;
   scheduled_time: string;
   status: "pending" | "scheduled" | "in_progress" | "completed" | "cancelled";
@@ -401,6 +402,26 @@ export interface BackendCollectionRequest {
   address_long?: string | number | null;
   instructions?: string | null;
   created_at: string;
+}
+
+export interface BackendCollectionUpdate {
+  id: number;
+  collection_request: number;
+  requestId?: number;
+  sender?: number | null;
+  update_type?: "delay" | "reschedule" | "declined" | "message" | "resident_reply";
+  type?: "delay" | "reschedule" | "declined" | "message" | "resident_reply";
+  message: string;
+  new_date?: string | null;
+  new_time?: string | null;
+  newDate?: string | null;
+  newTime?: string | null;
+  collectorId?: number | null;
+  collectorName?: string;
+  residentId?: number;
+  residentName?: string;
+  created_at?: string;
+  createdAt?: string;
 }
 
 export interface BackendUser {
@@ -443,8 +464,8 @@ export const listWasteTypes = async (): Promise<BackendWasteType[]> => {
   return cachedGet("waste-types/", { ttlMs: 60_000 });
 };
 
-export const listCollectionRequests = async (): Promise<BackendCollectionRequest[]> => {
-  return cachedGet("collections/");
+export const listCollectionRequests = async (options?: { force?: boolean }): Promise<BackendCollectionRequest[]> => {
+  return cachedGet("collections/", { force: options?.force });
 };
 
 export const createCollectionRequest = async (payload: {
@@ -485,6 +506,23 @@ export const updateCollectionRequest = async (
 export const deleteCollectionRequest = async (id: number | string) => {
   await API.delete(`collections/${id}/`);
   invalidateGetCache(["collections"]);
+};
+
+export const listCollectionUpdatesApi = async (params?: {
+  collection_request?: number | string;
+  request?: number | string;
+}, options?: { force?: boolean }) => {
+  return cachedGet("collection-updates/", { params, force: options?.force }) as Promise<BackendCollectionUpdate[]>;
+};
+
+export const createCollectionUpdateApi = async (payload: {
+  collection_request: number;
+  type: BackendCollectionUpdate["type"];
+  message: string;
+}) => {
+  const response = await API.post("collection-updates/", payload);
+  invalidateGetCache(["collection-updates"]);
+  return response.data as BackendCollectionUpdate;
 };
 
 export const listUsers = async (): Promise<BackendUser[]> => {
@@ -814,8 +852,8 @@ export const createRecyclerTransactionApi = async (payload: {
   return response.data as BackendRecyclerTransaction;
 };
 
-export const listCollectorTransactionsApi = async (): Promise<BackendCollectorTransaction[]> => {
-  return cachedGet("collector-transactions/");
+export const listCollectorTransactionsApi = async (options?: { force?: boolean }): Promise<BackendCollectorTransaction[]> => {
+  return cachedGet("collector-transactions/", { force: options?.force });
 };
 
 export const createCollectorTransactionApi = async (payload: {

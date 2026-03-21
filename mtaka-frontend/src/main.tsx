@@ -4,9 +4,27 @@ import "./index.css";
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Ignore registration failures in local/dev environments.
-    });
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(
+          registrations.map(async (registration) => {
+            await registration.unregister();
+          })
+        )
+      )
+      .then(async () => {
+        if (!("caches" in window)) return;
+        const keys = await caches.keys();
+        await Promise.all(
+          keys
+            .filter((key) => key.startsWith("mtaka-app"))
+            .map((key) => caches.delete(key))
+        );
+      })
+      .catch(() => {
+        // Ignore cleanup failures in environments where service workers are unavailable.
+      });
   });
 }
 

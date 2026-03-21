@@ -276,12 +276,18 @@ def get_user_profile(request):
 
         email = payload.get('email')
         if email is not None:
-            user.email = str(email).strip()
+            normalized_email = str(email).strip().lower()
+            if normalized_email and User.objects.filter(email__iexact=normalized_email).exclude(id=user.id).exists():
+                return Response({'email': ['Email already used. Try another email.']}, status=status.HTTP_400_BAD_REQUEST)
+            user.email = normalized_email
             update_fields.append('email')
 
         phone = payload.get('phone')
         if phone is not None:
-            user.phone = str(phone).strip()
+            normalized_phone = normalize_phone_number(phone)
+            if normalized_phone and User.objects.filter(phone=normalized_phone).exclude(id=user.id).exists():
+                return Response({'phone': ['Phone already used. Try another phone.']}, status=status.HTTP_400_BAD_REQUEST)
+            user.phone = normalized_phone
             update_fields.append('phone')
 
         if update_fields:

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { DumpingReport } from '@/lib/store';
 import { fetchDumpingReportsDb } from '@/lib/dumpingReportsDb';
+import { getAuthorityCountyLabel, locationMatchesCounty } from '@/lib/county';
 import {
   listEvents,
   approveEvent,
@@ -28,7 +29,7 @@ export default function AuthorityDashboard() {
   const [reports, setReports] = useState<DumpingReport[]>([]);
   const [pendingEvents, setPendingEvents] = useState<BackendEvent[]>([]);
   const [requests, setRequests] = useState<BackendCollectionRequest[]>([]);
-  const [isNairobiAuthority, setIsNairobiAuthority] = useState(false);
+  const [authorityCounty, setAuthorityCounty] = useState('');
   const [myStats, setMyStats] = useState({
     reportsHandled: 0,
     totalUsers: 0,
@@ -38,12 +39,12 @@ export default function AuthorityDashboard() {
     totalRecyclingValue: 0,
   });
 
-  const refreshPendingEvents = async (shouldFilterToNairobi: boolean) => {
+  const refreshPendingEvents = async (county: string) => {
     try {
       const events = await listEvents();
       const pending = events.filter((event) => event.status === 'pending');
-      const next = shouldFilterToNairobi
-        ? pending.filter((event) => String(event.location || '').toLowerCase().includes('nairobi'))
+      const next = county
+        ? pending.filter((event) => locationMatchesCounty(event.location, county))
         : pending;
       setPendingEvents(next);
     } catch (error) {
@@ -62,34 +63,30 @@ export default function AuthorityDashboard() {
         listRecyclableListings(),
       ])
         .then(([profileRes, allReports, collectionRequests, recyclerTransactions, dbUsers, listings]) => {
-          const county = String(profileRes?.profile?.county || '').toLowerCase();
-          const shouldFilterToNairobi = county.includes('nairobi');
-          setIsNairobiAuthority(shouldFilterToNairobi);
+          const currentAuthorityCounty = getAuthorityCountyLabel(profileRes?.profile?.county || '');
+          setAuthorityCounty(currentAuthorityCounty);
 
-          const isNairobiText = (value?: string | null) =>
-            String(value || '').toLowerCase().includes('nairobi');
-
-          const filteredRequests = shouldFilterToNairobi
-            ? collectionRequests.filter((request) => isNairobiText(request.address))
+          const filteredRequests = currentAuthorityCounty
+            ? collectionRequests.filter((request) => locationMatchesCounty(request.address, currentAuthorityCounty))
             : collectionRequests;
 
           const listingsById = new Map<number, BackendRecyclableListing>();
           listings.forEach((listing) => listingsById.set(listing.id, listing));
 
-          const filteredTransactions = shouldFilterToNairobi
+          const filteredTransactions = currentAuthorityCounty
             ? recyclerTransactions.filter((transaction) => {
-                const listing = transaction.listing ? listingsById.get(transaction.listing) : undefined;
-                if (listing) return isNairobiText(listing.resident_location);
-                return isNairobiText(transaction.source);
+              const listing = transaction.listing ? listingsById.get(transaction.listing) : undefined;
+                if (listing) return locationMatchesCounty(listing.resident_location, currentAuthorityCounty);
+                return locationMatchesCounty(transaction.source, currentAuthorityCounty);
               })
             : recyclerTransactions;
 
-          const filteredReports = shouldFilterToNairobi
-            ? allReports.filter((report) => isNairobiText(report.location))
+          const filteredReports = currentAuthorityCounty
+            ? allReports.filter((report) => locationMatchesCounty(report.location, currentAuthorityCounty))
             : allReports;
 
-          const filteredUsers = shouldFilterToNairobi
-            ? dbUsers.filter((dbUser) => isNairobiText(dbUser.location))
+          const filteredUsers = currentAuthorityCounty
+            ? dbUsers.filter((dbUser) => locationMatchesCounty(dbUser.location, currentAuthorityCounty))
             : dbUsers;
 
           setRequests(filteredRequests);
@@ -104,7 +101,7 @@ export default function AuthorityDashboard() {
             totalRecyclingValue: filteredTransactions.reduce((sum, transaction) => sum + Number(transaction.price || 0), 0),
           });
 
-          refreshPendingEvents(shouldFilterToNairobi);
+          refreshPendingEvents(currentAuthorityCounty);
         })
         .catch(() => {
           setReports([]);
@@ -118,7 +115,7 @@ export default function AuthorityDashboard() {
   const handleApproveEvent = async (eventId: number) => {
     try {
       await approveEvent(eventId);
-      await refreshPendingEvents(isNairobiAuthority);
+      await refreshPendingEvents(authorityCounty);
       toast.success('Event approved!');
     } catch (error) {
       toast.error('Failed to approve event');
@@ -128,7 +125,7 @@ export default function AuthorityDashboard() {
   const handleRejectEvent = async (eventId: number) => {
     try {
       await rejectEvent(eventId);
-      await refreshPendingEvents(isNairobiAuthority);
+      await refreshPendingEvents(authorityCounty);
       toast.info('Event rejected.');
     } catch (error) {
       toast.error('Failed to reject event');
@@ -182,7 +179,7 @@ export default function AuthorityDashboard() {
           <h1 className="text-2xl font-bold">Authority Dashboard</h1>
           <p className="text-muted-foreground">
             Welcome, {user.name} - Monitor and manage waste management activities
-            {isNairobiAuthority ? ' (Nairobi users only)' : ''}
+            {authorityCounty ? ` (${authorityCounty} users only)` : ''}
           </p>
         </div>
 

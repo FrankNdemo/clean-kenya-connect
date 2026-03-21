@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   createSuspendedUserApi,
+  getProfile,
   listComplaintsApi,
   listSuspendedUsersApi,
   listUsers,
@@ -18,6 +19,7 @@ import {
   type BackendSuspendedUser,
   type BackendUser,
 } from '@/api';
+import { getAuthorityCountyLabel, getCountyFromLocation, locationMatchesCounty } from '@/lib/county';
 import { Users, Search, UserCheck, Truck, Recycle, Building2, Eye, ShieldBan, ShieldCheck, Phone, MapPin, Calendar, Award, MessageSquare, Send, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,9 +32,13 @@ interface User {
   role: UserRole;
   phone: string;
   location: string;
+  county: string;
+  isInAuthorityRegion: boolean;
   rewardPoints: number;
   createdAt: string;
 }
+
+type BaseAuthorityUser = Omit<User, 'county' | 'isInAuthorityRegion'>;
 
 const roleIcons: Record<UserRole, typeof Users> = {
   resident: UserCheck,
@@ -61,7 +67,7 @@ interface Complaint {
   createdAt: string;
 }
 
-const mapBackendUserToAuthorityUser = (backendUser: BackendUser): User => {
+const mapBackendUserToAuthorityUser = (backendUser: BackendUser): BaseAuthorityUser => {
   const fullName = `${backendUser.first_name || ''} ${backendUser.last_name || ''}`.trim();
   const roleByType: Record<BackendUser['user_type'], UserRole> = {
     household: 'resident',
@@ -97,6 +103,7 @@ const mapBackendComplaint = (row: BackendComplaint): Complaint => ({
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [authorityCounty, setAuthorityCounty] = useState('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all');
@@ -112,13 +119,28 @@ export default function UsersPage() {
     let active = true;
     const fetchData = async () => {
       try {
-        const [backendUsers, suspendedRows, complaintRows] = await Promise.all([
+        const [profileRes, backendUsers, suspendedRows, complaintRows] = await Promise.all([
+          getProfile(),
           listUsers(),
           listSuspendedUsersApi(),
           listComplaintsApi(),
         ]);
         if (!active) return;
-        setUsers(backendUsers.map(mapBackendUserToAuthorityUser));
+        const currentAuthorityCounty = getAuthorityCountyLabel(profileRes?.profile?.county || '');
+        setAuthorityCounty(currentAuthorityCounty);
+        setUsers(
+          backendUsers.map((backendUser) => {
+            const mappedUser = mapBackendUserToAuthorityUser(backendUser);
+            const county = getCountyFromLocation(mappedUser.location) || 'Unknown county';
+            return {
+              ...mappedUser,
+              county,
+              isInAuthorityRegion: currentAuthorityCounty
+                ? locationMatchesCounty(mappedUser.location, currentAuthorityCounty)
+                : true,
+            };
+          })
+        );
         setSuspendedRecords(suspendedRows);
         setComplaints(complaintRows.map(mapBackendComplaint));
       } catch {
@@ -141,18 +163,35 @@ export default function UsersPage() {
     };
   }, []);
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchQuery.toLowerCase());
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const regionalUsers = users.filter((user) => user.isInAuthorityRegion);
+  const filteredRegionalUsers = regionalUsers.filter((user) => {
+    const matchesSearch =
+      !normalizedSearch ||
+      user.name.toLowerCase().includes(normalizedSearch) ||
+      user.email.toLowerCase().includes(normalizedSearch);
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     return matchesSearch && matchesRole;
   });
+  const extraEmailMatches = normalizedSearch
+    ? users.filter((user) => {
+        if (user.isInAuthorityRegion) return false;
+        const matchesRole = filterRole === 'all' || user.role === filterRole;
+        return matchesRole && user.email.toLowerCase().includes(normalizedSearch);
+      })
+    : [];
+  const filteredUsers = [...filteredRegionalUsers];
+  extraEmailMatches.forEach((user) => {
+    if (!filteredUsers.some((existingUser) => existingUser.id === user.id)) {
+      filteredUsers.push(user);
+    }
+  });
 
   const roleCounts = {
-    resident: users.filter(u => u.role === 'resident').length,
-    collector: users.filter(u => u.role === 'collector').length,
-    recycler: users.filter(u => u.role === 'recycler').length,
-    authority: users.filter(u => u.role === 'authority').length,
+    resident: regionalUsers.filter(u => u.role === 'resident').length,
+    collector: regionalUsers.filter(u => u.role === 'collector').length,
+    recycler: regionalUsers.filter(u => u.role === 'recycler').length,
+    authority: regionalUsers.filter(u => u.role === 'authority').length,
   };
 
   const isSuspended = (userId: string) =>
@@ -228,7 +267,11 @@ export default function UsersPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">User Management</h1>
-            <p className="text-muted-foreground">View profiles and manage platform users</p>
+            <p className="text-muted-foreground">
+              {authorityCounty
+                ? `Showing ${authorityCounty} users by default. Search by email to find users from other counties.`
+                : 'View profiles and manage platform users'}
+            </p>
           </div>
           {pendingComplaints.length > 0 && (
             <Button variant={showComplaints ? 'default' : 'outline'} size="sm" onClick={() => setShowComplaints(!showComplaints)} className="gap-2">
@@ -313,7 +356,7 @@ export default function UsersPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or email..."
+            placeholder={authorityCounty ? 'Search local users by name/email, or any M-Taka user by email...' : 'Search by name or email...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -340,6 +383,7 @@ export default function UsersPage() {
                     <tr className="border-b border-border">
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">User</th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Role</th>
+                      <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Region</th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Status</th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Points</th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Actions</th>
@@ -352,10 +396,25 @@ export default function UsersPage() {
                           <div>
                             <p className="font-medium">{u.name}</p>
                             <p className="text-xs text-muted-foreground">{u.email}</p>
+                            {!u.isInAuthorityRegion && authorityCounty && (
+                              <p className="text-xs text-warning-foreground">
+                                Not from your region. County: {u.county}
+                              </p>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-2">
                           <Badge className={roleBadgeColors[u.role]}>{u.role}</Badge>
+                        </td>
+                        <td className="py-3 px-2">
+                          {u.isInAuthorityRegion ? (
+                            <Badge variant="secondary">{u.county || authorityCounty || 'Unknown county'}</Badge>
+                          ) : (
+                            <div className="space-y-1">
+                              <Badge className="bg-warning/20 text-warning-foreground">Not from your region</Badge>
+                              <p className="text-xs text-muted-foreground">{u.county}</p>
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-2">
                           {isSuspended(u.id) ? (
@@ -421,6 +480,16 @@ export default function UsersPage() {
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
                   <MapPin className="w-4 h-4 text-muted-foreground" />
                   <div><p className="text-xs text-muted-foreground">Location</p><p className="text-sm font-medium">{profileDialog.user.location}</p></div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">County</p>
+                    <p className="text-sm font-medium">{profileDialog.user.county}</p>
+                    {!profileDialog.user.isInAuthorityRegion && authorityCounty && (
+                      <p className="text-xs text-warning-foreground mt-1">Not from your region ({authorityCounty})</p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
                   <Award className="w-4 h-4 text-muted-foreground" />

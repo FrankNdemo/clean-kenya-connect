@@ -17,6 +17,7 @@ import {
   type BackendRecyclerTransaction,
   type BackendUser,
 } from '@/api';
+import { getAuthorityCountyLabel, locationMatchesCounty } from '@/lib/county';
 
 type TrendBucket = { label: string; from: Date; to: Date };
 
@@ -66,7 +67,7 @@ export default function StatsPage() {
   const [transactions, setTransactions] = useState<BackendRecyclerTransaction[]>([]);
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [reports, setReports] = useState<BackendDumpingReport[]>([]);
-  const [isNairobiAuthority, setIsNairobiAuthority] = useState(false);
+  const [authorityCounty, setAuthorityCounty] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -84,11 +85,10 @@ export default function StatsPage() {
 
         if (!active) return;
 
-        const county = String(profileRes?.profile?.county || '').toLowerCase();
-        const shouldFilterToNairobi = county.includes('nairobi');
-        setIsNairobiAuthority(shouldFilterToNairobi);
+        const currentAuthorityCounty = getAuthorityCountyLabel(profileRes?.profile?.county || '');
+        setAuthorityCounty(currentAuthorityCounty);
 
-        if (!shouldFilterToNairobi) {
+        if (!currentAuthorityCounty) {
           setRequests(requestsRes);
           setTransactions(transactionsRes);
           setUsers(usersRes);
@@ -96,23 +96,22 @@ export default function StatsPage() {
           return;
         }
 
-        const isNairobiText = (value?: string | null) =>
-          String(value || '').toLowerCase().includes('nairobi');
-
-        const nairobiRequests = requestsRes.filter((request) => isNairobiText(request.address));
+        const countyRequests = requestsRes.filter((request) =>
+          locationMatchesCounty(request.address, currentAuthorityCounty)
+        );
         const listingsById = new Map<number, BackendRecyclableListing>();
         listingsRes.forEach((listing) => listingsById.set(listing.id, listing));
 
-        const nairobiTransactions = transactionsRes.filter((transaction) => {
+        const countyTransactions = transactionsRes.filter((transaction) => {
           const listing = transaction.listing ? listingsById.get(transaction.listing) : undefined;
-          if (listing) return isNairobiText(listing.resident_location);
-          return isNairobiText(transaction.source);
+          if (listing) return locationMatchesCounty(listing.resident_location, currentAuthorityCounty);
+          return locationMatchesCounty(transaction.source, currentAuthorityCounty);
         });
 
-        setRequests(nairobiRequests);
-        setTransactions(nairobiTransactions);
-        setUsers(usersRes.filter((user) => isNairobiText(user.location)));
-        setReports(reportsRes.filter((report) => isNairobiText(report.location)));
+        setRequests(countyRequests);
+        setTransactions(countyTransactions);
+        setUsers(usersRes.filter((user) => locationMatchesCounty(user.location, currentAuthorityCounty)));
+        setReports(reportsRes.filter((report) => locationMatchesCounty(report.location, currentAuthorityCounty)));
       } catch {
         if (!active) return;
         setRequests([]);
@@ -235,7 +234,7 @@ export default function StatsPage() {
         <div>
           <h1 className="text-2xl font-bold">County Statistics</h1>
           <p className="text-muted-foreground">
-            Comprehensive waste management analytics{isNairobiAuthority ? ' (Nairobi users only)' : ''}
+            Comprehensive waste management analytics{authorityCounty ? ` (${authorityCounty} users only)` : ''}
           </p>
         </div>
 

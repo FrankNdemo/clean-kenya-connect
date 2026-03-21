@@ -3,6 +3,20 @@ from django.contrib.auth.password_validation import validate_password
 from .models import *
 from django.utils.text import slugify
 
+
+def normalize_phone_number(value):
+    raw = str(value or '').strip()
+    if not raw:
+        return ''
+    normalized = ''.join(char for char in raw if char.isdigit() or char == '+')
+    if normalized.startswith('00'):
+        normalized = f"+{normalized[2:]}"
+    if normalized.count('+') > 1:
+        normalized = f"+{normalized.replace('+', '')}"
+    if '+' in normalized[1:]:
+        normalized = f"+{normalized.replace('+', '')}"
+    return normalized
+
 class UserSerializer(serializers.ModelSerializer):
     reward_points = serializers.SerializerMethodField()
     company_name = serializers.SerializerMethodField()
@@ -166,7 +180,15 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         normalized = (value or '').strip().lower()
         if User.objects.filter(email__iexact=normalized).exists():
-            raise serializers.ValidationError('An account with this email already exists.')
+            raise serializers.ValidationError('Email already used. Try another email.')
+        return normalized
+
+    def validate_phone(self, value):
+        normalized = normalize_phone_number(value)
+        if not normalized:
+            raise serializers.ValidationError('Phone number is required.')
+        if User.objects.filter(phone=normalized).exists():
+            raise serializers.ValidationError('Phone already used. Try another phone.')
         return normalized
     
     def create(self, validated_data):

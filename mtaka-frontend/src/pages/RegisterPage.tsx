@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { isStandaloneAppMode } from '@/lib/appMode';
 import { toast } from 'sonner';
 import { UserRole } from '@/lib/store';
+import axios from 'axios';
 
 const roles: { value: UserRole; label: string; icon: typeof Users; description: string }[] = [
   { value: 'resident', label: 'Resident', icon: Users, description: 'Schedule pickups, report issues, join events' },
@@ -52,6 +53,19 @@ export default function RegisterPage() {
 
   const passwordValidation = validatePassword(formData.password);
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0;
+
+  const getErrorMessage = (error: unknown) => {
+    if (!axios.isAxiosError(error) || !error.response?.data) {
+      return (error as Error)?.message || 'Registration failed. Please try again.';
+    }
+
+    const payload = error.response.data as Record<string, unknown>;
+    const firstMessage = Object.values(payload)[0];
+    if (Array.isArray(firstMessage)) {
+      return String(firstMessage[0] || 'Registration failed. Please try again.');
+    }
+    return String(payload.detail || firstMessage || 'Registration failed. Please try again.');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +129,8 @@ export default function RegisterPage() {
         default:
           navigate('/');
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || error.message || 'Registration failed. Please try again.');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }

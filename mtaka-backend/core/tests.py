@@ -1,6 +1,7 @@
 import json
 
 from django.test import TestCase, override_settings
+from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 from .models import CollectionRequest, CollectionRequestUpdate, Collector, Household, WasteType
@@ -17,6 +18,7 @@ from .models import CollectionRequest, CollectionRequestUpdate, Collector, House
 class AuthFlowTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.user_model = get_user_model()
 
     def test_registration_persists_household_location_and_returns_profile_and_tokens(self):
         response = self.client.post(
@@ -67,6 +69,93 @@ class AuthFlowTests(TestCase):
 
         self.assertEqual(refresh_response.status_code, 200)
         self.assertIn('access', refresh_response.json())
+
+    def test_registration_rejects_duplicate_email_and_phone(self):
+        self.user_model.objects.create_user(
+            username='existing-user',
+            email='existing@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001111',
+        )
+
+        duplicate_email_response = self.client.post(
+            '/api/auth/register/',
+            data=json.dumps({
+                'email': 'existing@example.com',
+                'password': 'StrongPass!1',
+                'password2': 'StrongPass!1',
+                'user_type': 'household',
+                'phone': '+254700001112',
+                'full_name': 'Duplicate Email',
+                'location': 'Nairobi',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(duplicate_email_response.status_code, 400)
+        self.assertEqual(
+            duplicate_email_response.json()['email'][0],
+            'Email already used. Try another email.',
+        )
+
+        duplicate_phone_response = self.client.post(
+            '/api/auth/register/',
+            data=json.dumps({
+                'email': 'newperson@example.com',
+                'password': 'StrongPass!1',
+                'password2': 'StrongPass!1',
+                'user_type': 'household',
+                'phone': '+254 700 001 111',
+                'full_name': 'Duplicate Phone',
+                'location': 'Nairobi',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(duplicate_phone_response.status_code, 400)
+        self.assertEqual(
+            duplicate_phone_response.json()['phone'][0],
+            'Phone already used. Try another phone.',
+        )
+
+    def test_profile_update_rejects_duplicate_email_and_phone(self):
+        first_user = self.user_model.objects.create_user(
+            username='first-user',
+            email='first@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001200',
+        )
+        second_user = self.user_model.objects.create_user(
+            username='second-user',
+            email='second@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001201',
+        )
+
+        self.client.force_authenticate(user=first_user)
+
+        duplicate_email_response = self.client.patch(
+            '/api/auth/profile/',
+            data={'email': second_user.email},
+            format='json',
+        )
+        self.assertEqual(duplicate_email_response.status_code, 400)
+        self.assertEqual(
+            duplicate_email_response.json()['email'][0],
+            'Email already used. Try another email.',
+        )
+
+        duplicate_phone_response = self.client.patch(
+            '/api/auth/profile/',
+            data={'phone': '+254 700 001 201'},
+            format='json',
+        )
+        self.assertEqual(duplicate_phone_response.status_code, 400)
+        self.assertEqual(
+            duplicate_phone_response.json()['phone'][0],
+            'Phone already used. Try another phone.',
+        )
 
 
 @override_settings(

@@ -1,5 +1,19 @@
 import axios from "axios";
 
+const normalizeApiBaseUrl = (rawValue: unknown): string => {
+  const value = String(rawValue || "").trim();
+  if (!value) return "";
+
+  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  const withoutTrailingSlash = withProtocol.replace(/\/+$/, "");
+
+  if (withoutTrailingSlash.endsWith("/api/auth")) {
+    return `${withoutTrailingSlash}/`;
+  }
+
+  return `${withoutTrailingSlash}/api/auth/`;
+};
+
 const defaultApiBaseUrl =
   import.meta.env.DEV
     ? "/api/auth/"
@@ -8,7 +22,7 @@ const defaultApiBaseUrl =
     : "http://127.0.0.1:8000/api/auth/";
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl,
+  baseURL: normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL) || defaultApiBaseUrl,
   headers: {
     "Content-Type": "application/json",
   },

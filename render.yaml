@@ -29,10 +29,10 @@ services:
     name: mtaka-frontend
     runtime: static
     rootDir: mtaka-frontend
-    buildCommand: npm ci && VITE_API_BASE_URL=https://$BACKEND_HOST/api/auth/ npm run build
+    buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
-      - key: BACKEND_HOST
+      - key: VITE_API_BASE_URL
         fromService:
           type: web
           name: mtaka-backend

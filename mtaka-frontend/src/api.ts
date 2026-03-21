@@ -5,30 +5,58 @@ const ACCESS_TOKEN_KEY = "mtaka_access_token";
 const REFRESH_TOKEN_KEY = "mtaka_refresh_token";
 const AUTH_EXPIRED_EVENT = "mtaka-auth-expired";
 
-const getSessionStorage = () => {
+const getPrimaryStorage = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return window.sessionStorage;
+  }
+};
+
+const getLegacyStorage = () => {
   if (typeof window === "undefined") return null;
   return window.sessionStorage;
 };
 
-const readStoredToken = (key: string) => getSessionStorage()?.getItem(key) || "";
+const readStoredToken = (key: string) => {
+  const primary = getPrimaryStorage();
+  const direct = primary?.getItem(key);
+  if (direct) return direct;
+
+  const legacy = getLegacyStorage();
+  const legacyValue = legacy?.getItem(key) || "";
+  if (legacyValue && primary) {
+    primary.setItem(key, legacyValue);
+    legacy?.removeItem(key);
+  }
+  return legacyValue;
+};
 
 const storeTokens = (payload?: { access?: unknown; refresh?: unknown }) => {
-  const storage = getSessionStorage();
-  if (!storage || !payload) return;
+  const primary = getPrimaryStorage();
+  const legacy = getLegacyStorage();
+  if (!primary || !payload) return;
 
   if (typeof payload.access === "string" && payload.access.trim()) {
-    storage.setItem(ACCESS_TOKEN_KEY, payload.access);
+    primary.setItem(ACCESS_TOKEN_KEY, payload.access);
+    legacy?.removeItem(ACCESS_TOKEN_KEY);
   }
   if (typeof payload.refresh === "string" && payload.refresh.trim()) {
-    storage.setItem(REFRESH_TOKEN_KEY, payload.refresh);
+    primary.setItem(REFRESH_TOKEN_KEY, payload.refresh);
+    legacy?.removeItem(REFRESH_TOKEN_KEY);
   }
 };
 
 const clearStoredAuth = () => {
-  const storage = getSessionStorage();
-  storage?.removeItem(ACCESS_TOKEN_KEY);
-  storage?.removeItem(REFRESH_TOKEN_KEY);
-  storage?.removeItem(AUTH_CACHE_KEY);
+  const primary = getPrimaryStorage();
+  const legacy = getLegacyStorage();
+  primary?.removeItem(ACCESS_TOKEN_KEY);
+  primary?.removeItem(REFRESH_TOKEN_KEY);
+  primary?.removeItem(AUTH_CACHE_KEY);
+  legacy?.removeItem(ACCESS_TOKEN_KEY);
+  legacy?.removeItem(REFRESH_TOKEN_KEY);
+  legacy?.removeItem(AUTH_CACHE_KEY);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
   }

@@ -53,9 +53,56 @@ const ACCESS_TOKEN_KEY = 'mtaka_access_token';
 const REFRESH_TOKEN_KEY = 'mtaka_refresh_token';
 const AUTH_EXPIRED_EVENT = 'mtaka-auth-expired';
 
-const getSessionStorage = () => {
+const getPrimaryStorage = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return window.sessionStorage;
+  }
+};
+
+const getLegacyStorage = () => {
   if (typeof window === 'undefined') return null;
   return window.sessionStorage;
+};
+
+const readStoredValue = (key: string) => {
+  const primary = getPrimaryStorage();
+  const direct = primary?.getItem(key);
+  if (direct) return direct;
+
+  const legacy = getLegacyStorage();
+  const legacyValue = legacy?.getItem(key) || '';
+  if (legacyValue && primary) {
+    primary.setItem(key, legacyValue);
+    legacy?.removeItem(key);
+  }
+  return legacyValue;
+};
+
+const storeCachedUser = (user: User | null) => {
+  const primary = getPrimaryStorage();
+  const legacy = getLegacyStorage();
+  if (!user) {
+    primary?.removeItem(AUTH_CACHE_KEY);
+    legacy?.removeItem(AUTH_CACHE_KEY);
+    return;
+  }
+  const serialized = JSON.stringify(user);
+  primary?.setItem(AUTH_CACHE_KEY, serialized);
+  legacy?.removeItem(AUTH_CACHE_KEY);
+};
+
+const clearAuthStorage = () => {
+  const primary = getPrimaryStorage();
+  const legacy = getLegacyStorage();
+  primary?.removeItem(AUTH_CACHE_KEY);
+  primary?.removeItem(ACCESS_TOKEN_KEY);
+  primary?.removeItem(REFRESH_TOKEN_KEY);
+  legacy?.removeItem(AUTH_CACHE_KEY);
+  legacy?.removeItem(ACCESS_TOKEN_KEY);
+  legacy?.removeItem(REFRESH_TOKEN_KEY);
 };
 
 const mapBackendUserToFrontend = (data: any): User => {
@@ -103,13 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storage = getSessionStorage();
-    const cached = storage?.getItem(AUTH_CACHE_KEY);
+    const cached = readStoredValue(AUTH_CACHE_KEY);
     if (cached) {
       try {
         setUser(JSON.parse(cached));
       } catch {
-        storage?.removeItem(AUTH_CACHE_KEY);
+        clearAuthStorage();
       }
     }
 
@@ -120,14 +166,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data && data.user) {
           const u = mapBackendUserToFrontend(data);
           setUser(u);
-          storage?.setItem(AUTH_CACHE_KEY, JSON.stringify(u));
+          storeCachedUser(u);
           preloadDashboardData(u.role);
         }
       } catch (err: any) {
         const status = err?.response?.status;
         if (status === 401 || status === 403) {
           setUser(null);
-          storage?.removeItem(AUTH_CACHE_KEY);
+          clearAuthStorage();
         }
       } finally {
         setIsLoading(false);
@@ -136,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleAuthExpired = () => {
       setUser(null);
-      storage?.removeItem(AUTH_CACHE_KEY);
+      clearAuthStorage();
     };
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
@@ -153,7 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data && data.user) {
         const u = mapBackendUserToFrontend(data);
         setUser(u);
-        getSessionStorage()?.setItem(AUTH_CACHE_KEY, JSON.stringify(u));
+        storeCachedUser(u);
         preloadDashboardData(u.role);
         return u;
       }
@@ -177,10 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore
     }
     setUser(null);
-    const storage = getSessionStorage();
-    storage?.removeItem(AUTH_CACHE_KEY);
-    storage?.removeItem(ACCESS_TOKEN_KEY);
-    storage?.removeItem(REFRESH_TOKEN_KEY);
+    clearAuthStorage();
   };
 
   const register = async (
@@ -224,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data && data.user) {
       const u = mapBackendUserToFrontend(data);
       setUser(u);
-      getSessionStorage()?.setItem(AUTH_CACHE_KEY, JSON.stringify(u));
+      storeCachedUser(u);
       preloadDashboardData(u.role);
       return u;
     }
@@ -237,7 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data?.user && String(data.user.id) === String(userId)) {
         const u = mapBackendUserToFrontend(data);
         setUser(u);
-        getSessionStorage()?.setItem(AUTH_CACHE_KEY, JSON.stringify(u));
+        storeCachedUser(u);
         return;
       }
 
@@ -257,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           createdAt: '',
         };
         setUser(u);
-        getSessionStorage()?.setItem(AUTH_CACHE_KEY, JSON.stringify(u));
+        storeCachedUser(u);
       }
     } catch (e) {
       // ignore

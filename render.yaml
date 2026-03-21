@@ -1,0 +1,49 @@
+databases:
+  - name: mtaka-db
+    plan: free
+
+services:
+  - type: web
+    name: mtaka-backend
+    runtime: python
+    plan: free
+    rootDir: mtaka-backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    preDeployCommand: python manage.py migrate
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/auth/users/
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mtaka-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: "https://*.onrender.com"
+      - key: DJANGO_CORS_ALLOWED_ORIGIN_REGEXES
+        value: "^https://.*\\.onrender\\.com$"
+      - key: DJANGO_JWT_COOKIE_SECURE
+        value: "true"
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+
+  - type: web
+    name: mtaka-frontend
+    runtime: static
+    plan: free
+    rootDir: mtaka-frontend
+    buildCommand: npm ci && VITE_API_BASE_URL=https://$BACKEND_HOST/api/auth/ npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: BACKEND_HOST
+        fromService:
+          type: web
+          name: mtaka-backend
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: NODE_VERSION
+        value: "20.19.0"

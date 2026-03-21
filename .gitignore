@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+mtaka-backend/venv/
+
+# Local environment secrets
+.env
+*.env
+!.env.example
+
+# Frontend build output
+node_modules/
+dist/
+mtaka-backend/dist/assets/

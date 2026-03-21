@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* M-Taka Kenyan Civic-Tech Color Palette */
+    --background: 40 33% 96%;
+    --foreground: 150 25% 15%;
+
+    --card: 40 30% 98%;
+    --card-foreground: 150 25% 15%;
+
+    --popover: 40 30% 98%;
+    --popover-foreground: 150 25% 15%;
+
+    /* Forest Green Primary */
+    --primary: 142 45% 28%;
+    --primary-foreground: 40 30% 98%;
+
+    /* Sage Secondary */
+    --secondary: 145 20% 88%;
+    --secondary-foreground: 150 25% 20%;
+
+    --muted: 40 20% 92%;
+    --muted-foreground: 150 10% 45%;
+
+    /* Warm Amber Accent */
+    --accent: 38 92% 50%;
+    --accent-foreground: 150 25% 15%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 145 15% 85%;
+    --input: 145 15% 85%;
+    --ring: 142 45% 28%;
+
+    --radius: 0.75rem;
+
+    /* Custom M-Taka tokens */
+    --success: 152 60% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 150 25% 15%;
+    --info: 200 80% 50%;
+    --info-foreground: 0 0% 100%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(142 45% 28%) 0%, hsl(152 40% 35%) 50%, hsl(38 70% 45%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(40 30% 98%) 0%, hsl(145 20% 95%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(28 85% 55%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(150 25% 15% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(150 25% 15% / 0.08), 0 2px 4px -2px hsl(150 25% 15% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(150 25% 15% / 0.1), 0 4px 6px -4px hsl(150 25% 15% / 0.05);
+    --shadow-glow: 0 0 20px hsl(142 45% 28% / 0.3);
+
+    --sidebar-background: 145 20% 95%;
+    --sidebar-foreground: 150 25% 20%;
+    --sidebar-primary: 142 45% 28%;
+    --sidebar-primary-foreground: 40 30% 98%;
+    --sidebar-accent: 145 20% 88%;
+    --sidebar-accent-foreground: 150 25% 20%;
+    --sidebar-border: 145 15% 85%;
+    --sidebar-ring: 142 45% 28%;
+  }
+
+  .dark {
+    --background: 150 25% 10%;
+    --foreground: 40 30% 95%;
+
+    --card: 150 20% 14%;
+    --card-foreground: 40 30% 95%;
+
+    --popover: 150 20% 14%;
+    --popover-foreground: 40 30% 95%;
+
+    --primary: 145 50% 45%;
+    --primary-foreground: 150 25% 10%;
+
+    --secondary: 150 15% 22%;
+    --secondary-foreground: 40 30% 90%;
+
+    --muted: 150 15% 20%;
+    --muted-foreground: 145 10% 60%;
+
+    --accent: 38 85% 55%;
+    --accent-foreground: 150 25% 10%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 15% 25%;
+    --input: 150 15% 25%;
+    --ring: 145 50% 45%;
+
+    --sidebar-background: 150 20% 12%;
+    --sidebar-foreground: 40 30% 90%;
+    --sidebar-primary: 145 50% 45%;
+    --sidebar-primary-foreground: 150 25% 10%;
+    --sidebar-accent: 150 15% 20%;
+    --sidebar-accent-foreground: 40 30% 90%;
+    --sidebar-border: 150 15% 22%;
+    --sidebar-ring: 145 50% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-hero);
+  }
+
+  .bg-gradient-hero {
+    background-image: var(--gradient-hero);
+  }
+
+  .bg-gradient-card {
+    background-image: var(--gradient-card);
+  }
+
+  .bg-gradient-accent {
+    background-image: var(--gradient-accent);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glass {
+    @apply backdrop-blur-md bg-card/80 border border-border/50;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+}
+
+@layer components {
+  .stat-card {
+    @apply bg-card rounded-xl p-6 shadow-md border border-border/50 card-hover;
+  }
+
+  .dashboard-section {
+    @apply bg-card rounded-xl p-6 shadow-sm border border-border/50;
+  }
+
+  .role-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .role-badge-resident {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .role-badge-collector {
+    @apply bg-info/10 text-info;
+  }
+
+  .role-badge-recycler {
+    @apply bg-success/10 text-success;
+  }
+
+  .role-badge-authority {
+    @apply bg-accent/20 text-accent-foreground;
+  }
+}

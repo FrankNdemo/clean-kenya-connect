@@ -29,7 +29,7 @@ services:
     name: mtaka-frontend
     runtime: static
     rootDir: mtaka-frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install --include=dev --no-audit --no-fund && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE_URL
@@ -38,4 +38,4 @@ services:
           name: mtaka-backend
           envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: NODE_VERSION
-        value: "20.19.0"
+        value: "22.12.0"

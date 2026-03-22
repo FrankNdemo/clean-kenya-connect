@@ -4,6 +4,24 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 
 
+def email_delivery_is_configured() -> bool:
+    backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
+    if not backend:
+        return False
+
+    if backend.endswith("console.emailbackend") or backend.endswith("locmem.emailbackend"):
+        return True
+
+    if backend.endswith("smtp.emailbackend"):
+        return bool(
+            getattr(settings, "EMAIL_HOST", "").strip()
+            and getattr(settings, "EMAIL_HOST_USER", "").strip()
+            and getattr(settings, "EMAIL_HOST_PASSWORD", "").strip()
+        )
+
+    return True
+
+
 def _normalize_base_url(raw_value: str) -> str:
     value = str(raw_value or "").strip()
     if not value:

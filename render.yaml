@@ -22,6 +22,24 @@ services:
         value: "^https://.*\\.onrender\\.com$"
       - key: DJANGO_JWT_COOKIE_SECURE
         value: "true"
+      - key: DJANGO_EMAIL_BACKEND
+        value: "django.core.mail.backends.smtp.EmailBackend"
+      - key: DJANGO_EMAIL_HOST
+        value: "smtp.gmail.com"
+      - key: DJANGO_EMAIL_PORT
+        value: "587"
+      - key: DJANGO_EMAIL_HOST_USER
+        value: "linkentnerg@gmail.com"
+      - key: DJANGO_EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DJANGO_EMAIL_USE_TLS
+        value: "true"
+      - key: DJANGO_EMAIL_USE_SSL
+        value: "false"
+      - key: DJANGO_EMAIL_TIMEOUT
+        value: "20"
+      - key: DJANGO_DEFAULT_FROM_EMAIL
+        value: "M-Taka No-Reply <linkentnerg@gmail.com>"
       - key: PYTHON_VERSION
         value: "3.12.6"
 

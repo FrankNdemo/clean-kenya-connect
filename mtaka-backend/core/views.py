@@ -22,7 +22,12 @@ import logging
 import json
 from .models import *
 from .serializers import *
-from .auth_email import build_password_reset_link, send_password_reset_email, send_welcome_email
+from .auth_email import (
+    build_password_reset_link,
+    email_delivery_is_configured,
+    send_password_reset_email,
+    send_welcome_email,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +243,13 @@ def password_reset_request(request):
 
     if not matching_users.exists():
         return Response(success_message, status=status.HTTP_200_OK)
+
+    if not email_delivery_is_configured():
+        logger.error("Password reset email requested but email delivery is not fully configured.")
+        return Response(
+            {'detail': 'Email delivery is not configured yet. Add the sender app password and try again.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
     for user in matching_users:
         uid = urlsafe_base64_encode(force_bytes(user.pk))

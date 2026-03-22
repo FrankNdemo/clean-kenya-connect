@@ -94,30 +94,92 @@ def _get_brevo_sender_record(sender_email: str) -> dict | None:
     return None
 
 
-def _get_brevo_sender_payload(sender_name: str, sender_email: str) -> dict:
-    """
-    Prefer Brevo's sender ID when we can resolve it, because that pins the
-    exact verified sender record instead of relying on the display name.
-    """
+def _get_brevo_delivery_status() -> dict:
+    frontend_url = str(getattr(settings, "FRONTEND_URL", "") or "").strip()
+    sender_name, sender_email = _get_sender_identity()
+    api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
+
+    status_payload = {
+        "provider": "brevo",
+        "configured": False,
+        "api_key_present": bool(api_key),
+        "api_key_valid": False,
+        "sender_name": sender_name,
+        "sender_email": sender_email,
+        "sender_id": None,
+        "sender_found": False,
+        "sender_active": False,
+        "frontend_url_configured": bool(frontend_url),
+        "notes": [],
+    }
+
+    if not api_key:
+        status_payload["error"] = "Brevo API key is missing."
+        status_payload["notes"] = [
+            "Set DJANGO_BREVO_API_KEY in Render.",
+            "Verify the sender email in Brevo before sending to other recipients.",
+        ]
+        return status_payload
+
+    try:
+        _brevo_request_json("GET", "/v3/account")
+    except Exception as exc:
+        status_payload["error"] = str(exc)
+        status_payload["notes"] = [
+            "Brevo rejected the API key.",
+            "Generate a new Brevo API key in Brevo and update Render.",
+        ]
+        return status_payload
+
+    status_payload["api_key_valid"] = True
+
     try:
         sender = _get_brevo_sender_record(sender_email)
-    except Exception:
-        logger.exception("Unable to look up Brevo sender record.")
-        sender = None
+    except Exception as exc:
+        status_payload["error"] = str(exc)
+        status_payload["notes"] = [
+            "Unable to verify the sender in Brevo.",
+        ]
+        return status_payload
 
-    if sender and sender.get("id") is not None:
-        return {"id": sender["id"]}
+    sender_found = sender is not None
+    sender_active = bool(sender and sender.get("active"))
+    sender_id = sender.get("id") if sender else None
+    notes = [
+        "Brevo API key is present in Render.",
+        "Verify the sender email in Brevo before sending to other recipients.",
+    ]
+    if sender_found and sender_active:
+        notes = [
+            "Brevo API key is present in Render.",
+            "Brevo sender is active.",
+        ]
+    elif sender_found and not sender_active:
+        notes = [
+            "Brevo sender exists but is not active.",
+            "Verify the sender email in Brevo before sending to other recipients.",
+        ]
+    elif not sender_found:
+        notes = [
+            "Brevo sender was not found in your account.",
+            "Create or verify the sender email in Brevo.",
+        ]
 
-    return {
-        "name": sender_name,
-        "email": sender_email,
-    }
+    status_payload.update(
+        {
+            "configured": bool(sender_found and sender_active),
+            "sender_id": sender_id,
+            "sender_found": sender_found,
+            "sender_active": sender_active,
+            "notes": notes,
+        }
+    )
+    return status_payload
 
 
 def email_delivery_is_configured() -> bool:
     if _uses_brevo_api():
-        _, sender_email = _get_sender_identity()
-        return bool(getattr(settings, "BREVO_API_KEY", "").strip() and sender_email)
+        return bool(_get_brevo_delivery_status().get("configured"))
 
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
     if not backend:
@@ -137,76 +199,10 @@ def email_delivery_is_configured() -> bool:
 
 
 def get_email_delivery_status() -> dict:
-    frontend_url = str(getattr(settings, "FRONTEND_URL", "") or "").strip()
     if _uses_brevo_api():
-        sender_name, sender_email = _get_sender_identity()
-        api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
-        if not api_key:
-            return {
-                "provider": "brevo",
-                "configured": False,
-                "sender_name": sender_name,
-                "sender_email": sender_email,
-                "sender_found": False,
-                "sender_active": False,
-                "frontend_url_configured": bool(frontend_url),
-                "notes": [
-                    "Set DJANGO_BREVO_API_KEY in Render.",
-                    "Verify the sender email in Brevo before sending to other recipients.",
-                ],
-            }
+        return _get_brevo_delivery_status()
 
-        try:
-            sender = _get_brevo_sender_record(sender_email)
-        except Exception as exc:
-            return {
-                "provider": "brevo",
-                "configured": False,
-                "sender_name": sender_name,
-                "sender_email": sender_email,
-                "sender_found": False,
-                "sender_active": False,
-                "frontend_url_configured": bool(frontend_url),
-                "error": str(exc),
-                "notes": [
-                    "Unable to verify the sender in Brevo.",
-                ],
-            }
-
-        sender_found = sender is not None
-        sender_active = bool(sender and sender.get("active"))
-        sender_id = sender.get("id") if sender else None
-        notes = [
-            "Brevo API key is present in Render.",
-            "Verify the sender email in Brevo before sending to other recipients.",
-        ]
-        if sender_found and sender_active:
-            notes = [
-                "Brevo API key is present in Render.",
-                "Brevo sender is active.",
-            ]
-        elif sender_found and not sender_active:
-            notes = [
-                "Brevo sender exists but is not active.",
-                "Verify the sender email in Brevo before sending to other recipients.",
-            ]
-        elif not sender_found:
-            notes = [
-                "Brevo sender was not found in your account.",
-                "Create or verify the sender email in Brevo.",
-            ]
-
-        return {
-            "provider": "brevo",
-            "configured": bool(sender_found and sender_active),
-            "sender_name": sender_name,
-            "sender_email": sender_email,
-            "sender_id": sender_id,
-            "sender_found": sender_found,
-            "sender_active": sender_active,
-            "frontend_url_configured": bool(frontend_url),
-            "notes": notes,
-        }
+    frontend_url = str(getattr(settings, "FRONTEND_URL", "") or "").strip()
 
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
     if not backend:
@@ -316,7 +312,10 @@ def dispatch_email(send_func, *args, description: str = "email") -> None:
 def _send_email_via_brevo(subject: str, text_body: str, html_body: str, recipient: str) -> None:
     sender_name, sender_email = _get_sender_identity()
     payload = {
-        "sender": _get_brevo_sender_payload(sender_name, sender_email),
+        "sender": {
+            "name": sender_name,
+            "email": sender_email,
+        },
         "to": [{"email": recipient}],
         "subject": subject,
         "textContent": text_body,

@@ -385,7 +385,11 @@ class BrevoEmailTests(TestCase):
     def _mock_brevo_success(self, mock_urlopen, sender_active=True):
         def side_effect(request, timeout=20):
             response = MagicMock()
-            if request.full_url.endswith('/v3/senders'):
+            if request.full_url.endswith('/v3/account'):
+                response.read.return_value = json.dumps({
+                    'email': 'owner@example.com',
+                }).encode('utf-8')
+            elif request.full_url.endswith('/v3/senders'):
                 response.read.return_value = json.dumps({
                     'senders': [
                         {
@@ -425,11 +429,11 @@ class BrevoEmailTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 0)
-        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertEqual(mock_urlopen.call_count, 3)
 
         request = mock_urlopen.call_args[0][0]
         payload = json.loads(request.data.decode('utf-8'))
-        self.assertEqual(payload['sender']['id'], 101)
+        self.assertEqual(payload['sender']['email'], 'sender@example.com')
         self.assertEqual(payload['to'][0]['email'], 'brevo-resident@example.com')
         self.assertEqual(payload['subject'], 'Welcome to M-Taka')
 
@@ -442,6 +446,7 @@ class BrevoEmailTests(TestCase):
         payload = response.json()
         self.assertEqual(payload['provider'], 'brevo')
         self.assertTrue(payload['configured'])
+        self.assertTrue(payload['api_key_valid'])
         self.assertEqual(payload['sender_email'], 'sender@example.com')
         self.assertEqual(payload['sender_id'], 101)
         self.assertTrue(payload['frontend_url_configured'])
@@ -468,11 +473,11 @@ class BrevoEmailTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 0)
-        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertEqual(mock_urlopen.call_count, 3)
 
         request = mock_urlopen.call_args[0][0]
         payload = json.loads(request.data.decode('utf-8'))
-        self.assertEqual(payload['sender']['id'], 101)
+        self.assertEqual(payload['sender']['email'], 'sender@example.com')
         self.assertEqual(payload['to'][0]['email'], user.email)
         self.assertEqual(payload['subject'], 'Reset your M-Taka password')
         self.assertIn('uid=', payload['textContent'])

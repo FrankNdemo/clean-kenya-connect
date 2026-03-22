@@ -25,7 +25,6 @@ from .serializers import *
 from .auth_email import (
     build_password_reset_link,
     dispatch_email,
-    email_delivery_is_configured,
     get_email_delivery_status,
     send_password_reset_email,
     send_welcome_email,
@@ -152,7 +151,8 @@ def register_user(request):
         user = serializer.save()
         resp = _build_auth_response_for_user(user, status_code=201)
         cache.delete("api:list_users:v1")
-        if email_delivery_is_configured():
+        delivery_status = get_email_delivery_status()
+        if delivery_status.get("configured"):
             try:
                 dispatch_email(send_welcome_email, user, description=f"welcome email for user_id={user.id}")
             except Exception:
@@ -160,7 +160,8 @@ def register_user(request):
         else:
             logger.warning(
                 "Welcome email skipped because production email delivery is not configured "
-                "(set DJANGO_BREVO_API_KEY and a verified sender) for user_id=%s",
+                "(%s) for user_id=%s",
+                delivery_status.get('error') or ', '.join(delivery_status.get('notes', [])),
                 user.id,
             )
 
@@ -259,15 +260,20 @@ def password_reset_request(request):
     if not matching_users.exists():
         return Response(success_message, status=status.HTTP_200_OK)
 
-    if not email_delivery_is_configured():
-        delivery_status = get_email_delivery_status()
+    delivery_status = get_email_delivery_status()
+    if not delivery_status.get('configured'):
         if delivery_status.get('provider') == 'brevo':
-            if delivery_status.get('sender_found') and not delivery_status.get('sender_active'):
+            if not delivery_status.get('api_key_valid'):
+                detail = 'Brevo API key is invalid or revoked. Generate a new API key in Brevo and update Render.'
+            elif delivery_status.get('sender_found') and not delivery_status.get('sender_active'):
                 detail = 'Brevo sender exists but is not active. Verify it in Brevo, then redeploy.'
             elif not delivery_status.get('sender_found'):
                 detail = 'Brevo sender was not found in your account. Create or verify it in Brevo.'
             else:
                 detail = 'Set DJANGO_BREVO_API_KEY in Render and verify the sender in Brevo.'
+            api_error = str(delivery_status.get('error') or '').strip()
+            if api_error:
+                detail = f'{detail} {api_error}'
         else:
             detail = 'Email delivery is not configured yet.'
 

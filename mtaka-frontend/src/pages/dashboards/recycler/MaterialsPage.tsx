@@ -183,7 +183,7 @@ export default function MaterialsPage() {
             {selectedMaterial && (
               <div className="space-y-6 pt-4">
                 {/* Summary Stats */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="p-4 bg-primary/10 rounded-lg">
                     <p className="text-sm text-muted-foreground">Current Stock</p>
                     <p className="text-2xl font-bold text-primary">{selectedMaterial.stock.toLocaleString()} kg</p>
@@ -224,7 +224,7 @@ export default function MaterialsPage() {
                     {getTransactionsForMaterial(selectedMaterial.materialType).slice(-10).reverse().map((txn) => (
                       <div
                         key={txn.id}
-                        className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg"
+                        className="flex flex-col gap-3 rounded-lg bg-secondary/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
                           <p className="font-medium text-sm">{txn.source}</p>

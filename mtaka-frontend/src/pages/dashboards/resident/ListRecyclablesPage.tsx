@@ -288,12 +288,12 @@ export default function ListRecyclablesPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold">My Recyclables</h1>
             <p className="text-muted-foreground">List recyclable materials for pickup by recyclers</p>
           </div>
-          <Button className="gap-2" onClick={() => setShowForm(!showForm)}>
+          <Button className="w-full gap-2 sm:w-auto" onClick={() => setShowForm(!showForm)}>
             <Plus className="w-4 h-4" />
             List New Material
           </Button>
@@ -389,9 +389,9 @@ export default function ListRecyclablesPage() {
                   )}
                 </div>
 
-                <div className="flex gap-3">
-                  <Button type="submit">List for Pickup</Button>
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button type="submit" className="w-full sm:w-auto">List for Pickup</Button>
+                  <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setShowForm(false)}>Cancel</Button>
                 </div>
               </form>
             </CardContent>
@@ -428,9 +428,9 @@ export default function ListRecyclablesPage() {
                       key={listing.id}
                       className="p-4 rounded-xl border border-border bg-card hover:shadow-md transition-shadow"
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
                             <span className="text-xl">{getMaterialLabel(listing.materialType).split(' ')[0]}</span>
                             <h3 className="font-semibold">{getMaterialLabel(listing.materialType).split(' ')[1]}</h3>
                             {getStatusBadge(listing.status)}
@@ -489,10 +489,11 @@ export default function ListRecyclablesPage() {
                           )}
                         </div>
                         
-                        <div className="flex flex-col gap-2">
+                        <div className="flex w-full flex-row flex-wrap gap-2 sm:w-auto sm:flex-col">
                           <Button
                             size="sm"
                             variant="ghost"
+                            className="flex-1 sm:flex-none"
                             onClick={() => setViewDialog({ open: true, listing })}
                           >
                             <Eye className="w-4 h-4" />
@@ -502,7 +503,7 @@ export default function ListRecyclablesPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="gap-1"
+                              className="flex-1 gap-1 sm:flex-none"
                               onClick={() => handleViewOffers(listing)}
                             >
                               <DollarSign className="w-4 h-4" />
@@ -515,6 +516,7 @@ export default function ListRecyclablesPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                className="flex-1 sm:flex-none"
                                 onClick={() => handleEdit(listing)}
                               >
                                 <Edit className="w-4 h-4" />
@@ -522,7 +524,7 @@ export default function ListRecyclablesPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="text-destructive"
+                                className="flex-1 text-destructive sm:flex-none"
                                 onClick={() => handleCancel(listing.id)}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -553,7 +555,7 @@ export default function ListRecyclablesPage() {
                 {completedListings.slice(0, 5).map((listing) => (
                   <div
                     key={listing.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary/70"
+                    className="flex cursor-pointer flex-col gap-2 rounded-lg bg-secondary/50 p-3 hover:bg-secondary/70 sm:flex-row sm:items-center sm:justify-between"
                     onClick={() => setViewDialog({ open: true, listing })}
                   >
                     <div>
@@ -567,7 +569,7 @@ export default function ListRecyclablesPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <span className="text-sm font-medium text-success">
                         KES {listing.offeredPrice}
                       </span>
@@ -596,7 +598,7 @@ export default function ListRecyclablesPage() {
                 {cancelledListings.map((listing) => (
                   <div
                     key={listing.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <span className="font-medium">{getMaterialLabel(listing.materialType)}</span>
@@ -627,7 +629,7 @@ export default function ListRecyclablesPage() {
             <DialogTitle>Edit Listing</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Material Type</Label>
                 <select
@@ -657,7 +659,7 @@ export default function ListRecyclablesPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Preferred Date</Label>
                 <Input
@@ -714,7 +716,7 @@ export default function ListRecyclablesPage() {
                       'border-border'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold">{offer.recyclerName}</span>
@@ -748,13 +750,14 @@ export default function ListRecyclablesPage() {
                       </div>
                       
                       {offer.status === 'pending' && (
-                        <div className="flex flex-col gap-2">
-                          <Button size="sm" onClick={() => handleAcceptOffer(offer.id)}>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto">
+                          <Button size="sm" className="w-full sm:w-auto" onClick={() => handleAcceptOffer(offer.id)}>
                             Accept
                           </Button>
                           <Button 
                             size="sm" 
                             variant="outline"
+                            className="w-full sm:w-auto"
                             onClick={() => setRejectDialog({ open: true, offerId: offer.id })}
                           >
                             Reject
@@ -809,7 +812,7 @@ export default function ListRecyclablesPage() {
           </DialogHeader>
           {viewDialog.listing && (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">Material</p>
                   <p className="font-medium">{getMaterialLabel(viewDialog.listing.materialType)}</p>

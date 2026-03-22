@@ -264,7 +264,7 @@ export default function UsersPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">User Management</h1>
             <p className="text-muted-foreground">
@@ -274,7 +274,7 @@ export default function UsersPage() {
             </p>
           </div>
           {pendingComplaints.length > 0 && (
-            <Button variant={showComplaints ? 'default' : 'outline'} size="sm" onClick={() => setShowComplaints(!showComplaints)} className="gap-2">
+            <Button variant={showComplaints ? 'default' : 'outline'} size="sm" onClick={() => setShowComplaints(!showComplaints)} className="w-full gap-2 sm:w-auto">
               <MessageSquare className="w-4 h-4" />
               Complaints ({pendingComplaints.length})
             </Button>
@@ -294,7 +294,7 @@ export default function UsersPage() {
               <div className="space-y-3">
                 {complaints.map((complaint) => (
                   <div key={complaint.id} className={`p-4 rounded-lg border ${complaint.status === 'pending' ? 'border-warning/30 bg-warning/5' : 'border-border bg-card'}`}>
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-medium">{complaint.userName}</span>
@@ -304,7 +304,7 @@ export default function UsersPage() {
                         </div>
                         <p className="text-sm font-medium text-muted-foreground">{complaint.subject}</p>
                         <p className="text-sm mt-1">{complaint.details}</p>
-                        <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                        <div className="mt-2 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-4">
                           <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{complaint.userEmail}</span>
                           <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{complaint.phone}</span>
                           <span>{new Date(complaint.createdAt).toLocaleDateString()}</span>
@@ -316,7 +316,7 @@ export default function UsersPage() {
                         )}
                       </div>
                       {complaint.status === 'pending' && (
-                        <Button size="sm" onClick={() => { setReplyDialog({ open: true, complaint }); setReplyText(''); }}>
+                        <Button size="sm" className="w-full sm:w-auto" onClick={() => { setReplyDialog({ open: true, complaint }); setReplyText(''); }}>
                           <Send className="w-4 h-4 mr-1" />Reply
                         </Button>
                       )}
@@ -458,7 +458,7 @@ export default function UsersPage() {
           <DialogHeader><DialogTitle>User Profile</DialogTitle></DialogHeader>
           {profileDialog.user && (
             <div className="space-y-4 py-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
                   <span className="text-2xl font-bold text-primary">{profileDialog.user.name.charAt(0)}</span>
                 </div>

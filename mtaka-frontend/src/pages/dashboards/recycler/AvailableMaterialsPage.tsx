@@ -678,7 +678,7 @@ export default function AvailableMaterialsPage() {
                   return (
                     <div
                       key={listing.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+                      className="flex flex-col gap-3 rounded-lg bg-secondary/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-xl">{materialInfo.label.split(' ')[0]}</span>

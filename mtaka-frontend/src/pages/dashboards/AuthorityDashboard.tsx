@@ -245,15 +245,15 @@ export default function AuthorityDashboard() {
               <div className="space-y-3">
                 {pendingEvents.map((event) => (
                   <div key={event.id} className="p-4 rounded-lg bg-secondary/50">
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div><div className="font-medium">{event.title}</div><div className="text-sm text-muted-foreground">by {event.organizerName}</div></div>
                       <span className="px-2 py-1 text-xs rounded-full bg-warning/20 text-warning-foreground capitalize">{event.type}</span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{event.description}</p>
                     <div className="text-sm text-muted-foreground mb-3">📅 {event.date} • 📍 {event.location}</div>
-                    <div className="flex gap-2">
-                      <Button size="sm" className="flex-1 gap-1" onClick={() => handleApproveEvent(event.id)}><CheckCircle className="w-4 h-4" />Approve</Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleRejectEvent(event.id)}><XCircle className="w-4 h-4" /></Button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button size="sm" className="w-full flex-1 gap-1 sm:w-auto" onClick={() => handleApproveEvent(event.id)}><CheckCircle className="w-4 h-4" />Approve</Button>
+                      <Button size="sm" variant="destructive" className="w-full gap-1 sm:w-auto" onClick={() => handleRejectEvent(event.id)}><XCircle className="w-4 h-4" />Reject</Button>
                     </div>
                   </div>
                 ))}
@@ -262,7 +262,7 @@ export default function AuthorityDashboard() {
           </div>
 
           <div className="dashboard-section">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">Illegal Dumping Reports</h2>
               <Link to="/dashboard/authority/reports"><Button variant="link" size="sm">View All</Button></Link>
             </div>
@@ -274,7 +274,7 @@ export default function AuthorityDashboard() {
               <div className="space-y-3">
                 {unresolvedReports.slice(0, 5).map((report) => (
                   <div key={report.id} className="p-4 rounded-lg bg-secondary/50">
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="font-medium text-sm">{report.location}</div>
                         <div className="text-xs text-muted-foreground">Reported by {report.userName}</div>

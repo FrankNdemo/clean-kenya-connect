@@ -133,15 +133,15 @@ export default function ResidentDashboard() {
             <h1 className="text-2xl font-bold">Welcome back, {user.name.split(' ')[0]}!</h1>
             <p className="text-muted-foreground">Here's what's happening with your waste management</p>
           </div>
-          <div className="flex gap-3">
-            <Link to="/waste/schedule">
-              <Button className="gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link to="/waste/schedule" className="w-full sm:w-auto">
+              <Button className="w-full gap-2 sm:w-auto">
                 <Plus className="w-4 h-4" />
                 Schedule Pickup
               </Button>
             </Link>
-            <Link to="/waste/report">
-              <Button variant="outline" className="gap-2">
+            <Link to="/waste/report" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full gap-2 sm:w-auto">
                 <MapPin className="w-4 h-4" />
                 Report Issue
               </Button>
@@ -185,7 +185,7 @@ export default function ResidentDashboard() {
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Recent Requests */}
           <div className="dashboard-section">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">Recent Pickup Requests</h2>
               <Link to="/waste/schedule" className="text-sm text-primary hover:underline">View all</Link>
             </div>
@@ -205,7 +205,7 @@ export default function ResidentDashboard() {
             ) : (
               <div className="space-y-3">
                 {requests.slice(0, 4).map((request) => (
-                  <div key={request.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                  <div key={request.id} className="flex flex-col gap-2 rounded-lg bg-secondary/50 p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="font-medium text-sm">{getWasteTypeLabel(request.wasteType)}</div>
                       <div className="text-xs text-muted-foreground">{request.date} at {request.time}</div>
@@ -219,7 +219,7 @@ export default function ResidentDashboard() {
 
           {/* Upcoming Events */}
           <div className="dashboard-section">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">Upcoming Events</h2>
               <Link to="/events" className="text-sm text-primary hover:underline">View all</Link>
             </div>
@@ -241,7 +241,7 @@ export default function ResidentDashboard() {
                     to="/events"
                     className="block p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="font-medium text-sm">{event.title}</div>
                         <div className="text-xs text-muted-foreground">{event.date} • {event.location}</div>

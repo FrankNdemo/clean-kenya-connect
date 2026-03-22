@@ -245,11 +245,11 @@ export default function RequestsPage() {
                         </div>
                         {request.notes && <p className="text-sm mt-2 p-2 bg-secondary/50 rounded">{request.notes}</p>}
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleAccept(request)}>
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        <Button size="sm" className="w-full sm:w-auto" onClick={() => handleAccept(request)}>
                           <CheckCircle className="w-4 h-4 mr-1" />Accept
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => openUpdateDialog(request, 'decline')}>
+                        <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => openUpdateDialog(request, 'decline')}>
                           <XCircle className="w-4 h-4 mr-1" />Decline
                         </Button>
                       </div>
@@ -313,11 +313,11 @@ export default function RequestsPage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <Button onClick={() => navigate(`/dashboard/collector/transactions?request=${request.id}`)}>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto">
+                          <Button className="w-full sm:w-auto" onClick={() => navigate(`/dashboard/collector/transactions?request=${request.id}`)}>
                             <CheckCircle className="w-4 h-4 mr-1" />Complete pick
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => openUpdateDialog(request, 'message')}>
+                          <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => openUpdateDialog(request, 'message')}>
                             <MessageSquare className="w-4 h-4 mr-1" />Message
                           </Button>
                         </div>
@@ -400,7 +400,7 @@ export default function RequestsPage() {
             ) : (
               <div className="space-y-3">
                 {filteredCompleted.map((item) => (
-                  <div key={item.id} className="p-3 rounded-lg bg-secondary/50 flex items-center justify-between gap-3">
+                  <div key={item.id} className="flex flex-col gap-3 rounded-lg bg-secondary/50 p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-medium">{item.residentName}</p>
                       <p className="text-sm text-muted-foreground">{item.location}</p>
@@ -408,12 +408,14 @@ export default function RequestsPage() {
                         Date Completed: {new Date(item.createdAt).toLocaleString()}
                       </p>
                     </div>
-                    <div className="text-right flex items-center gap-2">
+                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
                       <Button size="sm" variant="ghost" onClick={() => setPreviewDialog({ open: true, transaction: item })}>
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <p className="text-sm font-medium">{item.totalWeight} kg</p>
-                      <p className="text-xs text-muted-foreground">KES {item.totalPrice.toLocaleString()}</p>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{item.totalWeight} kg</p>
+                        <p className="text-xs text-muted-foreground">KES {item.totalPrice.toLocaleString()}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -477,7 +479,7 @@ export default function RequestsPage() {
           </DialogHeader>
           {previewDialog.transaction && (
             <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">Resident</p>
                   <p className="font-medium">{previewDialog.transaction.residentName}</p>

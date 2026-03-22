@@ -325,7 +325,7 @@ export default function DumpingReportsPage() {
           <DialogHeader><DialogTitle>Report Details</DialogTitle></DialogHeader>
           {viewDialog.report && (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div><p className="text-sm text-muted-foreground">Reporter</p><p className="font-medium">{viewDialog.report.userName}</p></div>
                 <div><p className="text-sm text-muted-foreground">Status</p><Badge className={statusColors[viewDialog.report.status]}>{viewDialog.report.status}</Badge></div>
                 <div><p className="text-sm text-muted-foreground">Phone</p>

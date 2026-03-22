@@ -19,10 +19,11 @@ import {
   Package
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function CollectorDashboard() {
   const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [myRequests, setMyRequests] = useState<WasteRequest[]>([]);
   const [myTransactions, setMyTransactions] = useState<CollectorTransaction[]>([]);
 
@@ -130,10 +131,10 @@ export default function CollectorDashboard() {
         </div>
 
         <div className="dashboard-section">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">Collection Route</h2>
-            <Link to="/dashboard/collector/routes">
-              <Button variant="outline" size="sm" className="gap-2">
+            <Link to="/dashboard/collector/routes" className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="w-full gap-2 sm:w-auto">
                 <Navigation className="w-4 h-4" />
                 View Routes
               </Button>
@@ -150,7 +151,7 @@ export default function CollectorDashboard() {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <div className="dashboard-section">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">My Assignments</h2>
               <Link to="/dashboard/collector/requests">
                 <Button variant="link" size="sm">View All</Button>
@@ -169,7 +170,7 @@ export default function CollectorDashboard() {
               <div className="space-y-3">
                 {myAssignments.slice(0, 3).map((request) => (
                   <div key={request.id} className="p-4 rounded-lg bg-secondary/50">
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="font-medium">{getWasteTypeLabel(request.wasteType)}</div>
                         <div className="text-sm text-muted-foreground">{request.userName}</div>
@@ -179,7 +180,7 @@ export default function CollectorDashboard() {
                     <div className="text-sm text-muted-foreground mb-3">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        {request.location}
+                        <span className="break-words">{request.location}</span>
                       </div>
                       <div className="flex items-center gap-1 mt-1">
                         <Clock className="w-3 h-3" />
@@ -197,7 +198,7 @@ export default function CollectorDashboard() {
           </div>
 
           <div className="dashboard-section">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">Available Requests</h2>
               <Link to="/dashboard/collector/requests">
                 <Button variant="link" size="sm">View All</Button>
@@ -214,7 +215,7 @@ export default function CollectorDashboard() {
               <div className="space-y-3">
                 {availableRequests.slice(0, 3).map((request) => (
                   <div key={request.id} className="p-4 rounded-lg bg-secondary/50">
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="font-medium">{getWasteTypeLabel(request.wasteType)}</div>
                         <div className="text-sm text-muted-foreground">{request.userName}</div>
@@ -224,7 +225,7 @@ export default function CollectorDashboard() {
                     <div className="text-sm text-muted-foreground mb-3">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        {request.location}
+                        <span className="break-words">{request.location}</span>
                       </div>
                       <div className="flex items-center gap-1 mt-1">
                         <Clock className="w-3 h-3" />

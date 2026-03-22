@@ -127,7 +127,7 @@ export default function MyReportsPage() {
 
   const ReportCard = ({ report, showActions = true }: { report: DumpingReport; showActions?: boolean }) => (
     <div className="p-4 rounded-xl border border-border bg-card">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-5 h-5 text-destructive" />
@@ -139,7 +139,7 @@ export default function MyReportsPage() {
           <div className="space-y-1 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
-              {report.location}
+              <span className="break-words">{report.location}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
@@ -168,10 +168,11 @@ export default function MyReportsPage() {
         </div>
 
         {showActions && (
-          <div className="flex flex-col gap-2">
+          <div className="flex w-full flex-row flex-wrap gap-2 sm:w-auto sm:flex-col">
             <Button
               size="sm"
               variant="ghost"
+              className="flex-1 sm:flex-none"
               onClick={() => setViewDialog({ open: true, report })}
             >
               <Eye className="w-4 h-4" />
@@ -181,6 +182,7 @@ export default function MyReportsPage() {
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="flex-1 sm:flex-none"
                   onClick={() => handleEdit(report)}
                 >
                   <Edit className="w-4 h-4" />
@@ -188,7 +190,7 @@ export default function MyReportsPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-destructive"
+                  className="flex-1 text-destructive sm:flex-none"
                   onClick={() => setCancelDialog({ open: true, reportId: report.id })}
                 >
                   <XCircle className="w-4 h-4" />
@@ -199,7 +201,7 @@ export default function MyReportsPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-destructive"
+                className="flex-1 text-destructive sm:flex-none"
                 onClick={() => handleDelete(report.id)}
               >
                 <Trash2 className="w-4 h-4" />
@@ -360,7 +362,7 @@ export default function MyReportsPage() {
           </DialogHeader>
           {viewDialog.report && (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
                   {getStatusBadge(viewDialog.report.status)}

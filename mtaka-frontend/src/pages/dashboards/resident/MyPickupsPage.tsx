@@ -227,9 +227,9 @@ export default function MyPickupsPage() {
     
     return (
       <div className="p-4 rounded-xl border border-border bg-card">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="text-xl">{getWasteTypeLabel(request.wasteType).split(' ')[0]}</span>
               <span className="font-semibold">{getWasteTypeLabel(request.wasteType).split(' ')[1]}</span>
               {getStatusBadge(request.status)}
@@ -242,7 +242,7 @@ export default function MyPickupsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                {request.location}
+                <span className="break-words">{request.location}</span>
               </div>
               {request.collectorName && (
                 <div className="flex items-center gap-2">
@@ -313,10 +313,11 @@ export default function MyPickupsPage() {
           </div>
 
           {showActions && (
-            <div className="flex flex-col gap-2">
+            <div className="flex w-full flex-row flex-wrap gap-2 sm:w-auto sm:flex-col">
               <Button
                 size="sm"
                 variant="ghost"
+                className="flex-1 sm:flex-none"
                 onClick={() => setViewDialog({ open: true, request })}
               >
                 <Eye className="w-4 h-4" />
@@ -327,7 +328,7 @@ export default function MyPickupsPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="gap-1"
+                  className="flex-1 gap-1 sm:flex-none"
                   onClick={() => setReplyDialog({ open: true, request })}
                 >
                   <Send className="w-4 h-4" />
@@ -339,6 +340,7 @@ export default function MyPickupsPage() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="flex-1 sm:flex-none"
                     onClick={() => handleEdit(request)}
                   >
                     <Edit className="w-4 h-4" />
@@ -346,7 +348,7 @@ export default function MyPickupsPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-destructive"
+                    className="flex-1 text-destructive sm:flex-none"
                     onClick={() => setCancelDialog({ open: true, requestId: request.id })}
                   >
                     <XCircle className="w-4 h-4" />
@@ -357,7 +359,7 @@ export default function MyPickupsPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-destructive"
+                  className="flex-1 text-destructive sm:flex-none"
                   onClick={() => handleDelete(request.id)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -378,8 +380,8 @@ export default function MyPickupsPage() {
             <h1 className="text-2xl font-bold">My Pickup Requests</h1>
             <p className="text-muted-foreground">Manage and track your waste collection requests</p>
           </div>
-          <Link to="/waste/schedule">
-            <Button className="gap-2">
+          <Link to="/waste/schedule" className="w-full sm:w-auto">
+            <Button className="w-full gap-2 sm:w-auto">
               <Truck className="w-4 h-4" />
               Schedule New Pickup
             </Button>
@@ -459,7 +461,7 @@ export default function MyPickupsPage() {
             <DialogTitle>Edit Pickup Request</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Date</Label>
                 <Input
@@ -575,7 +577,7 @@ export default function MyPickupsPage() {
           </DialogHeader>
           {viewDialog.request && (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">Waste Type</p>
                   <p className="font-medium">{getWasteTypeLabel(viewDialog.request.wasteType)}</p>

@@ -401,9 +401,9 @@ export default function AvailableMaterialsPage() {
                       key={listing.id}
                       className="p-4 rounded-xl border border-primary/30 bg-primary/5"
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
                             <span className="text-2xl">{materialInfo.label.split(' ')[0]}</span>
                             <h3 className="font-semibold">{materialInfo.label.split(' ')[1]}</h3>
                             <Badge className="bg-primary/20 text-primary">Offer Accepted</Badge>
@@ -421,8 +421,8 @@ export default function AvailableMaterialsPage() {
                               {listing.residentPhone}
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
-                              <MapPin className="w-4 h-4" />
-                              {listing.residentLocation}
+                              <MapPin className="h-4 w-4 shrink-0" />
+                              <span className="break-words">{listing.residentLocation}</span>
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {getDistanceKm(listing).toFixed(1)} km away • ETA {getEtaMinutes(listing)} min
@@ -433,22 +433,27 @@ export default function AvailableMaterialsPage() {
                             </div>
                           </div>
                         </div>
-                        <Button onClick={() => {
-                          setScheduleForm({
-                            date: listing.preferredDate,
-                            time: listing.preferredTime,
-                          });
-                          setScheduleDialog({ open: true, listing });
-                        }}>
-                          <Calendar className="w-4 h-4 mr-2" />
-                          Schedule Pickup
-                        </Button>
-                        <a href={buildDirectionsUrl(listing)} target="_blank" rel="noreferrer">
-                          <Button variant="outline" className="ml-2">
-                            <Navigation className="w-4 h-4 mr-2" />
-                            Route
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[11rem]">
+                          <Button
+                            className="w-full justify-center"
+                            onClick={() => {
+                              setScheduleForm({
+                                date: listing.preferredDate,
+                                time: listing.preferredTime,
+                              });
+                              setScheduleDialog({ open: true, listing });
+                            }}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Schedule Pickup
                           </Button>
-                        </a>
+                          <Button asChild variant="outline" className="w-full justify-center">
+                            <a href={buildDirectionsUrl(listing)} target="_blank" rel="noreferrer">
+                              <Navigation className="mr-2 h-4 w-4" />
+                              Route
+                            </a>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -601,7 +606,7 @@ export default function AvailableMaterialsPage() {
                   return (
                     <div
                       key={listing.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border"
+                      className="flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex items-center gap-4">
                         <span className="text-2xl">{materialInfo.label.split(' ')[0]}</span>
@@ -618,7 +623,7 @@ export default function AvailableMaterialsPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                         <div className="text-right">
                           <p className="font-bold text-primary">KES {listing.offeredPrice}</p>
                         </div>
@@ -626,6 +631,7 @@ export default function AvailableMaterialsPage() {
                           asChild
                           variant="outline"
                           size="sm"
+                          className="w-full sm:w-auto"
                         >
                           <a href={buildDirectionsUrl(listing)} target="_blank" rel="noreferrer">
                             <Navigation className="w-4 h-4 mr-1" />
@@ -634,6 +640,7 @@ export default function AvailableMaterialsPage() {
                         </Button>
                         <Button 
                           size="sm"
+                          className="w-full sm:w-auto"
                           onClick={() => {
                             setCompleteForm({
                               actualWeight: String(listing.estimatedWeight),
@@ -696,7 +703,7 @@ export default function AvailableMaterialsPage() {
 
       {/* Send Offer Dialog */}
       <Dialog open={offerDialog.open} onOpenChange={(open) => setOfferDialog({ open, listing: null, isReOffer: false })}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>
               {offerDialog.isReOffer ? 'Send New Price Offer' : 'Send Price Offer'}
@@ -773,7 +780,7 @@ export default function AvailableMaterialsPage() {
 
       {/* Schedule Pickup Dialog */}
       <Dialog open={scheduleDialog.open} onOpenChange={(open) => setScheduleDialog({ open, listing: null })}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Schedule Pickup</DialogTitle>
           </DialogHeader>
@@ -786,6 +793,10 @@ export default function AvailableMaterialsPage() {
                 </p>
                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                   <Phone className="w-3 h-3" /> {scheduleDialog.listing.residentPhone}
+                </p>
+                <p className="mt-1 flex items-start gap-1 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span className="break-words">{scheduleDialog.listing.residentLocation}</span>
                 </p>
               </div>
 

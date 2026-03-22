@@ -52,16 +52,22 @@ def get_email_delivery_status() -> dict:
     if _uses_brevo_api():
         sender_name, sender_email = _get_sender_identity()
         api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
+        notes = [
+            "Brevo API key is present in Render.",
+            "Verify the sender email in Brevo before sending to other recipients.",
+        ]
+        if not api_key:
+            notes = [
+                "Set DJANGO_BREVO_API_KEY in Render.",
+                "Verify the sender email in Brevo before sending to other recipients.",
+            ]
         return {
             "provider": "brevo",
             "configured": bool(api_key and sender_email),
             "sender_name": sender_name,
             "sender_email": sender_email,
             "frontend_url_configured": bool(frontend_url),
-            "notes": [
-                "Set DJANGO_BREVO_API_KEY in Render.",
-                "Verify the sender email in Brevo before sending to other recipients.",
-            ],
+            "notes": notes,
         }
 
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()

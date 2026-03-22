@@ -88,6 +88,10 @@ function FullScreenLoader() {
 function RootRoute() {
   const { user, isLoading } = useAuth();
 
+  if (!isStandaloneAppMode()) {
+    return <LandingPage />;
+  }
+
   if (isLoading) {
     return <FullScreenLoader />;
   }

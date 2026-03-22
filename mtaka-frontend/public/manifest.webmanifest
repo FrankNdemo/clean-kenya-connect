@@ -2,7 +2,7 @@
   "name": "M-Taka",
   "short_name": "M-Taka",
   "description": "Smart waste management for Kenya.",
-  "start_url": "/#/login",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "display_override": ["fullscreen", "standalone"],

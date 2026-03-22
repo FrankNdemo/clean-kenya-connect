@@ -260,17 +260,20 @@ def password_reset_request(request):
         return Response(success_message, status=status.HTTP_200_OK)
 
     if not email_delivery_is_configured():
-        logger.error(
-            "Password reset email requested but production email delivery is not configured "
-            "(set DJANGO_BREVO_API_KEY and a verified sender)."
-        )
+        delivery_status = get_email_delivery_status()
+        if delivery_status.get('provider') == 'brevo':
+            if delivery_status.get('sender_found') and not delivery_status.get('sender_active'):
+                detail = 'Brevo sender exists but is not active. Verify it in Brevo, then redeploy.'
+            elif not delivery_status.get('sender_found'):
+                detail = 'Brevo sender was not found in your account. Create or verify it in Brevo.'
+            else:
+                detail = 'Set DJANGO_BREVO_API_KEY in Render and verify the sender in Brevo.'
+        else:
+            detail = 'Email delivery is not configured yet.'
+
+        logger.error("Password reset email requested but email delivery is not configured: %s", detail)
         return Response(
-            {
-                'detail': (
-                    'Email delivery is not configured yet. Set DJANGO_BREVO_API_KEY and '
-                    'a verified sender in Render, then try again.'
-                )
-            },
+            {'detail': detail},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 

@@ -382,11 +382,32 @@ class BrevoEmailTests(TestCase):
         if hasattr(mail, 'outbox'):
             mail.outbox.clear()
 
+    def _mock_brevo_success(self, mock_urlopen, sender_active=True):
+        def side_effect(request, timeout=20):
+            response = MagicMock()
+            if request.full_url.endswith('/v3/senders'):
+                response.read.return_value = json.dumps({
+                    'senders': [
+                        {
+                            'id': 101,
+                            'name': 'M-Taka No-Reply',
+                            'email': 'sender@example.com',
+                            'active': sender_active,
+                        }
+                    ]
+                }).encode('utf-8')
+            else:
+                response.read.return_value = json.dumps({'messageId': 'test'}).encode('utf-8')
+            context_manager = MagicMock()
+            context_manager.__enter__.return_value = response
+            context_manager.__exit__.return_value = False
+            return context_manager
+
+        mock_urlopen.side_effect = side_effect
+
     @patch('core.auth_email.urlopen')
     def test_registration_uses_brevo_api_for_welcome_email(self, mock_urlopen):
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"messageId":"test"}'
-        mock_urlopen.return_value.__enter__.return_value = mock_response
+        self._mock_brevo_success(mock_urlopen, sender_active=True)
 
         response = self.client.post(
             '/api/auth/register/',
@@ -404,7 +425,7 @@ class BrevoEmailTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 0)
-        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_urlopen.call_count, 2)
 
         request = mock_urlopen.call_args[0][0]
         payload = json.loads(request.data.decode('utf-8'))
@@ -413,7 +434,9 @@ class BrevoEmailTests(TestCase):
         self.assertEqual(payload['subject'], 'Welcome to M-Taka')
 
     def test_email_status_reports_brevo_configuration(self):
-        response = self.client.get('/api/auth/email-status/')
+        with patch('core.auth_email.urlopen') as mock_urlopen:
+            self._mock_brevo_success(mock_urlopen, sender_active=True)
+            response = self.client.get('/api/auth/email-status/')
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -421,12 +444,12 @@ class BrevoEmailTests(TestCase):
         self.assertTrue(payload['configured'])
         self.assertEqual(payload['sender_email'], 'sender@example.com')
         self.assertTrue(payload['frontend_url_configured'])
+        self.assertTrue(payload['sender_found'])
+        self.assertTrue(payload['sender_active'])
 
     @patch('core.auth_email.urlopen')
     def test_password_reset_request_uses_brevo_api(self, mock_urlopen):
-        mock_response = MagicMock()
-        mock_response.read.return_value = b'{"messageId":"test"}'
-        mock_urlopen.return_value.__enter__.return_value = mock_response
+        self._mock_brevo_success(mock_urlopen, sender_active=True)
 
         user = self.user_model.objects.create_user(
             username='brevo-reset-user',
@@ -444,7 +467,7 @@ class BrevoEmailTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 0)
-        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_urlopen.call_count, 2)
 
         request = mock_urlopen.call_args[0][0]
         payload = json.loads(request.data.decode('utf-8'))

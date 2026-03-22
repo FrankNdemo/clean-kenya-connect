@@ -25,10 +25,84 @@ def _get_sender_identity() -> tuple[str, str]:
     return sender_name, sender_email
 
 
+def _brevo_request_json(method: str, path: str, payload: dict | None = None) -> dict:
+    api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
+    if not api_key:
+        raise RuntimeError("Brevo email API is not configured.")
+
+    data = None
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+
+    request = Request(
+        f"https://api.brevo.com{path}",
+        data=data,
+        headers={
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json",
+        },
+        method=method,
+    )
+
+    timeout = int(getattr(settings, "EMAIL_TIMEOUT", 20) or 20)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            raw_body = response.read().decode("utf-8", errors="replace").strip()
+    except HTTPError as exc:
+        try:
+            error_body = exc.read().decode("utf-8", errors="replace").strip()
+        except Exception:
+            error_body = ""
+        message = f"Brevo API returned HTTP {exc.code}"
+        if error_body:
+            message = f"{message}: {error_body}"
+        raise RuntimeError(message) from exc
+    except URLError as exc:
+        raise RuntimeError(f"Brevo API request failed: {exc.reason}") from exc
+
+    if not raw_body:
+        return {}
+
+    try:
+        parsed = json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Brevo API returned invalid JSON.") from exc
+
+    if not isinstance(parsed, dict):
+        raise RuntimeError("Brevo API returned an unexpected payload.")
+
+    return parsed
+
+
+def _get_brevo_sender_record(sender_email: str) -> dict | None:
+    sender_email = str(sender_email or "").strip().lower()
+    if not sender_email:
+        return None
+
+    payload = _brevo_request_json("GET", "/v3/senders")
+    senders = payload.get("senders") or []
+    if not isinstance(senders, list):
+        raise RuntimeError("Brevo API returned an unexpected senders list.")
+
+    for sender in senders:
+        if not isinstance(sender, dict):
+            continue
+        current_email = str(sender.get("email", "") or "").strip().lower()
+        if current_email == sender_email:
+            return sender
+    return None
+
+
 def email_delivery_is_configured() -> bool:
     if _uses_brevo_api():
         _, sender_email = _get_sender_identity()
-        return bool(getattr(settings, "BREVO_API_KEY", "").strip() and sender_email)
+        try:
+            sender = _get_brevo_sender_record(sender_email)
+        except Exception:
+            logger.exception("Unable to verify Brevo sender configuration.")
+            return False
+        return bool(sender and sender.get("active"))
 
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
     if not backend:
@@ -52,20 +126,67 @@ def get_email_delivery_status() -> dict:
     if _uses_brevo_api():
         sender_name, sender_email = _get_sender_identity()
         api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
+        if not api_key:
+            return {
+                "provider": "brevo",
+                "configured": False,
+                "sender_name": sender_name,
+                "sender_email": sender_email,
+                "sender_found": False,
+                "sender_active": False,
+                "frontend_url_configured": bool(frontend_url),
+                "notes": [
+                    "Set DJANGO_BREVO_API_KEY in Render.",
+                    "Verify the sender email in Brevo before sending to other recipients.",
+                ],
+            }
+
+        try:
+            sender = _get_brevo_sender_record(sender_email)
+        except Exception as exc:
+            return {
+                "provider": "brevo",
+                "configured": False,
+                "sender_name": sender_name,
+                "sender_email": sender_email,
+                "sender_found": False,
+                "sender_active": False,
+                "frontend_url_configured": bool(frontend_url),
+                "error": str(exc),
+                "notes": [
+                    "Unable to verify the sender in Brevo.",
+                ],
+            }
+
+        sender_found = sender is not None
+        sender_active = bool(sender and sender.get("active"))
         notes = [
             "Brevo API key is present in Render.",
             "Verify the sender email in Brevo before sending to other recipients.",
         ]
-        if not api_key:
+        if sender_found and sender_active:
             notes = [
-                "Set DJANGO_BREVO_API_KEY in Render.",
+                "Brevo API key is present in Render.",
+                "Brevo sender is active.",
+            ]
+        elif sender_found and not sender_active:
+            notes = [
+                "Brevo sender exists but is not active.",
                 "Verify the sender email in Brevo before sending to other recipients.",
             ]
+        elif not sender_found:
+            notes = [
+                "Brevo sender was not found in your account.",
+                "Create or verify the sender email in Brevo.",
+            ]
+
         return {
             "provider": "brevo",
-            "configured": bool(api_key and sender_email),
+            "configured": bool(sender_found and sender_active),
             "sender_name": sender_name,
             "sender_email": sender_email,
+            "sender_found": sender_found,
+            "sender_active": sender_active,
             "frontend_url_configured": bool(frontend_url),
             "notes": notes,
         }
@@ -176,10 +297,6 @@ def dispatch_email(send_func, *args, description: str = "email") -> None:
 
 
 def _send_email_via_brevo(subject: str, text_body: str, html_body: str, recipient: str) -> None:
-    api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
-    if not api_key:
-        raise RuntimeError("Brevo email API is not configured.")
-
     sender_name, sender_email = _get_sender_identity()
     payload = {
         "sender": {
@@ -191,32 +308,7 @@ def _send_email_via_brevo(subject: str, text_body: str, html_body: str, recipien
         "textContent": text_body,
         "htmlContent": html_body,
     }
-    request = Request(
-        "https://api.brevo.com/v3/smtp/email",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "accept": "application/json",
-            "api-key": api_key,
-            "content-type": "application/json",
-        },
-        method="POST",
-    )
-
-    timeout = int(getattr(settings, "EMAIL_TIMEOUT", 20) or 20)
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            response.read()
-    except HTTPError as exc:
-        try:
-            error_body = exc.read().decode("utf-8", errors="replace").strip()
-        except Exception:
-            error_body = ""
-        message = f"Brevo email API returned HTTP {exc.code}"
-        if error_body:
-            message = f"{message}: {error_body}"
-        raise RuntimeError(message) from exc
-    except URLError as exc:
-        raise RuntimeError(f"Brevo email API request failed: {exc.reason}") from exc
+    _brevo_request_json("POST", "/v3/smtp/email", payload=payload)
 
 
 def _send_email(subject: str, text_body: str, html_body: str, recipient: str) -> None:

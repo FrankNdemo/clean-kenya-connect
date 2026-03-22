@@ -24,6 +24,7 @@ from .models import *
 from .serializers import *
 from .auth_email import (
     build_password_reset_link,
+    dispatch_email,
     email_delivery_is_configured,
     send_password_reset_email,
     send_welcome_email,
@@ -150,10 +151,13 @@ def register_user(request):
         user = serializer.save()
         resp = _build_auth_response_for_user(user, status_code=201)
         cache.delete("api:list_users:v1")
-        try:
-            send_welcome_email(user)
-        except Exception:
-            logger.exception("Failed to send welcome email to user_id=%s", user.id)
+        if email_delivery_is_configured():
+            try:
+                dispatch_email(send_welcome_email, user, description=f"welcome email for user_id={user.id}")
+            except Exception:
+                logger.exception("Failed to queue welcome email for user_id=%s", user.id)
+        else:
+            logger.warning("Welcome email skipped because email delivery is not fully configured for user_id=%s", user.id)
 
         return resp
     
@@ -256,9 +260,14 @@ def password_reset_request(request):
         token = default_token_generator.make_token(user)
         reset_link = build_password_reset_link(request, uid, token)
         try:
-            send_password_reset_email(user, reset_link)
+            dispatch_email(
+                send_password_reset_email,
+                user,
+                reset_link,
+                description=f"password reset email for user_id={user.id}",
+            )
         except Exception:
-            logger.exception("Failed to send password reset email to user_id=%s", user.id)
+            logger.exception("Failed to queue password reset email for user_id=%s", user.id)
             return Response(
                 {'detail': 'Unable to send the password reset email right now. Please try again later.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

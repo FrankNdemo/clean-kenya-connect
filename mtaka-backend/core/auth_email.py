@@ -1,7 +1,13 @@
+import logging
+import threading
 from urllib.parse import urlencode, urlsplit
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from django.db import close_old_connections
+
+
+logger = logging.getLogger(__name__)
 
 
 def email_delivery_is_configured() -> bool:
@@ -60,6 +66,28 @@ def build_password_reset_link(request, uid: str, token: str) -> str:
     base_url = get_frontend_base_url(request)
     query_string = urlencode({"uid": uid, "token": token})
     return f"{base_url}/#/reset-password?{query_string}"
+
+
+def _should_send_email_async() -> bool:
+    backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
+    return backend.endswith("smtp.emailbackend")
+
+
+def dispatch_email(send_func, *args, description: str = "email") -> None:
+    if not _should_send_email_async():
+        send_func(*args)
+        return
+
+    def runner():
+        close_old_connections()
+        try:
+            send_func(*args)
+        except Exception:
+            logger.exception("Background %s delivery failed.", description)
+        finally:
+            close_old_connections()
+
+    threading.Thread(target=runner, daemon=True).start()
 
 
 def _send_email(subject: str, text_body: str, html_body: str, recipient: str) -> None:

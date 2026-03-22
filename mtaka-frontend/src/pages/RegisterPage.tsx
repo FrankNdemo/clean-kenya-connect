@@ -47,7 +47,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
   const isStandaloneApp = isStandaloneAppMode();
 
@@ -55,6 +55,10 @@ export default function RegisterPage() {
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0;
 
   const getErrorMessage = (error: unknown) => {
+    if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+      return 'Registration took too long to respond. If your account was created, we will try to sign you in automatically.';
+    }
+
     if (!axios.isAxiosError(error) || !error.response?.data) {
       return (error as Error)?.message || 'Registration failed. Please try again.';
     }
@@ -65,6 +69,25 @@ export default function RegisterPage() {
       return String(firstMessage[0] || 'Registration failed. Please try again.');
     }
     return String(payload.detail || firstMessage || 'Registration failed. Please try again.');
+  };
+
+  const redirectToDashboard = (role: UserRole) => {
+    switch (role) {
+      case 'resident':
+        navigate('/dashboard/resident');
+        break;
+      case 'collector':
+        navigate('/dashboard/collector');
+        break;
+      case 'recycler':
+        navigate('/dashboard/recycler');
+        break;
+      case 'authority':
+        navigate('/dashboard/authority');
+        break;
+      default:
+        navigate('/');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,24 +135,21 @@ export default function RegisterPage() {
       });
 
       toast.success(`Welcome to M-Taka, ${user.name || user.email}!`);
-
-      switch (user.role) {
-        case 'resident':
-          navigate('/dashboard/resident');
-          break;
-        case 'collector':
-          navigate('/dashboard/collector');
-          break;
-        case 'recycler':
-          navigate('/dashboard/recycler');
-          break;
-        case 'authority':
-          navigate('/dashboard/authority');
-          break;
-        default:
-          navigate('/');
-      }
+      redirectToDashboard(user.role);
     } catch (error) {
+      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+        try {
+          const recoveredUser = await login(formData.email, formData.password);
+          if (recoveredUser) {
+            toast.success(`Welcome to M-Taka, ${recoveredUser.name || recoveredUser.email}!`);
+            redirectToDashboard(recoveredUser.role);
+            return;
+          }
+        } catch {
+          // Fall through to the timeout message below.
+        }
+      }
+
       toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);

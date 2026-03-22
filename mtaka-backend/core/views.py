@@ -288,10 +288,14 @@ def password_reset_request(request):
                 reset_link,
                 description=f"password reset email for user_id={user.id}",
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to queue password reset email for user_id=%s", user.id)
+            detail = 'Unable to send the password reset email right now. Please try again later.'
+            exc_text = str(exc).strip()
+            if exc_text:
+                detail = f'{detail} {exc_text}'
             return Response(
-                {'detail': 'Unable to send the password reset email right now. Please try again later.'},
+                {'detail': detail},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

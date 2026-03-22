@@ -94,15 +94,30 @@ def _get_brevo_sender_record(sender_email: str) -> dict | None:
     return None
 
 
+def _get_brevo_sender_payload(sender_name: str, sender_email: str) -> dict:
+    """
+    Prefer Brevo's sender ID when we can resolve it, because that pins the
+    exact verified sender record instead of relying on the display name.
+    """
+    try:
+        sender = _get_brevo_sender_record(sender_email)
+    except Exception:
+        logger.exception("Unable to look up Brevo sender record.")
+        sender = None
+
+    if sender and sender.get("id") is not None:
+        return {"id": sender["id"]}
+
+    return {
+        "name": sender_name,
+        "email": sender_email,
+    }
+
+
 def email_delivery_is_configured() -> bool:
     if _uses_brevo_api():
         _, sender_email = _get_sender_identity()
-        try:
-            sender = _get_brevo_sender_record(sender_email)
-        except Exception:
-            logger.exception("Unable to verify Brevo sender configuration.")
-            return False
-        return bool(sender and sender.get("active"))
+        return bool(getattr(settings, "BREVO_API_KEY", "").strip() and sender_email)
 
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
     if not backend:
@@ -160,6 +175,7 @@ def get_email_delivery_status() -> dict:
 
         sender_found = sender is not None
         sender_active = bool(sender and sender.get("active"))
+        sender_id = sender.get("id") if sender else None
         notes = [
             "Brevo API key is present in Render.",
             "Verify the sender email in Brevo before sending to other recipients.",
@@ -185,6 +201,7 @@ def get_email_delivery_status() -> dict:
             "configured": bool(sender_found and sender_active),
             "sender_name": sender_name,
             "sender_email": sender_email,
+            "sender_id": sender_id,
             "sender_found": sender_found,
             "sender_active": sender_active,
             "frontend_url_configured": bool(frontend_url),
@@ -299,10 +316,7 @@ def dispatch_email(send_func, *args, description: str = "email") -> None:
 def _send_email_via_brevo(subject: str, text_body: str, html_body: str, recipient: str) -> None:
     sender_name, sender_email = _get_sender_identity()
     payload = {
-        "sender": {
-            "name": sender_name,
-            "email": sender_email,
-        },
+        "sender": _get_brevo_sender_payload(sender_name, sender_email),
         "to": [{"email": recipient}],
         "subject": subject,
         "textContent": text_body,

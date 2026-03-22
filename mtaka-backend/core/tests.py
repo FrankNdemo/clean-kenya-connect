@@ -429,7 +429,7 @@ class BrevoEmailTests(TestCase):
 
         request = mock_urlopen.call_args[0][0]
         payload = json.loads(request.data.decode('utf-8'))
-        self.assertEqual(payload['sender']['email'], 'sender@example.com')
+        self.assertEqual(payload['sender']['id'], 101)
         self.assertEqual(payload['to'][0]['email'], 'brevo-resident@example.com')
         self.assertEqual(payload['subject'], 'Welcome to M-Taka')
 
@@ -443,6 +443,7 @@ class BrevoEmailTests(TestCase):
         self.assertEqual(payload['provider'], 'brevo')
         self.assertTrue(payload['configured'])
         self.assertEqual(payload['sender_email'], 'sender@example.com')
+        self.assertEqual(payload['sender_id'], 101)
         self.assertTrue(payload['frontend_url_configured'])
         self.assertTrue(payload['sender_found'])
         self.assertTrue(payload['sender_active'])
@@ -471,7 +472,7 @@ class BrevoEmailTests(TestCase):
 
         request = mock_urlopen.call_args[0][0]
         payload = json.loads(request.data.decode('utf-8'))
-        self.assertEqual(payload['sender']['email'], 'sender@example.com')
+        self.assertEqual(payload['sender']['id'], 101)
         self.assertEqual(payload['to'][0]['email'], user.email)
         self.assertEqual(payload['subject'], 'Reset your M-Taka password')
         self.assertIn('uid=', payload['textContent'])

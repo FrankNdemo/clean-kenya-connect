@@ -1,8 +1,8 @@
 from pathlib import Path
 from datetime import timedelta
 from importlib.util import find_spec
+import hashlib
 import os
-import secrets
 from urllib.parse import urlparse, parse_qs
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -126,8 +126,10 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Rotated on every server start to invalidate old JWT cookies after restart.
-RUNTIME_SESSION_ID = os.getenv('MTAKA_RUNTIME_SESSION_ID', secrets.token_urlsafe(24))
+# Keep auth token verification stable across reloads and workers unless explicitly overridden.
+RUNTIME_SESSION_ID = os.getenv('MTAKA_RUNTIME_SESSION_ID', '').strip() or hashlib.sha256(
+    f'{SECRET_KEY}:mtaka-runtime-session'.encode('utf-8')
+).hexdigest()
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",

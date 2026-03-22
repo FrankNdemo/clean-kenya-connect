@@ -209,9 +209,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTabCloseMarker();
       clearAuthStorage();
       setIsLoading(false);
-      void apiLogout().catch(() => {
-        // ignore
-      });
 
       return () => {
         window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);

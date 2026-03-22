@@ -47,6 +47,80 @@ def email_delivery_is_configured() -> bool:
     return True
 
 
+def get_email_delivery_status() -> dict:
+    frontend_url = str(getattr(settings, "FRONTEND_URL", "") or "").strip()
+    if _uses_brevo_api():
+        sender_name, sender_email = _get_sender_identity()
+        api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
+        return {
+            "provider": "brevo",
+            "configured": bool(api_key and sender_email),
+            "sender_name": sender_name,
+            "sender_email": sender_email,
+            "frontend_url_configured": bool(frontend_url),
+            "notes": [
+                "Set DJANGO_BREVO_API_KEY in Render.",
+                "Verify the sender email in Brevo before sending to other recipients.",
+            ],
+        }
+
+    backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
+    if not backend:
+        return {
+            "provider": "unset",
+            "configured": False,
+            "frontend_url_configured": bool(frontend_url),
+            "notes": ["DJANGO_EMAIL_BACKEND is not set."],
+        }
+
+    if backend.endswith("console.emailbackend"):
+        return {
+            "provider": "console",
+            "configured": bool(getattr(settings, "DEBUG", False)),
+            "frontend_url_configured": bool(frontend_url),
+            "notes": ["Console backend is local-only."],
+        }
+
+    if backend.endswith("locmem.emailbackend"):
+        return {
+            "provider": "locmem",
+            "configured": bool(getattr(settings, "DEBUG", False)),
+            "frontend_url_configured": bool(frontend_url),
+            "notes": ["Locmem backend is local-only."],
+        }
+
+    if backend.endswith("smtp.emailbackend"):
+        host = str(getattr(settings, "EMAIL_HOST", "") or "").strip()
+        user = str(getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
+        password = str(getattr(settings, "EMAIL_HOST_PASSWORD", "") or "").strip()
+        missing = [
+            key
+            for key, value in (
+                ("DJANGO_EMAIL_HOST", host),
+                ("DJANGO_EMAIL_HOST_USER", user),
+                ("DJANGO_EMAIL_HOST_PASSWORD", password),
+            )
+            if not value
+        ]
+        return {
+            "provider": "smtp",
+            "configured": not missing,
+            "frontend_url_configured": bool(frontend_url),
+            "missing": missing,
+            "notes": [
+                "Render free does not support SMTP delivery.",
+                "Use Brevo or another HTTPS email API for hosted deployments.",
+            ],
+        }
+
+    return {
+        "provider": backend,
+        "configured": True,
+        "frontend_url_configured": bool(frontend_url),
+        "notes": [],
+    }
+
+
 def _normalize_base_url(raw_value: str) -> str:
     value = str(raw_value or "").strip()
     if not value:

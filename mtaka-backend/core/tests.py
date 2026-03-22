@@ -412,6 +412,16 @@ class BrevoEmailTests(TestCase):
         self.assertEqual(payload['to'][0]['email'], 'brevo-resident@example.com')
         self.assertEqual(payload['subject'], 'Welcome to M-Taka')
 
+    def test_email_status_reports_brevo_configuration(self):
+        response = self.client.get('/api/auth/email-status/')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['provider'], 'brevo')
+        self.assertTrue(payload['configured'])
+        self.assertEqual(payload['sender_email'], 'sender@example.com')
+        self.assertTrue(payload['frontend_url_configured'])
+
     @patch('core.auth_email.urlopen')
     def test_password_reset_request_uses_brevo_api(self, mock_urlopen):
         mock_response = MagicMock()

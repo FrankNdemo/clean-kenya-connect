@@ -26,6 +26,7 @@ from .auth_email import (
     build_password_reset_link,
     dispatch_email,
     email_delivery_is_configured,
+    get_email_delivery_status,
     send_password_reset_email,
     send_welcome_email,
 )
@@ -235,6 +236,12 @@ def login_user(request):
     if getattr(settings, 'DEBUG', False):
         logger.debug("[LOGIN DEBUG] Authentication failed.")
     return JsonResponse({'error': 'Invalid credentials'}, status=401)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def email_delivery_status(request):
+    return Response(get_email_delivery_status(), status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

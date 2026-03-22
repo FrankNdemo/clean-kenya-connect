@@ -21,6 +21,7 @@ urlpatterns = [
     # Authentication
     path('register/', views.register_user, name='register'),
     path('login/', views.login_user, name='login'),
+    path('email-status/', views.email_delivery_status, name='email_status'),
     path('password-reset/request/', views.password_reset_request, name='password_reset_request'),
     path('password-reset/validate/', views.password_reset_validate, name='password_reset_validate'),
     path('password-reset/confirm/', views.password_reset_confirm, name='password_reset_confirm'),

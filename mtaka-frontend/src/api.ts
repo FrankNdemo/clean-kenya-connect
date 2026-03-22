@@ -435,6 +435,51 @@ export interface BackendCollectionRequest {
   created_at: string;
 }
 
+export interface BackendCollectorRouteStop {
+  request_id: number;
+  location: string;
+  user_name: string;
+  user_phone?: string;
+  waste_type: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  status: BackendCollectionRequest["status"];
+  coordinates: {
+    lat: number | string;
+    lng: number | string;
+  };
+  snapped_coordinates?: {
+    lat: number | string;
+    lng: number | string;
+  } | null;
+  drive_distance_km: number | string;
+  drive_duration_min: number | string;
+  eta_minutes: number | string;
+  eta_at: string;
+  cumulative_distance_km: number | string;
+  cumulative_drive_duration_min: number | string;
+}
+
+export interface BackendCollectorRouteSummary {
+  provider: string;
+  configured: boolean;
+  fallback_used: boolean;
+  origin: {
+    lat: number | string;
+    lng: number | string;
+    label: string;
+    source: string;
+  };
+  total_stops: number;
+  total_distance_km: number | string;
+  total_drive_duration_min: number | string;
+  service_minutes_per_stop: number;
+  estimated_time_min: number;
+  generated_at: string;
+  notes: string[];
+  route: BackendCollectorRouteStop[];
+}
+
 export interface BackendCollectionUpdate {
   id: number;
   collection_request: number;
@@ -537,6 +582,17 @@ export const updateCollectionRequest = async (
 export const deleteCollectionRequest = async (id: number | string) => {
   await API.delete(`collections/${id}/`);
   invalidateGetCache(["collections"]);
+};
+
+export const listCollectorRouteSummaryApi = async (params?: {
+  origin_location?: string;
+  origin_lat?: number;
+  origin_lng?: number;
+}, options?: { force?: boolean }) => {
+  return cachedGet("collections/route-summary/", {
+    params,
+    force: options?.force,
+  }) as Promise<BackendCollectorRouteSummary>;
 };
 
 export const listCollectionUpdatesApi = async (params?: {

@@ -18,10 +18,12 @@ from django.utils.http import urlsafe_base64_encode
 from django.core.cache import cache
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import hashlib
 import logging
 import json
 from .models import *
 from .serializers import *
+from .route_planner import build_collector_route_summary
 from .auth_email import (
     build_password_reset_link,
     dispatch_email,
@@ -555,6 +557,74 @@ class CollectionRequestViewSet(viewsets.ModelViewSet):
             serializer.save(collector=collector)
             return
         serializer.save()
+
+    @action(detail=False, methods=['get'], url_path='route-summary')
+    def route_summary(self, request):
+        user = request.user
+        if user.user_type != 'collector':
+            return Response({'detail': 'Collector access required'}, status=status.HTTP_403_FORBIDDEN)
+
+        collector = Collector.objects.select_related('user').filter(user=user).first()
+        if not collector:
+            return Response({'detail': 'Collector profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        active_requests = CollectionRequest.objects.select_related(
+            'household',
+            'household__user',
+            'waste_type',
+            'collector',
+            'collector__user',
+        ).filter(
+            collector=collector,
+            status__in=['scheduled', 'in_progress'],
+        ).order_by('scheduled_date', 'scheduled_time', 'created_at')
+
+        origin_location = (
+            request.query_params.get('origin_location')
+            or collector.service_areas
+            or collector.company_name
+            or 'Nairobi, Kenya'
+        )
+        origin_lat = request.query_params.get('origin_lat')
+        origin_lng = request.query_params.get('origin_lng')
+
+        payload = {
+            'collector_id': collector.id,
+            'origin_location': origin_location,
+            'origin_lat': origin_lat,
+            'origin_lng': origin_lng,
+            'requests': [
+                {
+                    'request_id': collection.id,
+                    'location': collection.address,
+                    'address_lat': float(collection.address_lat) if collection.address_lat is not None else None,
+                    'address_long': float(collection.address_long) if collection.address_long is not None else None,
+                    'user_name': collection.household.full_name,
+                    'user_phone': collection.household.user.phone,
+                    'waste_type': collection.waste_type.type_name,
+                    'scheduled_date': collection.scheduled_date.isoformat(),
+                    'scheduled_time': collection.scheduled_time.strftime('%H:%M'),
+                    'status': collection.status,
+                }
+                for collection in active_requests
+            ],
+        }
+        cache_key = 'collector-route-summary:' + hashlib.sha256(
+            json.dumps(payload, sort_keys=True, default=str).encode('utf-8')
+        ).hexdigest()
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached, status=status.HTTP_200_OK)
+
+        summary = build_collector_route_summary(
+            origin_location=origin_location,
+            origin_lat=origin_lat,
+            origin_lng=origin_lng,
+            requests=payload['requests'],
+        )
+        cache.set(cache_key, summary, 20)
+        return Response(summary, status=status.HTTP_200_OK)
 
 
 class CollectionRequestUpdateViewSet(viewsets.ModelViewSet):

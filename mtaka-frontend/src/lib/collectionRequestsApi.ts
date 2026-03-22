@@ -3,6 +3,7 @@ import {
   createCollectionUpdateApi,
   createCollectionRequest,
   deleteCollectionRequest,
+  listCollectorRouteSummaryApi,
   listCollectorTransactionsApi,
   listCollectionUpdatesApi,
   listCollectionRequests,
@@ -11,6 +12,8 @@ import {
   updateCollectionRequest,
   type BackendCollectionUpdate,
   type BackendCollectorTransaction,
+  type BackendCollectorRouteStop,
+  type BackendCollectorRouteSummary,
   type BackendCollectionRequest,
 } from "@/api";
 import type { CollectorUpdate, User, WasteRequest } from "@/lib/store";
@@ -169,6 +172,100 @@ const toFrontendCollectionUpdate = (item: BackendCollectionUpdate): CollectorUpd
   createdAt: item.createdAt || item.created_at || new Date().toISOString(),
 });
 
+export interface CollectorRouteStop {
+  requestId: string;
+  location: string;
+  userName: string;
+  userPhone?: string;
+  wasteType: WasteRequest["wasteType"];
+  scheduledDate: string;
+  scheduledTime: string;
+  status: WasteRequest["status"];
+  coordinates: { lat: number; lng: number };
+  snappedCoordinates?: { lat: number; lng: number } | null;
+  driveDistanceKm: number;
+  driveDurationMin: number;
+  etaMinutes: number;
+  etaAt: string;
+  cumulativeDistanceKm: number;
+  cumulativeDriveDurationMin: number;
+}
+
+export interface CollectorRouteSummary {
+  provider: string;
+  configured: boolean;
+  fallbackUsed: boolean;
+  origin: { lat: number; lng: number; label: string; source: string };
+  totalStops: number;
+  totalDistanceKm: number;
+  totalDriveDurationMin: number;
+  serviceMinutesPerStop: number;
+  estimatedTimeMin: number;
+  generatedAt: string;
+  notes: string[];
+  route: CollectorRouteStop[];
+}
+
+const toNumber = (value: number | string) => Number(value);
+
+const toFrontendRouteStop = (item: BackendCollectorRouteStop): CollectorRouteStop => {
+  const coordinates = {
+    lat: toNumber(item.coordinates.lat),
+    lng: toNumber(item.coordinates.lng),
+  };
+  const snappedCoordinates = item.snapped_coordinates
+    ? {
+        lat: toNumber(item.snapped_coordinates.lat),
+        lng: toNumber(item.snapped_coordinates.lng),
+      }
+    : null;
+
+  return {
+    requestId: String(item.request_id),
+    location: item.location || "",
+    userName: item.user_name || "Resident",
+    userPhone: item.user_phone || undefined,
+    wasteType: item.waste_type.toLowerCase().includes("organic")
+      ? "organic"
+      : item.waste_type.toLowerCase().includes("hazard")
+        ? "hazardous"
+        : item.waste_type.toLowerCase().includes("recycl")
+          ? "recyclable"
+          : "general",
+    scheduledDate: item.scheduled_date,
+    scheduledTime: normalizeTime(item.scheduled_time || ""),
+    status: "accepted",
+    coordinates,
+    snappedCoordinates,
+    driveDistanceKm: toNumber(item.drive_distance_km),
+    driveDurationMin: toNumber(item.drive_duration_min),
+    etaMinutes: Math.ceil(toNumber(item.eta_minutes)),
+    etaAt: item.eta_at,
+    cumulativeDistanceKm: toNumber(item.cumulative_distance_km),
+    cumulativeDriveDurationMin: toNumber(item.cumulative_drive_duration_min),
+  };
+};
+
+const toFrontendRouteSummary = (item: BackendCollectorRouteSummary): CollectorRouteSummary => ({
+  provider: item.provider,
+  configured: item.configured,
+  fallbackUsed: Boolean(item.fallback_used),
+  origin: {
+    lat: toNumber(item.origin.lat),
+    lng: toNumber(item.origin.lng),
+    label: item.origin.label || "Route origin",
+    source: item.origin.source || "unknown",
+  },
+  totalStops: item.total_stops,
+  totalDistanceKm: toNumber(item.total_distance_km),
+  totalDriveDurationMin: toNumber(item.total_drive_duration_min),
+  serviceMinutesPerStop: item.service_minutes_per_stop,
+  estimatedTimeMin: item.estimated_time_min,
+  generatedAt: item.generated_at,
+  notes: item.notes || [],
+  route: (item.route || []).map(toFrontendRouteStop),
+});
+
 const ensureWasteTypeCache = async () => {
   if (wasteTypeIdByName) return wasteTypeIdByName;
   const wasteTypes = await listWasteTypes();
@@ -225,6 +322,21 @@ export const fetchCurrentUserCollectionRequests = async (force = false): Promise
     });
 
   return collectionRequestsInFlight;
+};
+
+export const fetchCollectorRouteSummaryDb = async (payload: {
+  originLocation?: string;
+  originLat?: number;
+  originLng?: number;
+}, force = false): Promise<CollectorRouteSummary> => {
+  return listCollectorRouteSummaryApi(
+    {
+      origin_location: payload.originLocation,
+      origin_lat: payload.originLat,
+      origin_lng: payload.originLng,
+    },
+    { force }
+  ).then(toFrontendRouteSummary);
 };
 
 export const createWasteRequestDb = async (payload: {

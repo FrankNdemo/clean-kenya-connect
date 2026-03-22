@@ -7,7 +7,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { getUser, WasteRequest } from '@/lib/store';
 import { MapPin, Navigation, Clock, Truck, Route, Phone, LocateFixed, ExternalLink, Flag, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchCurrentUserCollectionRequests } from '@/lib/collectionRequestsApi';
+import {
+  fetchCollectorRouteSummaryDb,
+  fetchCurrentUserCollectionRequests,
+  type CollectorRouteStop,
+  type CollectorRouteSummary,
+} from '@/lib/collectionRequestsApi';
 
 // Simulated coordinates for locations
 const locationCoords: Record<string, { lat: number; lng: number }> = {
@@ -69,14 +74,26 @@ const optimizeRoute = (collectorCoords: { lat: number; lng: number }, stops: { l
   return result;
 };
 
+type RouteDisplayStop = {
+  request: WasteRequest;
+  location: string;
+  coords: { lat: number; lng: number };
+  legDistanceKm: number;
+  etaMinutes: number;
+  routeStop?: CollectorRouteStop;
+};
+
+const isPresent = <T,>(value: T | null | undefined): value is T => value !== null && value !== undefined;
+
 export default function RoutesPage() {
   const { user, isLoading } = useAuth();
-  const [isOptimized, setIsOptimized] = useState(false);
   const [myRequests, setMyRequests] = useState<WasteRequest[]>([]);
+  const [routeSummary, setRouteSummary] = useState<CollectorRouteSummary | null>(null);
   const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [usingLiveLocation, setUsingLiveLocation] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
 
   const loadRequests = useCallback(async (force = false) => {
     if (!user) return;
@@ -100,6 +117,53 @@ export default function RoutesPage() {
     return () => window.clearInterval(timer);
   }, [user, loadRequests]);
 
+  const assignedRequests = myRequests.filter((request) => request.status === 'accepted');
+  const routeSignature = assignedRequests
+    .map((request) =>
+      [
+        request.id,
+        request.status,
+        request.location,
+        request.coordinates?.lat ?? '',
+        request.coordinates?.lng ?? '',
+      ].join(':')
+    )
+    .join('|');
+
+  const loadRouteSummary = useCallback(async (force = false) => {
+    if (!user || assignedRequests.length === 0) {
+      setRouteSummary(null);
+      setIsRouteLoading(false);
+      return;
+    }
+
+    setIsRouteLoading(true);
+    try {
+      const summary = await fetchCollectorRouteSummaryDb(
+        {
+          originLocation: usingLiveLocation && liveCoords ? 'Live location' : user.location,
+          originLat: usingLiveLocation && liveCoords ? liveCoords.lat : undefined,
+          originLng: usingLiveLocation && liveCoords ? liveCoords.lng : undefined,
+        },
+        force
+      );
+      setRouteSummary(summary);
+    } catch {
+      setRouteSummary(null);
+    } finally {
+      setIsRouteLoading(false);
+    }
+  }, [assignedRequests.length, liveCoords, user, usingLiveLocation]);
+
+  useEffect(() => {
+    if (!user) {
+      setRouteSummary(null);
+      return;
+    }
+
+    void loadRouteSummary(false);
+  }, [user, routeSignature, usingLiveLocation, liveCoords?.lat, liveCoords?.lng, loadRouteSummary]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -110,32 +174,70 @@ export default function RoutesPage() {
 
   if (!user) return null;
 
-  const assignedRequests = myRequests.filter((request) => request.status === 'accepted');
   const collectorCoords = getCoords(user.location);
   const startCoords = usingLiveLocation && liveCoords ? liveCoords : collectorCoords;
+  const requestById = new Map(assignedRequests.map((request) => [request.id, request]));
 
-  // Build stops with coordinates
-  const stops = assignedRequests.map((request) => ({
+  const fallbackStops = assignedRequests.map((request) => ({
     location: request.location,
     coords: request.coordinates || getCoords(request.location),
     request,
   }));
+  const fallbackOrderedStops = optimizeRoute(startCoords, fallbackStops);
 
-  const orderedStops = isOptimized ? optimizeRoute(startCoords, stops) : stops;
+  let fallbackDistance = 0;
+  let fallbackPrev = startCoords;
+  const fallbackDisplayStops: RouteDisplayStop[] = fallbackOrderedStops.map((stop, index) => {
+    const legDistance = calcDistance(fallbackPrev, stop.coords);
+    fallbackDistance += legDistance;
+    fallbackPrev = stop.coords;
+    const etaMinutes = Math.ceil((index + 1) * 10 + fallbackDistance * 2.4);
 
-  // Calculate total distance along route
-  let totalDistance = 0;
-  let prev = startCoords;
-  orderedStops.forEach((stop) => {
-    totalDistance += calcDistance(prev, stop.coords);
-    prev = stop.coords;
+    return {
+      request: stop.request,
+      location: stop.location,
+      coords: stop.coords,
+      legDistanceKm: legDistance,
+      etaMinutes,
+    };
   });
 
-  const estimatedTime = Math.ceil(orderedStops.length * 10 + totalDistance * 2.4); // service + driving estimate
+  const fallbackEstimatedTime = Math.ceil(fallbackOrderedStops.length * 10 + fallbackDistance * 2.4);
+
+  const routeDisplayStops: RouteDisplayStop[] = (routeSummary?.route || [])
+    .map((stop) => {
+      const request = requestById.get(stop.requestId);
+      if (!request) return null;
+
+      return {
+        request,
+        location: stop.location || request.location,
+        coords: stop.snappedCoordinates || stop.coordinates,
+        legDistanceKm: stop.driveDistanceKm,
+        etaMinutes: stop.etaMinutes,
+        routeStop: stop,
+      };
+    })
+    .filter(isPresent);
+
+  const orderedStops = routeDisplayStops.length > 0 ? routeDisplayStops : fallbackDisplayStops;
+  const displayOriginCoords = routeSummary
+    ? { lat: routeSummary.origin.lat, lng: routeSummary.origin.lng }
+    : startCoords;
+  const displayOriginLabel = routeSummary?.origin.label || (
+    usingLiveLocation && liveCoords
+      ? 'Live location'
+      : user.location
+  );
+  const displayOriginText = usingLiveLocation && liveCoords
+    ? `${displayOriginLabel} (${liveCoords.lat.toFixed(5)}, ${liveCoords.lng.toFixed(5)})`
+    : displayOriginLabel;
+  const totalDistance = routeSummary ? routeSummary.totalDistanceKm : fallbackDistance;
+  const estimatedTime = routeSummary ? routeSummary.estimatedTimeMin : fallbackEstimatedTime;
 
   const handleOptimize = () => {
-    setIsOptimized(true);
-    toast.success('Routes optimized for shortest distance');
+    void loadRouteSummary(true);
+    toast.success('Route recalculated from road data');
   };
 
   const handleUseLiveLocation = () => {
@@ -167,18 +269,13 @@ export default function RoutesPage() {
     const destinationValue = destinationCoords
       ? `${destinationCoords.lat},${destinationCoords.lng}`
       : encodeURIComponent(destination);
-    if (usingLiveLocation && liveCoords) {
-      return `${base}&origin=${liveCoords.lat},${liveCoords.lng}&destination=${destinationValue}&travelmode=driving`;
-    }
-    return `${base}&destination=${destinationValue}&travelmode=driving`;
+    return `${base}&origin=${displayOriginCoords.lat},${displayOriginCoords.lng}&destination=${destinationValue}&travelmode=driving`;
   };
 
   const buildOptimizedRouteUrl = () => {
     if (orderedStops.length === 0) return '';
     const base = 'https://www.google.com/maps/dir/?api=1';
-    const origin = usingLiveLocation && liveCoords
-      ? `${liveCoords.lat},${liveCoords.lng}`
-      : encodeURIComponent(user.location);
+    const origin = `${displayOriginCoords.lat},${displayOriginCoords.lng}`;
     const destinationStop = orderedStops[orderedStops.length - 1];
     const destination = `${destinationStop.coords.lat},${destinationStop.coords.lng}`;
     const waypointStops = orderedStops
@@ -191,9 +288,7 @@ export default function RoutesPage() {
 
   const buildEmbeddedRouteUrl = () => {
     if (orderedStops.length === 0) return '';
-    const origin = usingLiveLocation && liveCoords
-      ? `${liveCoords.lat},${liveCoords.lng}`
-      : user.location;
+    const origin = `${displayOriginCoords.lat},${displayOriginCoords.lng}`;
     const destinationStop = orderedStops[orderedStops.length - 1];
     const destination = `${destinationStop.coords.lat},${destinationStop.coords.lng}`;
     const via = orderedStops
@@ -255,10 +350,10 @@ export default function RoutesPage() {
                     size="sm"
                     className="w-full shrink-0 gap-2 whitespace-nowrap sm:w-auto"
                     onClick={handleOptimize}
-                    disabled={isOptimized || assignedRequests.length === 0}
+                    disabled={assignedRequests.length === 0 || isRouteLoading}
                   >
                     <Route className="w-4 h-4" />
-                    {isOptimized ? 'Optimized' : 'Optimize Route'}
+                    {isRouteLoading ? 'Optimizing...' : 'Optimize Route'}
                   </Button>
                   {orderedStops.length > 0 && (
                     <a href={buildOptimizedRouteUrl()} target="_blank" rel="noreferrer" className="w-full shrink-0 sm:w-auto">
@@ -270,6 +365,13 @@ export default function RoutesPage() {
                   )}
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {routeSummary
+                    ? routeSummary.fallbackUsed
+                      ? 'Fallback routing was used for one or more stops. Verify the request address if the route looks off.'
+                      : 'Road distance and ETA are pulled from live map data.'
+                    : 'Road distance and ETA will load once the route summary is ready.'}
+                </p>
               </div>
             </div>
           </CardHeader>
@@ -285,9 +387,7 @@ export default function RoutesPage() {
                 <div className="flex items-center gap-2">
                   <LocateFixed className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">{usingLiveLocation ? 'Live Start Location' : 'Your Location'}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({usingLiveLocation && liveCoords ? `${liveCoords.lat.toFixed(5)}, ${liveCoords.lng.toFixed(5)}` : user.location})
-                  </span>
+                  <span className="text-xs text-muted-foreground">({displayOriginText})</span>
                 </div>
                 <div className="h-72 rounded-xl border border-border overflow-hidden bg-secondary/50">
                   <iframe
@@ -317,7 +417,7 @@ export default function RoutesPage() {
               <CardContent className="p-6 text-center">
                 <Navigation className="w-8 h-8 text-info mx-auto mb-2" />
                 <p className="text-2xl font-bold">{totalDistance.toFixed(1)} km</p>
-                <p className="text-sm text-muted-foreground">Est. Distance</p>
+                <p className="text-sm text-muted-foreground">Road Distance</p>
               </CardContent>
             </Card>
             <Card>
@@ -351,27 +451,28 @@ export default function RoutesPage() {
                     <div className="w-0.5 h-10 bg-primary/40" />
                   </div>
                   <div className="flex-1 p-4 rounded-lg border border-primary/20 bg-primary/5">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold">Collector Office</span>
                       <Badge variant="outline">Start</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">{user.location}</p>
+                    <p className="text-sm text-muted-foreground">{displayOriginText}</p>
                   </div>
                 </div>
 
                 {orderedStops.map((stop, index) => {
                   const phone = getResidentPhone(stop.request);
-                  const legDistance = calcDistance(
-                    index === 0 ? startCoords : orderedStops[index - 1].coords,
+                  const legDistance = stop.legDistanceKm ?? calcDistance(
+                    index === 0 ? displayOriginCoords : orderedStops[index - 1].coords,
                     stop.coords
                   );
-                  const cumulativeDistance = orderedStops
-                    .slice(0, index + 1)
-                    .reduce((sum, currentStop, stopIndex) => {
-                      const fromCoords = stopIndex === 0 ? startCoords : orderedStops[stopIndex - 1].coords;
-                      return sum + calcDistance(fromCoords, currentStop.coords);
-                    }, 0);
-                  const stopEtaMinutes = Math.ceil((index + 1) * 10 + cumulativeDistance * 2.4);
+                  const stopEtaMinutes = stop.etaMinutes ?? Math.ceil(
+                    (index + 1) * 10 + orderedStops
+                      .slice(0, index + 1)
+                      .reduce((sum, currentStop, stopIndex) => {
+                        const fromCoords = stopIndex === 0 ? displayOriginCoords : orderedStops[stopIndex - 1].coords;
+                        return sum + calcDistance(fromCoords, currentStop.coords);
+                      }, 0) * 2.4
+                  );
                   const isLast = index === orderedStops.length - 1;
 
                   return (
@@ -390,16 +491,16 @@ export default function RoutesPage() {
                             <Badge variant="outline" className="text-xs">{legDistance.toFixed(1)} km</Badge>
                           </div>
                         </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1"><MapPin className="w-3 h-3" />{stop.request.location}</div>
-                            <div className="text-xs">
-                              Coordinates: {stop.coords.lat.toFixed(6)}, {stop.coords.lng.toFixed(6)}
-                            </div>
-                            <div className="flex items-center gap-1"><Clock className="w-3 h-3" />{stop.request.date} at {stop.request.time}</div>
-                            <div className="text-xs">
-                              ETA: {formatEta(stopEtaMinutes)} ({stopEtaMinutes} min)
-                            </div>
-                            <div className="capitalize">Waste: {stop.request.wasteType}</div>
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1"><MapPin className="w-3 h-3" />{stop.location}</div>
+                          <div className="text-xs">
+                            Coordinates: {stop.coords.lat.toFixed(6)}, {stop.coords.lng.toFixed(6)}
+                          </div>
+                          <div className="flex items-center gap-1"><Clock className="w-3 h-3" />{stop.request.date} at {stop.request.time}</div>
+                          <div className="text-xs">
+                            ETA: {formatEta(stopEtaMinutes)} ({stopEtaMinutes} min)
+                          </div>
+                          <div className="capitalize">Waste: {stop.request.wasteType}</div>
                           {phone && (
                             <div className="flex items-center gap-1">
                               <Phone className="w-3 h-3" />
@@ -407,7 +508,7 @@ export default function RoutesPage() {
                             </div>
                           )}
                           <div className="pt-1">
-                            <a href={buildMapsDirectionsUrl(stop.request.location, stop.coords)} target="_blank" rel="noreferrer">
+                            <a href={buildMapsDirectionsUrl(stop.location, stop.coords)} target="_blank" rel="noreferrer">
                               <Button variant="outline" size="sm" className="h-7 px-2 gap-1">
                                 <Navigation className="w-3 h-3" />
                                 Navigate

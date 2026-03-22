@@ -1,10 +1,12 @@
 import json
 import re
 from io import BytesIO
+from datetime import date, time
 from urllib.parse import urlsplit
 from unittest.mock import MagicMock, patch
 
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -530,3 +532,186 @@ class IllegalDumpingMediaTests(TestCase):
         media_response = self.client.get(urlsplit(payload['photo_url']).path)
         self.assertEqual(media_response.status_code, 200)
         self.assertEqual(media_response['Content-Type'], 'image/png')
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], FRONTEND_URL='https://mtaka.example')
+class CollectorRouteSummaryTests(TestCase):
+    class MockMapResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def read(self):
+            return json.dumps(self.payload).encode('utf-8')
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def setUp(self):
+        self.client = APIClient()
+        cache.clear()
+        self.user_model = get_user_model()
+
+        self.collector_user = self.user_model.objects.create_user(
+            username='collector-route-user',
+            email='collector-route@example.com',
+            password='StrongPass!1',
+            user_type='collector',
+            phone='+254700009200',
+        )
+        self.collector = Collector.objects.create(
+            user=self.collector_user,
+            company_name='Clean Connect',
+            service_areas='Westlands, Nairobi',
+        )
+
+        self.household_waste_type = WasteType.objects.create(type_name='General Waste')
+
+        resident_one = self.user_model.objects.create_user(
+            username='resident-route-one',
+            email='resident-route-one@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009201',
+        )
+        household_one = Household.objects.create(
+            user=resident_one,
+            full_name='Resident One',
+            address='Westlands, Nairobi',
+        )
+
+        resident_two = self.user_model.objects.create_user(
+            username='resident-route-two',
+            email='resident-route-two@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009202',
+        )
+        household_two = Household.objects.create(
+            user=resident_two,
+            full_name='Resident Two',
+            address='Parklands, Nairobi',
+        )
+
+        self.request_one = CollectionRequest.objects.create(
+            household=household_one,
+            waste_type=self.household_waste_type,
+            collector=self.collector,
+            scheduled_date=date(2026, 3, 22),
+            scheduled_time=time(9, 0),
+            status='scheduled',
+            address='Westlands, Nairobi',
+            address_lat=-1.2635,
+            address_long=36.8020,
+        )
+        self.request_two = CollectionRequest.objects.create(
+            household=household_two,
+            waste_type=self.household_waste_type,
+            collector=self.collector,
+            scheduled_date=date(2026, 3, 22),
+            scheduled_time=time(10, 0),
+            status='scheduled',
+            address='Parklands, Nairobi',
+            address_lat=-1.2580,
+            address_long=36.8180,
+        )
+
+        self.client.force_authenticate(user=self.collector_user)
+
+    def _mock_map_urlopen(self, request, timeout=15):
+        url = request.full_url if hasattr(request, 'full_url') else str(request)
+        if '/table/v1/driving/' in url:
+            return self.MockMapResponse({
+                'code': 'Ok',
+                'durations': [
+                    [0, 540, 120],
+                    [540, 0, 420],
+                    [120, 420, 0],
+                ],
+            })
+        if '/route/v1/driving/' in url:
+            return self.MockMapResponse({
+                'code': 'Ok',
+                'routes': [
+                    {
+                        'distance': 12345,
+                        'duration': 1800,
+                        'legs': [
+                            {'distance': 3500, 'duration': 600},
+                            {'distance': 8845, 'duration': 1200},
+                        ],
+                    }
+                ],
+                'waypoints': [
+                    {'location': [36.817223, -1.286389]},
+                    {'location': [36.8180, -1.2580]},
+                    {'location': [36.8020, -1.2635]},
+                ],
+            })
+        if '/search?' in url:
+            if 'Kisumu' in url:
+                return self.MockMapResponse([
+                    {
+                        'lat': '-0.091702',
+                        'lon': '34.767956',
+                        'display_name': 'Kisumu, Kenya',
+                    }
+                ])
+            if 'Westlands' in url:
+                return self.MockMapResponse([
+                    {
+                        'lat': '-1.2635',
+                        'lon': '36.8020',
+                        'display_name': 'Westlands, Nairobi',
+                    }
+                ])
+        raise AssertionError(f'Unexpected map request: {url}')
+
+    def test_collector_route_summary_uses_road_order_and_metrics(self):
+        with patch('core.route_planner.urlopen', side_effect=self._mock_map_urlopen):
+            response = self.client.get(
+                '/api/auth/collections/route-summary/',
+                data={
+                    'origin_location': 'Collector Base',
+                    'origin_lat': -1.286389,
+                    'origin_lng': 36.817223,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['provider'], 'osrm')
+        self.assertTrue(payload['configured'])
+        self.assertFalse(payload['fallback_used'])
+        self.assertEqual(payload['origin']['label'], 'Collector Base')
+        self.assertEqual(payload['total_stops'], 2)
+        self.assertEqual(payload['estimated_time_min'], 50)
+        self.assertEqual([stop['request_id'] for stop in payload['route']], [self.request_two.id, self.request_one.id])
+        self.assertEqual(payload['route'][0]['eta_minutes'], 10)
+        self.assertEqual(payload['route'][1]['eta_minutes'], 40)
+        self.assertAlmostEqual(float(payload['total_distance_km']), 12.35, places=2)
+
+    def test_collector_route_summary_geocodes_text_locations(self):
+        cache.clear()
+        self.request_one.address_lat = None
+        self.request_one.address_long = None
+        self.request_one.save(update_fields=['address_lat', 'address_long'])
+
+        with patch('core.route_planner.urlopen', side_effect=self._mock_map_urlopen):
+            response = self.client.get(
+                '/api/auth/collections/route-summary/',
+                data={
+                    'origin_location': 'Kisumu',
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['origin']['label'], 'Kisumu, Kenya')
+        westlands_stop = next(
+            stop for stop in payload['route'] if stop['location'] == 'Westlands, Nairobi'
+        )
+        self.assertEqual(westlands_stop['coordinates']['lat'], -1.2635)
+        self.assertEqual(westlands_stop['coordinates']['lng'], 36.8020)

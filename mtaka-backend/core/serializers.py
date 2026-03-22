@@ -501,6 +501,21 @@ class EventParticipantSerializer(serializers.ModelSerializer):
 class IllegalDumpingSerializer(serializers.ModelSerializer):
     reporter_name = serializers.CharField(source='reporter.username', read_only=True)
     reporter_phone = serializers.CharField(source='reporter.phone', read_only=True)
+    photo_url = serializers.SerializerMethodField()
+
+    def get_photo_url(self, obj):
+        photo = getattr(obj, 'photo', None)
+        if not photo:
+            return None
+
+        url = photo.url
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        if request is not None:
+            try:
+                return request.build_absolute_uri(url)
+            except Exception:
+                return url
+        return url
     
     class Meta:
         model = IllegalDumping

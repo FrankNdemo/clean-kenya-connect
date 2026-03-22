@@ -1,13 +1,12 @@
 import {
   createDumpingReportApi,
   deleteDumpingReportApi,
+  getApiOrigin,
   listDumpingReportsApi,
   updateDumpingReportApi,
   type BackendDumpingReport,
 } from "@/api";
 import type { DumpingReport } from "@/lib/store";
-
-const BACKEND_URL = "http://127.0.0.1:8000";
 const META_SEPARATOR = "\n\n__mtaka_meta__";
 
 type DumpingMeta = {
@@ -66,15 +65,16 @@ const resolvePhotoUrl = (photo?: string | null) => {
     }
   }
 
+  const backendOrigin = getApiOrigin();
   const normalized = raw.startsWith("/") ? raw : `/${raw}`;
-  if (normalized.startsWith("/media/")) return `${BACKEND_URL}${normalized}`;
-  if (normalized.includes("/dumping_reports/")) return `${BACKEND_URL}/media${normalized}`;
-  return `${BACKEND_URL}${normalized}`;
+  if (normalized.startsWith("/media/")) return `${backendOrigin}${normalized}`;
+  if (normalized.includes("/dumping_reports/")) return `${backendOrigin}/media${normalized}`;
+  return `${backendOrigin}${normalized}`;
 };
 
 const toFrontendReport = (row: BackendDumpingReport): DumpingReport => {
   const { description, meta } = parseDescriptionWithMeta(row.description || "");
-  const photoUrl = resolvePhotoUrl(row.photo);
+  const photoUrl = resolvePhotoUrl(row.photo_url || row.photo);
 
   let status: DumpingReport["status"] = row.status;
   if (meta.cancelled) {

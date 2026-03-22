@@ -1,11 +1,15 @@
 import json
 import re
+from io import BytesIO
+from urllib.parse import urlsplit
 from unittest.mock import MagicMock, patch
 
 from django.core import mail
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
+from PIL import Image
 
 from .models import CollectionRequest, CollectionRequestUpdate, Collector, Household, WasteType
 
@@ -482,3 +486,47 @@ class BrevoEmailTests(TestCase):
         self.assertEqual(payload['subject'], 'Reset your M-Taka password')
         self.assertIn('uid=', payload['textContent'])
         self.assertIn('token=', payload['textContent'])
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'])
+class IllegalDumpingMediaTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user_model = get_user_model()
+        self.user = self.user_model.objects.create_user(
+            username='dumping-reporter',
+            email='dumping-reporter@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009100',
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_dumping_report_photo_is_returned_and_served(self):
+        buffer = BytesIO()
+        Image.new('RGB', (1, 1), color='red').save(buffer, format='PNG')
+        photo = SimpleUploadedFile(
+            'dumping.png',
+            buffer.getvalue(),
+            content_type='image/png',
+        )
+
+        create_response = self.client.post(
+            '/api/auth/dumping-reports/',
+            data={
+                'location': 'Westlands, Nairobi',
+                'description': 'Illegal dumping near the road.',
+                'severity': 'medium',
+                'photo': photo,
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        payload = create_response.json()
+        self.assertIn('photo_url', payload)
+        self.assertTrue(payload['photo_url'].startswith('http://testserver/media/dumping_reports/'))
+
+        media_response = self.client.get(urlsplit(payload['photo_url']).path)
+        self.assertEqual(media_response.status_code, 200)
+        self.assertEqual(media_response['Content-Type'], 'image/png')

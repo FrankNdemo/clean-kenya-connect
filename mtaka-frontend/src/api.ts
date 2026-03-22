@@ -65,6 +65,18 @@ const normalizeApiBaseUrl = (rawValue: unknown): string => {
   return `${withoutTrailingSlash}/api/auth/`;
 };
 
+export const getApiOrigin = (): string => {
+  const baseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL) || defaultApiBaseUrl;
+  const fallbackOrigin =
+    typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:8000";
+
+  try {
+    return new URL(baseUrl, fallbackOrigin).origin;
+  } catch {
+    return fallbackOrigin;
+  }
+};
+
 const defaultApiBaseUrl =
   import.meta.env.DEV
     ? "/api/auth/"
@@ -690,6 +702,7 @@ export interface BackendDumpingReport {
   location_long?: string | number | null;
   description: string;
   photo?: string | null;
+  photo_url?: string | null;
   severity: "low" | "medium" | "high";
   status: "reported" | "investigating" | "resolved";
   is_anonymous: boolean;

@@ -40,6 +40,11 @@ services:
         value: "20"
       - key: DJANGO_DEFAULT_FROM_EMAIL
         value: "M-Taka No-Reply <linkentnerg@gmail.com>"
+      - key: MTAKA_FRONTEND_URL
+        fromService:
+          type: web
+          name: mtaka-frontend
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
       - key: PYTHON_VERSION
         value: "3.12.6"
 

@@ -191,6 +191,7 @@ EMAIL_USE_SSL = env_bool('DJANGO_EMAIL_USE_SSL', False)
 EMAIL_TIMEOUT = int(os.getenv('DJANGO_EMAIL_TIMEOUT', '20'))
 DEFAULT_FROM_EMAIL = os.getenv('DJANGO_DEFAULT_FROM_EMAIL', 'M-Taka No-Reply <no-reply@mtaka.local>').strip()
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+BREVO_API_KEY = os.getenv('DJANGO_BREVO_API_KEY', '').strip()
 FRONTEND_URL = os.getenv('MTAKA_FRONTEND_URL', '').strip()
 PASSWORD_RESET_TIMEOUT = int(os.getenv('DJANGO_PASSWORD_RESET_TIMEOUT', '3600'))
 

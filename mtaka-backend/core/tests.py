@@ -1,5 +1,6 @@
 import json
 import re
+from unittest.mock import MagicMock, patch
 
 from django.core import mail
 from django.test import TestCase, override_settings
@@ -11,6 +12,7 @@ from .models import CollectionRequest, CollectionRequestUpdate, Collector, House
 
 @override_settings(
     RUNTIME_SESSION_ID='test-session-id',
+    DEBUG=True,
     EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
     DEFAULT_FROM_EMAIL='M-Taka No-Reply <no-reply@example.com>',
     FRONTEND_URL='https://mtaka.example',
@@ -358,3 +360,86 @@ class CollectionRequestUpdateTests(TestCase):
         collector_updates = self.collector_client.get('/api/auth/collection-updates/')
         self.assertEqual(collector_updates.status_code, 200)
         self.assertEqual(len(collector_updates.json()), 2)
+
+
+@override_settings(
+    RUNTIME_SESSION_ID='test-session-id',
+    DEBUG=True,
+    BREVO_API_KEY='re_test_api_key',
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    DEFAULT_FROM_EMAIL='M-Taka No-Reply <sender@example.com>',
+    PASSWORD_RESET_TIMEOUT=3600,
+    SIMPLE_JWT={
+        'ACCESS_TOKEN_LIFETIME': __import__('datetime').timedelta(minutes=60),
+        'REFRESH_TOKEN_LIFETIME': __import__('datetime').timedelta(days=1),
+        'AUTH_HEADER_TYPES': ('Bearer',),
+    },
+)
+class BrevoEmailTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user_model = get_user_model()
+        if hasattr(mail, 'outbox'):
+            mail.outbox.clear()
+
+    @patch('core.auth_email.urlopen')
+    def test_registration_uses_brevo_api_for_welcome_email(self, mock_urlopen):
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"messageId":"test"}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        response = self.client.post(
+            '/api/auth/register/',
+            data=json.dumps({
+                'email': 'brevo-resident@example.com',
+                'password': 'StrongPass!1',
+                'password2': 'StrongPass!1',
+                'user_type': 'household',
+                'phone': '+254700009001',
+                'full_name': 'Brevo Resident',
+                'location': 'Westlands, Nairobi',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(mock_urlopen.call_count, 1)
+
+        request = mock_urlopen.call_args[0][0]
+        payload = json.loads(request.data.decode('utf-8'))
+        self.assertEqual(payload['sender']['email'], 'sender@example.com')
+        self.assertEqual(payload['to'][0]['email'], 'brevo-resident@example.com')
+        self.assertEqual(payload['subject'], 'Welcome to M-Taka')
+
+    @patch('core.auth_email.urlopen')
+    def test_password_reset_request_uses_brevo_api(self, mock_urlopen):
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"messageId":"test"}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        user = self.user_model.objects.create_user(
+            username='brevo-reset-user',
+            email='brevo-reset@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009002',
+        )
+
+        response = self.client.post(
+            '/api/auth/password-reset/request/',
+            data={'email': user.email},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(mock_urlopen.call_count, 1)
+
+        request = mock_urlopen.call_args[0][0]
+        payload = json.loads(request.data.decode('utf-8'))
+        self.assertEqual(payload['sender']['email'], 'sender@example.com')
+        self.assertEqual(payload['to'][0]['email'], user.email)
+        self.assertEqual(payload['subject'], 'Reset your M-Taka password')
+        self.assertIn('uid=', payload['textContent'])
+        self.assertIn('token=', payload['textContent'])

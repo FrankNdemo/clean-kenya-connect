@@ -1,22 +1,41 @@
+import json
 import logging
-import threading
+from email.utils import parseaddr
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
+from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.db import close_old_connections
 
 
 logger = logging.getLogger(__name__)
 
 
+def _uses_brevo_api() -> bool:
+    return bool(getattr(settings, "BREVO_API_KEY", "").strip())
+
+
+def _get_sender_identity() -> tuple[str, str]:
+    sender_name, sender_email = parseaddr(getattr(settings, "DEFAULT_FROM_EMAIL", ""))
+    sender_name = sender_name.strip() or "M-Taka No-Reply"
+    sender_email = sender_email.strip()
+    if not sender_email:
+        sender_email = "no-reply@mtaka.local"
+    return sender_name, sender_email
+
+
 def email_delivery_is_configured() -> bool:
+    if _uses_brevo_api():
+        _, sender_email = _get_sender_identity()
+        return bool(getattr(settings, "BREVO_API_KEY", "").strip() and sender_email)
+
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
     if not backend:
         return False
 
     if backend.endswith("console.emailbackend") or backend.endswith("locmem.emailbackend"):
-        return True
+        return bool(getattr(settings, "DEBUG", False))
 
     if backend.endswith("smtp.emailbackend"):
         return bool(
@@ -68,29 +87,63 @@ def build_password_reset_link(request, uid: str, token: str) -> str:
     return f"{base_url}/#/reset-password?{query_string}"
 
 
-def _should_send_email_async() -> bool:
-    backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
-    return backend.endswith("smtp.emailbackend")
-
-
 def dispatch_email(send_func, *args, description: str = "email") -> None:
-    if not _should_send_email_async():
+    try:
         send_func(*args)
-        return
+    except Exception:
+        logger.exception("%s delivery failed.", description)
+        raise
 
-    def runner():
-        close_old_connections()
+
+def _send_email_via_brevo(subject: str, text_body: str, html_body: str, recipient: str) -> None:
+    api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
+    if not api_key:
+        raise RuntimeError("Brevo email API is not configured.")
+
+    sender_name, sender_email = _get_sender_identity()
+    payload = {
+        "sender": {
+            "name": sender_name,
+            "email": sender_email,
+        },
+        "to": [{"email": recipient}],
+        "subject": subject,
+        "textContent": text_body,
+        "htmlContent": html_body,
+    }
+    request = Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+
+    timeout = int(getattr(settings, "EMAIL_TIMEOUT", 20) or 20)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            response.read()
+    except HTTPError as exc:
         try:
-            send_func(*args)
+            error_body = exc.read().decode("utf-8", errors="replace").strip()
         except Exception:
-            logger.exception("Background %s delivery failed.", description)
-        finally:
-            close_old_connections()
-
-    threading.Thread(target=runner, daemon=True).start()
+            error_body = ""
+        message = f"Brevo email API returned HTTP {exc.code}"
+        if error_body:
+            message = f"{message}: {error_body}"
+        raise RuntimeError(message) from exc
+    except URLError as exc:
+        raise RuntimeError(f"Brevo email API request failed: {exc.reason}") from exc
 
 
 def _send_email(subject: str, text_body: str, html_body: str, recipient: str) -> None:
+    if _uses_brevo_api():
+        _send_email_via_brevo(subject, text_body, html_body, recipient)
+        return
+
     message = EmailMultiAlternatives(
         subject=subject,
         body=text_body,

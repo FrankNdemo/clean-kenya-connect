@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/lib/store';
 import API, {
+  completePasswordReset as apiCompletePasswordReset,
   loginUser as apiLogin,
   registerUser as apiRegister,
   getProfile,
@@ -20,6 +21,7 @@ interface AuthContextType {
       countyOfOperation?: string;
     }
   ) => Promise<User>;
+  completePasswordReset: (uid: string, token: string, password: string) => Promise<User | null>;
   switchUser: (userId: string) => Promise<void>;
   isDemoAccount: (email: string) => boolean;
 }
@@ -163,6 +165,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const applyAuthenticatedUser = (data: any) => {
+    if (!data?.user) return null;
+
+    const nextUser = mapBackendUserToFrontend(data);
+    setUser(nextUser);
+    setActiveTabSession();
+    clearTabCloseMarker();
+    storeCachedUser(nextUser);
+    return nextUser;
+  };
+
   useEffect(() => {
     clearLegacyPersistentAuth();
 
@@ -252,15 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const username = email; // backend allows username or email; using email as username
       const data = await apiLogin(username, password || '');
-      if (data && data.user) {
-        const u = mapBackendUserToFrontend(data);
-        setUser(u);
-        setActiveTabSession();
-        clearTabCloseMarker();
-        storeCachedUser(u);
-        return u;
-      }
-      return null;
+      return applyAuthenticatedUser(data);
     } catch (err: unknown) {
       const maybeAxiosError = err as { response?: { data?: { error?: string; detail?: string } } };
       const message =
@@ -330,15 +335,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } as Record<string, unknown>;
 
     const data = await apiRegister(payload);
-    if (data && data.user) {
-      const u = mapBackendUserToFrontend(data);
-      setUser(u);
-      setActiveTabSession();
-      clearTabCloseMarker();
-      storeCachedUser(u);
-      return u;
+    const authenticatedUser = applyAuthenticatedUser(data);
+    if (authenticatedUser) {
+      return authenticatedUser;
     }
     throw new Error('Registration failed');
+  };
+
+  const completePasswordReset = async (uid: string, token: string, password: string) => {
+    const data = await apiCompletePasswordReset({
+      uid,
+      token,
+      password,
+      password2: password,
+    });
+    return applyAuthenticatedUser(data);
   };
 
   const switchUser = async (userId: string) => {
@@ -379,7 +390,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, register, switchUser, isDemoAccount: () => false }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        logout,
+        register,
+        completePasswordReset,
+        switchUser,
+        isDemoAccount: () => false,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

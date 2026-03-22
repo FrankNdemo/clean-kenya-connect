@@ -178,6 +178,22 @@ JWT_COOKIE_PERSISTENT = env_bool('DJANGO_JWT_COOKIE_PERSISTENT', False)
 CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', not DEBUG)
 SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', not DEBUG)
 
+EMAIL_BACKEND = os.getenv(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.getenv('DJANGO_EMAIL_HOST', '').strip()
+EMAIL_PORT = int(os.getenv('DJANGO_EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('DJANGO_EMAIL_HOST_USER', '').strip()
+EMAIL_HOST_PASSWORD = os.getenv('DJANGO_EMAIL_HOST_PASSWORD', '').strip()
+EMAIL_USE_TLS = env_bool('DJANGO_EMAIL_USE_TLS', True)
+EMAIL_USE_SSL = env_bool('DJANGO_EMAIL_USE_SSL', False)
+EMAIL_TIMEOUT = int(os.getenv('DJANGO_EMAIL_TIMEOUT', '20'))
+DEFAULT_FROM_EMAIL = os.getenv('DJANGO_DEFAULT_FROM_EMAIL', 'M-Taka No-Reply <no-reply@mtaka.local>').strip()
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+FRONTEND_URL = os.getenv('MTAKA_FRONTEND_URL', '').strip()
+PASSWORD_RESET_TIMEOUT = int(os.getenv('DJANGO_PASSWORD_RESET_TIMEOUT', '3600'))
+
 database_url = os.getenv('DATABASE_URL', '').strip()
 db_engine = os.getenv('DB_ENGINE', 'sqlite').strip().lower()
 db_conn_max_age = int(os.getenv('DB_CONN_MAX_AGE', '60'))

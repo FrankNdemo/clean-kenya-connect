@@ -6,35 +6,32 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Recycle, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { createPasswordResetToken } from '@/lib/store';
+import { requestPasswordReset } from '@/api';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
-  const [resetToken, setResetToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    const token = createPasswordResetToken(email);
-    
-    if (token) {
-      setResetToken(token);
+    try {
+      await requestPasswordReset(email.trim());
       setIsEmailSent(true);
-      toast.success('Password reset link generated!');
-    } else {
-      toast.error('No account found with that email address.');
+      toast.success('If that email is registered, a reset link has been sent.');
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Unable to send the reset email right now.';
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
-  if (isEmailSent && resetToken) {
+  if (isEmailSent) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background p-4">
         <div className="w-full max-w-md">
@@ -45,25 +42,17 @@ export default function ForgotPasswordPage() {
               </div>
               <CardTitle className="text-2xl">Check Your Email</CardTitle>
               <CardDescription>
-                We've sent a password reset link to <strong>{email}</strong>
+                If an account exists for <strong>{email}</strong>, a password reset link is on its way.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-secondary/50 p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  <strong>Note:</strong> Here's your reset link (for local testing):
-                </p>
-                <Link 
-                  to={`/reset-password?token=${resetToken}`}
-                  className="text-primary underline break-all text-sm"
-                >
-                  Click here to reset your password
-                </Link>
-              </div>
-              
+              <p className="rounded-lg bg-secondary/50 p-4 text-sm text-muted-foreground">
+                Open the email from M-Taka No-Reply and use the secure reset link to choose a new password.
+              </p>
+
               <p className="text-sm text-center text-muted-foreground">
-                Didn't receive the email? Check your spam folder or{' '}
-                <button 
+                Didn&apos;t receive the email? Check your spam folder or{' '}
+                <button
                   onClick={() => setIsEmailSent(false)}
                   className="text-primary font-medium hover:underline"
                 >

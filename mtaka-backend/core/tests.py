@@ -1,5 +1,7 @@
 import json
+import re
 
+from django.core import mail
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -9,6 +11,10 @@ from .models import CollectionRequest, CollectionRequestUpdate, Collector, House
 
 @override_settings(
     RUNTIME_SESSION_ID='test-session-id',
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    DEFAULT_FROM_EMAIL='M-Taka No-Reply <no-reply@example.com>',
+    FRONTEND_URL='https://mtaka.example',
+    PASSWORD_RESET_TIMEOUT=3600,
     SIMPLE_JWT={
         'ACCESS_TOKEN_LIFETIME': __import__('datetime').timedelta(minutes=60),
         'REFRESH_TOKEN_LIFETIME': __import__('datetime').timedelta(days=1),
@@ -19,6 +25,8 @@ class AuthFlowTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user_model = get_user_model()
+        if hasattr(mail, 'outbox'):
+            mail.outbox.clear()
 
     def test_registration_persists_household_location_and_returns_profile_and_tokens(self):
         response = self.client.post(
@@ -44,6 +52,10 @@ class AuthFlowTests(TestCase):
             Household.objects.get(user__email='resident@example.com').address,
             'Westlands, Nairobi',
         )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['resident@example.com'])
+        self.assertEqual(mail.outbox[0].from_email, 'M-Taka No-Reply <no-reply@example.com>')
+        self.assertIn('Welcome to M-Taka', mail.outbox[0].subject)
 
     def test_refresh_accepts_refresh_token_from_request_body(self):
         register_response = self.client.post(
@@ -116,6 +128,108 @@ class AuthFlowTests(TestCase):
             duplicate_phone_response.json()['phone'][0],
             'Phone already used. Try another phone.',
         )
+
+    def test_password_reset_request_sends_email_with_frontend_reset_link(self):
+        user = self.user_model.objects.create_user(
+            username='reset-user',
+            email='reset@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001202',
+        )
+
+        response = self.client.post(
+            '/api/auth/password-reset/request/',
+            data={'email': user.email},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [user.email])
+        self.assertIn('Reset your M-Taka password', mail.outbox[0].subject)
+        self.assertRegex(
+            mail.outbox[0].body,
+            r'https://mtaka\.example/#/reset-password\?uid=[^&\s]+&token=[^\s]+',
+        )
+
+    def test_password_reset_confirm_updates_password_and_returns_auth_payload(self):
+        user = self.user_model.objects.create_user(
+            username='reset-confirm-user',
+            email='reset-confirm@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001203',
+        )
+
+        request_response = self.client.post(
+            '/api/auth/password-reset/request/',
+            data={'email': user.email},
+            format='json',
+        )
+        self.assertEqual(request_response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+
+        match = re.search(
+            r'uid=([^&\s]+)&token=([^\s]+)',
+            mail.outbox[0].body,
+        )
+        self.assertIsNotNone(match)
+        uid = match.group(1)
+        token = match.group(2)
+
+        validate_response = self.client.get(
+            '/api/auth/password-reset/validate/',
+            data={'uid': uid, 'token': token},
+        )
+        self.assertEqual(validate_response.status_code, 200)
+        self.assertEqual(validate_response.json()['email'], user.email)
+
+        confirm_response = self.client.post(
+            '/api/auth/password-reset/confirm/',
+            data={
+                'uid': uid,
+                'token': token,
+                'password': 'NewStrongPass!2',
+                'password2': 'NewStrongPass!2',
+            },
+            format='json',
+        )
+
+        self.assertEqual(confirm_response.status_code, 200)
+        self.assertIn('user', confirm_response.json())
+        self.assertIn('access', confirm_response.json())
+        self.assertIn('refresh', confirm_response.json())
+
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('NewStrongPass!2'))
+
+        login_response = self.client.post(
+            '/api/auth/login/',
+            data=json.dumps({
+                'username': user.email,
+                'password': 'NewStrongPass!2',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(login_response.status_code, 200)
+
+    def test_password_reset_validate_rejects_invalid_token(self):
+        user = self.user_model.objects.create_user(
+            username='invalid-reset-user',
+            email='invalid-reset@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001204',
+        )
+
+        response = self.client.get(
+            '/api/auth/password-reset/validate/',
+            data={'uid': 'baduid', 'token': 'badtoken'},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['detail'][0], 'Invalid or expired reset link.')
 
     def test_profile_update_rejects_duplicate_email_and_phone(self):
         first_user = self.user_model.objects.create_user(

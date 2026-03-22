@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from django.contrib.auth import authenticate
+from django.contrib.auth.tokens import default_token_generator
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
@@ -12,6 +13,8 @@ from django.db.models import Q
 from django.db.models import Count, Prefetch
 from django.db import transaction
 from django.utils import timezone
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from django.core.cache import cache
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -19,6 +22,7 @@ import logging
 import json
 from .models import *
 from .serializers import *
+from .auth_email import build_password_reset_link, send_password_reset_email, send_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +101,13 @@ def _build_auth_response(user, refresh, access, status_code=200):
     return resp
 
 
+def _build_auth_response_for_user(user, status_code=200):
+    refresh = RefreshToken.for_user(user)
+    refresh['sid'] = getattr(settings, 'RUNTIME_SESSION_ID', '')
+    access = refresh.access_token
+    return _build_auth_response(user, refresh, access, status_code=status_code)
+
+
 def award_household_credits(user, points, description, reference_id=None):
     if not user or user.user_type != 'household' or points <= 0:
         return
@@ -132,12 +143,12 @@ def register_user(request):
     serializer = RegisterSerializer(data=data)
     if serializer.is_valid():
         user = serializer.save()
-        refresh = RefreshToken.for_user(user)
-        refresh['sid'] = getattr(settings, 'RUNTIME_SESSION_ID', '')
-        access = refresh.access_token
-
-        resp = _build_auth_response(user, refresh, access, status_code=201)
+        resp = _build_auth_response_for_user(user, status_code=201)
         cache.delete("api:list_users:v1")
+        try:
+            send_welcome_email(user)
+        except Exception:
+            logger.exception("Failed to send welcome email to user_id=%s", user.id)
 
         return resp
     
@@ -199,10 +210,6 @@ def login_user(request):
                 status=403,
             )
 
-        refresh = RefreshToken.for_user(user)
-        refresh['sid'] = getattr(settings, 'RUNTIME_SESSION_ID', '')
-        access = refresh.access_token
-
         if getattr(settings, 'DEBUG', False):
             logger.debug(
                 "[LOGIN DEBUG] Login successful for user_id=%s user_type=%s",
@@ -210,11 +217,68 @@ def login_user(request):
                 user.user_type,
             )
 
-        return _build_auth_response(user, refresh, access)
+        return _build_auth_response_for_user(user)
     
     if getattr(settings, 'DEBUG', False):
         logger.debug("[LOGIN DEBUG] Authentication failed.")
     return JsonResponse({'error': 'Invalid credentials'}, status=401)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_request(request):
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    normalized_email = serializer.validated_data['email']
+    matching_users = User.objects.filter(email__iexact=normalized_email, is_active=True).order_by('-id')
+    success_message = {
+        'detail': 'If an account exists for that email, a password reset link has been sent.',
+    }
+
+    if not matching_users.exists():
+        return Response(success_message, status=status.HTTP_200_OK)
+
+    for user in matching_users:
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        reset_link = build_password_reset_link(request, uid, token)
+        try:
+            send_password_reset_email(user, reset_link)
+        except Exception:
+            logger.exception("Failed to send password reset email to user_id=%s", user.id)
+            return Response(
+                {'detail': 'Unable to send the password reset email right now. Please try again later.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    return Response(success_message, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def password_reset_validate(request):
+    serializer = PasswordResetTokenSerializer(data=request.query_params)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.validated_data['user']
+    return Response(
+        {
+            'detail': 'Reset link is valid.',
+            'email': user.email,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_confirm(request):
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.validated_data['user']
+    user.set_password(serializer.validated_data['password'])
+    user.save(update_fields=['password'])
+    return _build_auth_response_for_user(user)
 
 
 @api_view(['POST'])

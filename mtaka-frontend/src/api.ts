@@ -174,7 +174,12 @@ API.interceptors.request.use((config) => {
 API.interceptors.response.use(
   (response) => {
     const url = String(response?.config?.url || "");
-    if (url.includes("login/") || url.includes("register/") || url.includes("token/refresh/")) {
+    if (
+      url.includes("login/") ||
+      url.includes("register/") ||
+      url.includes("token/refresh/") ||
+      url.includes("password-reset/confirm/")
+    ) {
       storeTokens(response.data);
     }
     return response;
@@ -187,6 +192,9 @@ API.interceptors.response.use(
     const isAuthEndpoint =
       url.includes("login/") ||
       url.includes("register/") ||
+      url.includes("password-reset/request/") ||
+      url.includes("password-reset/validate/") ||
+      url.includes("password-reset/confirm/") ||
       url.includes("logout/") ||
       url.includes("token/refresh/");
 
@@ -241,6 +249,28 @@ export const registerUser = async (payload: Record<string, unknown>) => {
   // payload should include username, email, password, password2, user_type, phone, full_name etc.
   const response = await API.post("register/", payload);
   return response.data; // { user, profile }
+};
+
+export const requestPasswordReset = async (email: string) => {
+  const response = await API.post("password-reset/request/", { email });
+  return response.data as { detail: string };
+};
+
+export const validatePasswordResetToken = async (uid: string, token: string) => {
+  const response = await API.get("password-reset/validate/", {
+    params: { uid, token },
+  });
+  return response.data as { detail: string; email: string };
+};
+
+export const completePasswordReset = async (payload: {
+  uid: string;
+  token: string;
+  password: string;
+  password2: string;
+}) => {
+  const response = await API.post("password-reset/confirm/", payload);
+  return response.data;
 };
 
 export const getProfile = async () => {

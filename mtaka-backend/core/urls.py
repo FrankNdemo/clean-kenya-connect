@@ -21,6 +21,9 @@ urlpatterns = [
     # Authentication
     path('register/', views.register_user, name='register'),
     path('login/', views.login_user, name='login'),
+    path('password-reset/request/', views.password_reset_request, name='password_reset_request'),
+    path('password-reset/validate/', views.password_reset_validate, name='password_reset_validate'),
+    path('password-reset/confirm/', views.password_reset_confirm, name='password_reset_confirm'),
     path('profile/', views.get_user_profile, name='profile'),
     path('token/refresh/', views.refresh_token_cookie, name='token_refresh'),
     path('logout/', views.logout_user, name='logout'),

@@ -1,5 +1,8 @@
 from rest_framework import serializers
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.password_validation import validate_password
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from .models import *
 from django.utils.text import slugify
 
@@ -258,6 +261,56 @@ class RegisterSerializer(serializers.ModelSerializer):
             )
         
         return user
+
+
+def resolve_password_reset_user(uid, token):
+    uid_value = str(uid or '').strip()
+    token_value = str(token or '').strip()
+    if not uid_value or not token_value:
+        raise serializers.ValidationError({'detail': 'Invalid or expired reset link.'})
+
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid_value))
+        user = User.objects.get(pk=user_id, is_active=True)
+    except Exception:
+        raise serializers.ValidationError({'detail': 'Invalid or expired reset link.'})
+
+    if not default_token_generator.check_token(user, token_value):
+        raise serializers.ValidationError({'detail': 'Invalid or expired reset link.'})
+
+    return user
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return str(value or '').strip().lower()
+
+
+class PasswordResetTokenSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        attrs['user'] = resolve_password_reset_user(attrs.get('uid'), attrs.get('token'))
+        return attrs
+
+
+class PasswordResetConfirmSerializer(PasswordResetTokenSerializer):
+    password = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        password = attrs.get('password') or ''
+        password2 = attrs.get('password2') or ''
+
+        if password != password2:
+            raise serializers.ValidationError({'password': "Passwords don't match"})
+
+        validate_password(password, user=attrs['user'])
+        return attrs
 
 class HouseholdSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

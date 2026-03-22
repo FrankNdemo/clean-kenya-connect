@@ -69,7 +69,7 @@ export default function TransactionsPage() {
             <h1 className="text-2xl font-bold">Transactions</h1>
             <p className="text-muted-foreground">View recycling records</p>
           </div>
-          <Button className="gap-2">
+          <Button className="w-full gap-2 sm:w-auto">
             <Plus className="w-4 h-4" />
             New Transaction
           </Button>
@@ -108,37 +108,39 @@ export default function TransactionsPage() {
         {/* Transactions List */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="space-y-3">
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
                 Recent Transactions
               </CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowSearch(!showSearch)}>
-                  <Search className="w-4 h-4 mr-1" />{showSearch ? 'Hide' : 'Search'}
-                </Button>
-                {filteredTransactions.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={handleDownload}>
-                    <Download className="w-4 h-4 mr-1" />Export
+              <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="inline-flex w-max items-center gap-2">
+                  <Button className="shrink-0 whitespace-nowrap" variant="outline" size="sm" onClick={() => setShowSearch(!showSearch)}>
+                    <Search className="w-4 h-4 mr-1" />{showSearch ? 'Hide' : 'Search'}
                   </Button>
-                )}
+                  {filteredTransactions.length > 0 && (
+                    <Button className="shrink-0 whitespace-nowrap" variant="outline" size="sm" onClick={handleDownload}>
+                      <Download className="w-4 h-4 mr-1" />Export
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             {showSearch && (
-              <div className="flex flex-wrap items-end gap-3 mt-3">
-                <div className="space-y-1">
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="min-w-0 space-y-1">
                   <Label className="text-xs">Material</Label>
-                  <Input placeholder="e.g. plastic..." value={searchMaterial} onChange={(e) => setSearchMaterial(e.target.value)} className="w-40" />
+                  <Input placeholder="e.g. plastic..." value={searchMaterial} onChange={(e) => setSearchMaterial(e.target.value)} className="w-full" />
                 </div>
-                <div className="space-y-1">
+                <div className="min-w-0 space-y-1">
                   <Label className="text-xs">From</Label>
-                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
                 </div>
-                <div className="space-y-1">
+                <div className="min-w-0 space-y-1">
                   <Label className="text-xs">To</Label>
-                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => { setSearchMaterial(''); setDateFrom(''); setDateTo(''); }}>Clear</Button>
+                <Button variant="ghost" size="sm" className="w-full self-end sm:w-auto" onClick={() => { setSearchMaterial(''); setDateFrom(''); setDateTo(''); }}>Clear</Button>
               </div>
             )}
           </CardHeader>

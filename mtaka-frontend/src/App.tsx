@@ -88,10 +88,6 @@ function FullScreenLoader() {
 function RootRoute() {
   const { user, isLoading } = useAuth();
 
-  if (!isStandaloneAppMode()) {
-    return <LandingPage />;
-  }
-
   if (isLoading) {
     return <FullScreenLoader />;
   }
@@ -156,6 +152,7 @@ const App = () => (
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<RootRoute />} />
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />

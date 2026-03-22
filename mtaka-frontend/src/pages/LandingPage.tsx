@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { isStandaloneAppMode } from '@/lib/appMode';
 import { 
   Recycle, 
   Truck, 
@@ -96,10 +97,7 @@ export default function LandingPage() {
     return isIos && isWebkit && !isCriOS && !isFxiOS;
   }, []);
 
-  const isStandalone = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  }, []);
+  const isStandalone = isStandaloneAppMode();
 
   useEffect(() => {
     const onBeforeInstallPrompt = (event: Event) => {

@@ -3,8 +3,10 @@
   "short_name": "M-Taka",
   "description": "Smart waste management for Kenya.",
   "start_url": "/#/login",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#f8f5ee",
   "theme_color": "#16a34a",
   "orientation": "portrait",
   "icons": [

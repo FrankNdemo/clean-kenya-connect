@@ -35,31 +35,50 @@ from .auth_email import (
 logger = logging.getLogger(__name__)
 
 
-def _get_profile_data_for_user(user):
-    if user.user_type == 'household':
-        profile, _ = Household.objects.get_or_create(
-            user=user,
-            defaults={'full_name': user.get_full_name() or user.username},
+def _get_profile_data_for_user(user, create_if_missing=True):
+    try:
+        if user.user_type == 'household':
+            if create_if_missing:
+                profile, _ = Household.objects.get_or_create(
+                    user=user,
+                    defaults={'full_name': user.get_full_name() or user.username},
+                )
+                return HouseholdSerializer(profile).data
+            profile = Household.objects.filter(user=user).first()
+            return HouseholdSerializer(profile).data if profile else {}
+        if user.user_type == 'collector':
+            if create_if_missing:
+                profile, _ = Collector.objects.get_or_create(
+                    user=user,
+                    defaults={'company_name': user.username},
+                )
+                return CollectorSerializer(profile).data
+            profile = Collector.objects.filter(user=user).first()
+            return CollectorSerializer(profile).data if profile else {}
+        if user.user_type == 'recycler':
+            if create_if_missing:
+                profile, _ = Recycler.objects.get_or_create(
+                    user=user,
+                    defaults={'company_name': user.username},
+                )
+                return RecyclerSerializer(profile).data
+            profile = Recycler.objects.filter(user=user).first()
+            return RecyclerSerializer(profile).data if profile else {}
+        if user.user_type == 'authority':
+            if create_if_missing:
+                profile, _ = Authority.objects.get_or_create(
+                    user=user,
+                    defaults={'staff_name': user.get_full_name() or user.username},
+                )
+                return AuthoritySerializer(profile).data
+            profile = Authority.objects.filter(user=user).first()
+            return AuthoritySerializer(profile).data if profile else {}
+    except Exception:
+        logger.exception(
+            'Failed to load profile data for user_id=%s user_type=%s',
+            getattr(user, 'id', None),
+            getattr(user, 'user_type', None),
         )
-        return HouseholdSerializer(profile).data
-    if user.user_type == 'collector':
-        profile, _ = Collector.objects.get_or_create(
-            user=user,
-            defaults={'company_name': user.username},
-        )
-        return CollectorSerializer(profile).data
-    if user.user_type == 'recycler':
-        profile, _ = Recycler.objects.get_or_create(
-            user=user,
-            defaults={'company_name': user.username},
-        )
-        return RecyclerSerializer(profile).data
-    if user.user_type == 'authority':
-        profile, _ = Authority.objects.get_or_create(
-            user=user,
-            defaults={'staff_name': user.get_full_name() or user.username},
-        )
-        return AuthoritySerializer(profile).data
     return {}
 
 
@@ -77,9 +96,10 @@ def _get_jwt_cookie_kwargs(max_age=None):
 
 
 def _build_auth_response(user, refresh, access, status_code=200):
+    profile_data = _get_profile_data_for_user(user, create_if_missing=False)
     resp = JsonResponse({
         'user': UserSerializer(user).data,
-        'profile': _get_profile_data_for_user(user),
+        'profile': profile_data,
         'access': str(access),
         'refresh': str(refresh),
     }, status=status_code)

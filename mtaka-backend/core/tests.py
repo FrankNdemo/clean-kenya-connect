@@ -222,6 +222,30 @@ class AuthFlowTests(TestCase):
         )
         self.assertEqual(login_response.status_code, 200)
 
+    def test_login_succeeds_without_creating_a_missing_household_profile(self):
+        user = self.user_model.objects.create_user(
+            username='profile-missing-user',
+            email='profile-missing@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001205',
+        )
+
+        self.assertFalse(Household.objects.filter(user=user).exists())
+
+        response = self.client.post(
+            '/api/auth/login/',
+            data=json.dumps({
+                'username': user.email,
+                'password': 'StrongPass!1',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['profile'], {})
+        self.assertFalse(Household.objects.filter(user=user).exists())
+
     def test_password_reset_validate_rejects_invalid_token(self):
         user = self.user_model.objects.create_user(
             username='invalid-reset-user',

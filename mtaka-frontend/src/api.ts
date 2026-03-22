@@ -96,6 +96,7 @@ const API = axios.create({
 const API_GET_CACHE_TTL_MS = 20_000;
 const apiGetCache = new Map<string, { expiresAt: number; value: unknown }>();
 const apiGetInFlight = new Map<string, Promise<unknown>>();
+const LOGIN_REQUEST_TIMEOUT_MS = 30_000;
 
 const stableStringify = (value: unknown): string => {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -109,18 +110,37 @@ const buildCacheKey = (url: string, params?: unknown) =>
 
 const delay = (ms: number) => new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 
-const withRetry = async <T>(fn: () => Promise<T>, retries = 2): Promise<T> => {
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  retries = 2,
+  shouldRetry: (error: unknown) => boolean = () => true
+): Promise<T> => {
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
-      if (attempt === retries) break;
+      if (attempt === retries || !shouldRetry(error)) break;
       await delay(200 * (attempt + 1));
     }
   }
   throw lastError;
+};
+
+const isTransientLoginError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const axiosError = error as {
+    code?: string;
+    response?: { status?: number };
+  };
+
+  if (axiosError.code === "ECONNABORTED") return true;
+  if (!axiosError.response) return true;
+
+  const status = axiosError.response.status;
+  return status === 408 || status === 429 || (typeof status === "number" && status >= 500);
 };
 
 const invalidateGetCache = (prefixes: string[]) => {
@@ -175,10 +195,11 @@ let refreshPromise: Promise<void> | null = null;
 API.interceptors.request.use((config) => {
   const accessToken = readStoredToken(ACCESS_TOKEN_KEY);
   if (accessToken) {
-    config.headers = config.headers || {};
-    if (!config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
+    const headers = (config.headers ?? {}) as Record<string, unknown> & { Authorization?: string };
+    if (!headers.Authorization) {
+      headers.Authorization = `Bearer ${accessToken}`;
     }
+    config.headers = headers as any;
   }
   return config;
 });
@@ -253,7 +274,11 @@ API.interceptors.response.use(
 
 // Login function - backend expects `username` and `password`
 export const loginUser = async (username: string, password: string) => {
-  const response = await API.post("login/", { username, password });
+  const response = await withRetry(
+    () => API.post("login/", { username, password }, { timeout: LOGIN_REQUEST_TIMEOUT_MS }),
+    2,
+    isTransientLoginError
+  );
   return response.data; // { user, profile }
 };
 

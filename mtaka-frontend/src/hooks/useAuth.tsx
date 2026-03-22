@@ -26,6 +26,20 @@ interface AuthContextType {
   isDemoAccount: (email: string) => boolean;
 }
 
+type ProfileResponse = {
+  user?: {
+    id: number;
+    username?: string;
+    email?: string;
+    phone?: string;
+    user_type?: string;
+    reward_points?: number;
+    first_name?: string;
+    last_name?: string;
+  };
+  profile?: Record<string, unknown>;
+};
+
 export interface AuthError extends Error {
   payload?: {
     error?: string;
@@ -139,6 +153,38 @@ const clearLegacyPersistentAuth = () => {
   legacy?.removeItem(REFRESH_TOKEN_KEY);
 };
 
+const getLoginErrorMessage = (error: unknown) => {
+  const axiosError = error as {
+    code?: string;
+    message?: string;
+    response?: {
+      status?: number;
+      data?: {
+        error?: string;
+        detail?: string;
+      };
+    };
+  };
+
+  const backendMessage = axiosError?.response?.data?.error || axiosError?.response?.data?.detail;
+  if (backendMessage) return backendMessage;
+
+  if (axiosError?.code === 'ECONNABORTED') {
+    return 'Login is taking longer than usual. Please try again.';
+  }
+
+  const status = axiosError?.response?.status;
+  if (typeof status === 'number' && status >= 500) {
+    return 'Login service is temporarily unavailable. Please try again in a moment.';
+  }
+
+  if (!axiosError?.response) {
+    return 'Unable to reach the login server. Check your connection and try again.';
+  }
+
+  return axiosError?.message || 'Unable to sign in right now. Please try again.';
+};
+
 const mapBackendUserToFrontend = (data: any): User => {
   const fullName = `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim();
   const locationFromProfile =
@@ -233,7 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Try to retrieve profile from backend (cookie-based auth)
     (async () => {
       try {
-        const data = await getProfile();
+        const data = (await getProfile()) as ProfileResponse;
         if (data && data.user) {
           const u = mapBackendUserToFrontend(data);
           setUser(u);
@@ -267,12 +313,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await apiLogin(username, password || '');
       return applyAuthenticatedUser(data);
     } catch (err: unknown) {
-      const maybeAxiosError = err as { response?: { data?: { error?: string; detail?: string } } };
-      const message =
-        maybeAxiosError?.response?.data?.error ||
-        maybeAxiosError?.response?.data?.detail ||
-        'Login failed';
+      const message = getLoginErrorMessage(err);
       const authError: AuthError = new Error(message);
+      const maybeAxiosError = err as { response?: { data?: { error?: string; detail?: string } } };
       authError.payload = maybeAxiosError?.response?.data;
       throw authError;
     }
@@ -354,7 +397,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const switchUser = async (userId: string) => {
     try {
-      const data = await getProfile();
+      const data = (await getProfile()) as ProfileResponse;
       if (data?.user && String(data.user.id) === String(userId)) {
         const u = mapBackendUserToFrontend(data);
         setUser(u);

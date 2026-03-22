@@ -157,7 +157,11 @@ def register_user(request):
             except Exception:
                 logger.exception("Failed to queue welcome email for user_id=%s", user.id)
         else:
-            logger.warning("Welcome email skipped because email delivery is not fully configured for user_id=%s", user.id)
+            logger.warning(
+                "Welcome email skipped because production email delivery is not configured "
+                "(set DJANGO_BREVO_API_KEY and a verified sender) for user_id=%s",
+                user.id,
+            )
 
         return resp
     
@@ -249,9 +253,17 @@ def password_reset_request(request):
         return Response(success_message, status=status.HTTP_200_OK)
 
     if not email_delivery_is_configured():
-        logger.error("Password reset email requested but email delivery is not fully configured.")
+        logger.error(
+            "Password reset email requested but production email delivery is not configured "
+            "(set DJANGO_BREVO_API_KEY and a verified sender)."
+        )
         return Response(
-            {'detail': 'Email delivery is not configured yet. Add the sender app password and try again.'},
+            {
+                'detail': (
+                    'Email delivery is not configured yet. Set DJANGO_BREVO_API_KEY and '
+                    'a verified sender in Render, then try again.'
+                )
+            },
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 

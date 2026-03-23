@@ -5,9 +5,9 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["fullscreen", "standalone"],
+  "display_override": ["standalone"],
   "background_color": "#f8f5ee",
-  "theme_color": "#16a34a",
+  "theme_color": "#f8f5ee",
   "orientation": "portrait",
   "icons": [
     {

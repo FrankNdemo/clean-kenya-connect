@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
 
   if (isEmailSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background p-4">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="w-full max-w-md">
           <Card className="shadow-lg">
             <CardHeader className="text-center">
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background p-4">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-md">
         <Link to="/login" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4" />

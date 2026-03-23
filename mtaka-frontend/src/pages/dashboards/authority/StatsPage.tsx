@@ -110,7 +110,7 @@ export default function StatsPage() {
 
         setRequests(countyRequests);
         setTransactions(countyTransactions);
-        setUsers(usersRes.filter((user) => locationMatchesCounty(user.location, currentAuthorityCounty)));
+        setUsers(usersRes.filter((user) => locationMatchesCounty(user.county || user.location, currentAuthorityCounty)));
         setReports(reportsRes.filter((report) => locationMatchesCounty(report.location, currentAuthorityCounty)));
       } catch {
         if (!active) return;

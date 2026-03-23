@@ -13,6 +13,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from PIL import Image
 
+from .county import location_matches_county, resolve_county_from_location
 from .models import CollectionRequest, CollectionRequestUpdate, Collector, Household, WasteType
 
 
@@ -304,6 +305,24 @@ class AuthFlowTests(TestCase):
         )
 
 
+class CountyResolutionTests(TestCase):
+    def test_common_locations_map_to_the_expected_county(self):
+        self.assertEqual(resolve_county_from_location('Kisiani'), 'Kisumu')
+        self.assertEqual(resolve_county_from_location('Maseno, Kisumu County'), 'Kisumu')
+        self.assertEqual(resolve_county_from_location('Kisumu East'), 'Kisumu')
+        self.assertEqual(resolve_county_from_location('Karen'), 'Nairobi')
+        self.assertTrue(location_matches_county('Kisiani', 'Kisumu'))
+        self.assertTrue(location_matches_county('Maseno, Kisumu County', 'Kisumu'))
+        self.assertFalse(location_matches_county('Kisiani', 'Nairobi'))
+
+    def test_location_resolution_endpoint_returns_the_expected_county(self):
+        client = APIClient()
+        response = client.get('/api/auth/location/resolve/', {'location': 'Kisiani'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['county'], 'Kisumu')
+
+
 @override_settings(
     RUNTIME_SESSION_ID='test-session-id',
     SIMPLE_JWT={
@@ -390,6 +409,101 @@ class CollectionRequestUpdateTests(TestCase):
         collector_updates = self.collector_client.get('/api/auth/collection-updates/')
         self.assertEqual(collector_updates.status_code, 200)
         self.assertEqual(len(collector_updates.json()), 2)
+
+
+@override_settings(
+    RUNTIME_SESSION_ID='test-session-id',
+    SIMPLE_JWT={
+        'ACCESS_TOKEN_LIFETIME': __import__('datetime').timedelta(minutes=60),
+        'REFRESH_TOKEN_LIFETIME': __import__('datetime').timedelta(days=1),
+        'AUTH_HEADER_TYPES': ('Bearer',),
+    },
+)
+class CollectionRequestCountyMatchingTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user_model = get_user_model()
+
+        self.resident_user = self.user_model.objects.create_user(
+            username='resident-kisumu',
+            email='resident-kisumu@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700000300',
+        )
+        self.kisumu_collector_user = self.user_model.objects.create_user(
+            username='collector-kisumu',
+            email='collector-kisumu@example.com',
+            password='StrongPass!1',
+            user_type='collector',
+            phone='+254700000301',
+        )
+        self.nairobi_collector_user = self.user_model.objects.create_user(
+            username='collector-nairobi',
+            email='collector-nairobi@example.com',
+            password='StrongPass!1',
+            user_type='collector',
+            phone='+254700000302',
+        )
+
+        self.household = Household.objects.create(
+            user=self.resident_user,
+            full_name='Kisumu Resident',
+            address='Kisiani',
+        )
+        self.kisumu_collector = Collector.objects.create(
+            user=self.kisumu_collector_user,
+            company_name='Kisumu Green Collectors',
+            service_areas='Kisumu, Maseno, Chulaimbo',
+        )
+        self.nairobi_collector = Collector.objects.create(
+            user=self.nairobi_collector_user,
+            company_name='Nairobi Clean Team',
+            service_areas='Karen, Westlands, Nairobi',
+        )
+        self.waste_type = WasteType.objects.create(
+            type_name='General Waste',
+            is_recyclable=False,
+        )
+        self.client.force_authenticate(user=self.resident_user)
+
+    def test_schedule_accepts_collector_serving_the_same_county(self):
+        response = self.client.post(
+            '/api/auth/collections/',
+            data={
+                'waste_type': self.waste_type.id,
+                'collector': self.kisumu_collector.user.id,
+                'scheduled_date': '2026-03-25',
+                'scheduled_time': '09:00',
+                'status': 'pending',
+                'address': 'Kisiani',
+                'instructions': 'Please call on arrival.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload['collector_name'], 'Kisumu Green Collectors')
+        self.assertEqual(payload['address'], 'Kisiani')
+
+    def test_schedule_rejects_collector_from_a_different_county(self):
+        response = self.client.post(
+            '/api/auth/collections/',
+            data={
+                'waste_type': self.waste_type.id,
+                'collector': self.nairobi_collector.user.id,
+                'scheduled_date': '2026-03-25',
+                'scheduled_time': '09:00',
+                'status': 'pending',
+                'address': 'Kisiani',
+                'instructions': 'Please call on arrival.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('collector', response.json())
 
 
 @override_settings(

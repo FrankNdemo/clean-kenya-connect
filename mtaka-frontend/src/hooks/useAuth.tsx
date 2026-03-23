@@ -194,6 +194,7 @@ const mapBackendUserToFrontend = (data: any): User => {
     data?.profile?.county ||
     data?.user?.location ||
     '';
+  const countyFromBackend = data?.user?.county || data?.profile?.county || '';
 
   return {
     id: data.user.id,
@@ -202,6 +203,7 @@ const mapBackendUserToFrontend = (data: any): User => {
     phone: data.user.phone || '',
     role: (data.user.user_type === 'household' ? 'resident' : (data.user.user_type as any)) as any,
     location: locationFromProfile,
+    county: countyFromBackend || '',
     rewardPoints: data.user.reward_points ?? data?.profile?.green_credits ?? 0,
     createdAt: '',
   };
@@ -419,6 +421,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phone: found.phone || '',
           role: (found.user_type === 'household' ? 'resident' : (found.user_type as any)) as any,
           location: found.location || '',
+          county: found.county || '',
           rewardPoints: found.reward_points ?? 0,
           createdAt: '',
         };

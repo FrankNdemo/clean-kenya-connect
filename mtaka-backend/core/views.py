@@ -2,7 +2,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from django.contrib.auth import authenticate
 from django.contrib.auth.tokens import default_token_generator
@@ -22,6 +22,7 @@ import hashlib
 import logging
 import json
 from .models import *
+from .county import location_matches_county, resolve_county_from_location
 from .serializers import *
 from .route_planner import build_collector_route_summary
 from .auth_email import (
@@ -172,7 +173,7 @@ def register_user(request):
     if serializer.is_valid():
         user = serializer.save()
         resp = _build_auth_response_for_user(user, status_code=201)
-        cache.delete("api:list_users:v1")
+        cache.delete("api:list_users:v2")
         delivery_status = get_email_delivery_status()
         if delivery_status.get("configured"):
             try:
@@ -434,7 +435,7 @@ def get_user_profile(request):
 
         if update_fields:
             user.save(update_fields=list(set(update_fields)))
-            cache.delete("api:list_users:v1")
+            cache.delete("api:list_users:v2")
 
         location = payload.get('location')
         if location is not None:
@@ -465,7 +466,7 @@ def get_user_profile(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_users(request):
-    cache_key = "api:list_users:v1"
+    cache_key = "api:list_users:v2"
     cached_payload = cache.get(cache_key)
     if cached_payload is not None:
         return Response(cached_payload)
@@ -480,6 +481,21 @@ def list_users(request):
     payload = serializer.data
     cache.set(cache_key, payload, timeout=30)
     return Response(payload)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def resolve_location_county(request):
+    location = str(request.query_params.get('location') or '').strip()
+    county = resolve_county_from_location(location)
+    return Response(
+        {
+            'location': location,
+            'county': county,
+            'resolved': bool(county),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(['GET'])
@@ -546,6 +562,18 @@ class CollectionRequestViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         household = Household.objects.get(user=self.request.user)
         collector = self._resolve_collector_from_request()
+        resident_location = str(
+            serializer.validated_data.get('address')
+            or household.address
+            or ''
+        ).strip()
+        resident_county = resolve_county_from_location(resident_location)
+        if collector and resident_county and not location_matches_county(collector.service_areas or '', resident_county):
+            collector_county = resolve_county_from_location(collector.service_areas or '')
+            available_label = collector_county or 'another'
+            raise ValidationError({
+                'collector': f'Select a collector that serves {resident_county} County. The selected collector serves {available_label} County.',
+            })
         collection = serializer.save(household=household, collector=collector)
 
         # Keep household profile coordinates in sync with the latest scheduled pickup.
@@ -1209,7 +1237,7 @@ class SuspendedUserViewSet(viewsets.ModelViewSet):
         target_user = serializer.validated_data.get('user')
         SuspendedUser.objects.filter(user=target_user, active=True).update(active=False)
         serializer.save(active=True)
-        cache.delete("api:list_users:v1")
+        cache.delete("api:list_users:v2")
 
     def perform_update(self, serializer):
         from rest_framework.exceptions import PermissionDenied
@@ -1217,7 +1245,7 @@ class SuspendedUserViewSet(viewsets.ModelViewSet):
         if self.request.user.user_type != 'authority':
             raise PermissionDenied('Only authority users can update suspension records')
         serializer.save()
-        cache.delete("api:list_users:v1")
+        cache.delete("api:list_users:v2")
 
     def perform_destroy(self, instance):
         from rest_framework.exceptions import PermissionDenied
@@ -1225,4 +1253,4 @@ class SuspendedUserViewSet(viewsets.ModelViewSet):
         if self.request.user.user_type != 'authority':
             raise PermissionDenied('Only authority users can delete suspension records')
         instance.delete()
-        cache.delete("api:list_users:v1")
+        cache.delete("api:list_users:v2")

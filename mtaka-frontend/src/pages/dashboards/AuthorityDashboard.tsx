@@ -86,7 +86,7 @@ export default function AuthorityDashboard() {
             : allReports;
 
           const filteredUsers = currentAuthorityCounty
-            ? dbUsers.filter((dbUser) => locationMatchesCounty(dbUser.location, currentAuthorityCounty))
+            ? dbUsers.filter((dbUser) => locationMatchesCounty(dbUser.county || dbUser.location, currentAuthorityCounty))
             : dbUsers;
 
           setRequests(filteredRequests);

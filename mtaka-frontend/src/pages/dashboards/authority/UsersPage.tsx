@@ -131,12 +131,12 @@ export default function UsersPage() {
         setUsers(
           backendUsers.map((backendUser) => {
             const mappedUser = mapBackendUserToAuthorityUser(backendUser);
-            const county = getCountyFromLocation(mappedUser.location) || 'Unknown county';
+            const county = backendUser.county || getCountyFromLocation(mappedUser.location) || 'Unknown county';
             return {
               ...mappedUser,
               county,
               isInAuthorityRegion: currentAuthorityCounty
-                ? locationMatchesCounty(mappedUser.location, currentAuthorityCounty)
+                ? locationMatchesCounty(backendUser.county || mappedUser.location, currentAuthorityCounty)
                 : true,
             };
           })

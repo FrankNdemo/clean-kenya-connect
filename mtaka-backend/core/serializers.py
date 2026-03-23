@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from .models import *
+from .county import resolve_county_from_location
 from django.utils.text import slugify
 
 
@@ -24,6 +25,7 @@ class UserSerializer(serializers.ModelSerializer):
     reward_points = serializers.SerializerMethodField()
     company_name = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
+    county = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -38,6 +40,7 @@ class UserSerializer(serializers.ModelSerializer):
             'reward_points',
             'company_name',
             'location',
+            'county',
         ]
         read_only_fields = ['id']
 
@@ -97,6 +100,33 @@ class UserSerializer(serializers.ModelSerializer):
                 return profile.county or ''
             authority = Authority.objects.filter(user=obj).only('county').first()
             return authority.county if authority and authority.county else ''
+        return ''
+
+    def get_county(self, obj):
+        if obj.user_type == 'household':
+            profile = self._get_cached_related(obj, 'household_profile')
+            if profile is not None:
+                return resolve_county_from_location(profile.address or '')
+            household = Household.objects.filter(user=obj).only('address').first()
+            return resolve_county_from_location(household.address if household and household.address else '')
+        if obj.user_type == 'collector':
+            profile = self._get_cached_related(obj, 'collector_profile')
+            if profile is not None:
+                return resolve_county_from_location(profile.service_areas or '')
+            collector = Collector.objects.filter(user=obj).only('service_areas').first()
+            return resolve_county_from_location(collector.service_areas if collector and collector.service_areas else '')
+        if obj.user_type == 'recycler':
+            profile = self._get_cached_related(obj, 'recycler_profile')
+            if profile is not None:
+                return resolve_county_from_location(profile.location or '')
+            recycler = Recycler.objects.filter(user=obj).only('location').first()
+            return resolve_county_from_location(recycler.location if recycler and recycler.location else '')
+        if obj.user_type == 'authority':
+            profile = self._get_cached_related(obj, 'authority_profile')
+            if profile is not None:
+                return resolve_county_from_location(profile.county or '')
+            authority = Authority.objects.filter(user=obj).only('county').first()
+            return resolve_county_from_location(authority.county if authority and authority.county else '')
         return ''
 
 class RegisterSerializer(serializers.ModelSerializer):

@@ -16,6 +16,7 @@ import {
   type BackendCollectorRouteSummary,
   type BackendCollectionRequest,
 } from "@/api";
+import { getCountyFromLocation } from "@/lib/county";
 import type { CollectorUpdate, User, WasteRequest } from "@/lib/store";
 
 let wasteTypeIdByName: Record<string, number> | null = null;
@@ -419,13 +420,15 @@ export const fetchCollectorsFromDb = async (): Promise<User[]> => {
     .filter((user) => user.user_type === "collector")
     .map((user) => {
       const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+      const county = user.county || getCountyFromLocation(user.location || "");
       return {
         id: String(user.id),
         name: user.company_name || fullName || user.username || user.email,
         email: user.email,
         phone: user.phone || "",
         role: "collector",
-        location: user.location || "Nairobi",
+        location: user.location || county || "",
+        county,
         rewardPoints: user.reward_points ?? 0,
         createdAt: "",
       } as User;

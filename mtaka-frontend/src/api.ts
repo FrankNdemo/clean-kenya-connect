@@ -536,6 +536,7 @@ export interface BackendUser {
   reward_points?: number;
   company_name?: string;
   location?: string;
+  county?: string;
 }
 
 export interface BackendSuspendedUser {
@@ -639,6 +640,17 @@ export const createCollectionUpdateApi = async (payload: {
 
 export const listUsers = async (): Promise<BackendUser[]> => {
   return cachedGet("users/");
+};
+
+export const resolveLocationCounty = async (location: string) => {
+  const response = await API.get("location/resolve/", {
+    params: { location },
+  });
+  return response.data as {
+    location: string;
+    county: string;
+    resolved: boolean;
+  };
 };
 
 export const listSuspendedUsersApi = async (): Promise<BackendSuspendedUser[]> => {

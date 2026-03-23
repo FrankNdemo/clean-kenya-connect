@@ -26,6 +26,7 @@ export interface User {
   phone: string;
   role: UserRole;
   location: string;
+  county?: string;
   rewardPoints: number;
   password?: string; // Only for registered users, not demo accounts
   createdAt: string;

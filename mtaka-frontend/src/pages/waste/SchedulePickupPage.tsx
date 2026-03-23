@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
+import { getCountyFromLocation, locationMatchesCounty } from '@/lib/county';
 import { WasteRequest, User } from '@/lib/store';
 import { createWasteRequestDb, fetchCollectorsFromDb } from '@/lib/collectionRequestsApi';
+import { resolveLocationCounty } from '@/api';
 import { 
   ArrowLeft, 
   Truck, 
@@ -50,15 +52,27 @@ export default function SchedulePickupPage() {
   const [loadingCollectors, setLoadingCollectors] = useState(false);
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [detectedCounty, setDetectedCounty] = useState('');
+  const residentCounty = getCountyFromLocation(formData.location || user?.county || user?.location || '');
 
   const handleLocationChange = (location: string) => {
     setFormData({ ...formData, location });
+    setSelectedCollector(null);
+    setShowCollectors(false);
+    setAvailableCollectors([]);
+    setDetectedCounty('');
   };
 
-  // Extract county from a location string (e.g., "Westlands, Nairobi" → "nairobi")
-  const getCounty = (loc: string) => {
-    const parts = loc.split(',');
-    return (parts[parts.length - 1] || parts[0]).trim().toLowerCase();
+  const resolveResidentCounty = async () => {
+    const location = formData.location || user?.county || user?.location || '';
+    if (!location) return '';
+
+    try {
+      const resolved = await resolveLocationCounty(location);
+      return resolved.county || residentCounty;
+    } catch {
+      return residentCounty;
+    }
   };
 
   const handleShowCollectors = async () => {
@@ -77,14 +91,23 @@ export default function SchedulePickupPage() {
 
     try {
       setLoadingCollectors(true);
-      const residentCounty = getCounty(formData.location);
+      const resolvedCounty = await resolveResidentCounty();
+      if (!resolvedCounty) {
+        toast.error('We could not determine your county from this location. Please enter a more specific area or include the county name.');
+        return;
+      }
+      setDetectedCounty(resolvedCounty);
       const allCollectors = await fetchCollectorsFromDb();
       const sameCountyCollectors = allCollectors.filter((collector) => {
-        if (!collector.location) return true;
-        return getCounty(collector.location) === residentCounty;
+        const collectorLocation = collector.county || collector.location;
+        return locationMatchesCounty(collectorLocation, resolvedCounty);
       });
       setAvailableCollectors(sameCountyCollectors);
+      setSelectedCollector(null);
       setShowCollectors(true);
+      if (sameCountyCollectors.length === 0) {
+        toast.error(`No collectors are currently listed in ${resolvedCounty} County.`);
+      }
     } catch (error) {
       toast.error('Failed to load collectors from database');
     } finally {
@@ -166,6 +189,21 @@ export default function SchedulePickupPage() {
     setIsLoading(true);
 
     try {
+      const resolvedCounty = detectedCounty || (await resolveResidentCounty());
+      if (!resolvedCounty) {
+        toast.error('Please enter a clear location so we can match you with the right county.');
+        setIsLoading(false);
+        return;
+      }
+
+      setDetectedCounty(resolvedCounty);
+
+      if (!locationMatchesCounty(selectedCollector.county || selectedCollector.location, resolvedCounty)) {
+        toast.error(`Please choose a collector that serves ${resolvedCounty} County.`);
+        setIsLoading(false);
+        return;
+      }
+
       const coordinates = await ensurePickupCoordinates();
       if (!coordinates) {
         setIsLoading(false);
@@ -308,6 +346,15 @@ export default function SchedulePickupPage() {
                       </span>
                     )}
                   </div>
+                  {(detectedCounty || residentCounty) ? (
+                    <p className="text-xs text-primary pt-1">
+                      Detected county: {detectedCounty || residentCounty} County
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground pt-1">
+                      Enter a clear area name so we can match you with collectors in the right county.
+                    </p>
+                  )}
                 </div>
 
                 {/* Notes */}
@@ -339,11 +386,14 @@ export default function SchedulePickupPage() {
                     <Label>Select a Collector</Label>
                     {availableCollectors.length === 0 ? (
                       <div className="p-4 rounded-lg bg-muted text-center text-muted-foreground">
-                        No collectors available in your area. Try a different location.
+                        {(detectedCounty || residentCounty)
+                          ? `No collectors are currently listed in ${detectedCounty || residentCounty} County. Try a different area or enter a more specific location.`
+                          : 'No collectors available in your area. Try a different location.'}
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {availableCollectors.map((collector) => {
+                          const collectorCounty = collector.county || getCountyFromLocation(collector.location) || 'Unknown county';
                           const isNearby = collector.location.toLowerCase().includes(
                             formData.location.split(',')[0].trim().toLowerCase()
                           );
@@ -373,6 +423,9 @@ export default function SchedulePickupPage() {
                                           Nearby
                                         </span>
                                       )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      County: {collectorCounty}
                                     </div>
                                   </div>
                                 </div>

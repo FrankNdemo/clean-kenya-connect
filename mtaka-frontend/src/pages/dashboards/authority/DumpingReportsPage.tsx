@@ -217,36 +217,36 @@ export default function DumpingReportsPage() {
         )}
 
         {/* Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Card className="border-warning/30">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-warning/20 flex items-center justify-center"><AlertTriangle className="w-6 h-6 text-warning" /></div>
-                <div><p className="text-sm text-muted-foreground">Pending</p><p className="text-2xl font-bold">{pendingCount}</p></div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-warning/20 flex items-center justify-center flex-shrink-0"><AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-warning" /></div>
+                <div><p className="text-xs sm:text-sm text-muted-foreground">Pending</p><p className="text-xl sm:text-2xl font-bold">{pendingCount}</p></div>
               </div>
             </CardContent>
           </Card>
           <Card className="border-info/30">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-info/20 flex items-center justify-center"><Eye className="w-6 h-6 text-info" /></div>
-                <div><p className="text-sm text-muted-foreground">Investigating</p><p className="text-2xl font-bold">{investigatingCount}</p></div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-info/20 flex items-center justify-center flex-shrink-0"><Eye className="w-5 h-5 sm:w-6 sm:h-6 text-info" /></div>
+                <div><p className="text-xs sm:text-sm text-muted-foreground">Investigating</p><p className="text-xl sm:text-2xl font-bold">{investigatingCount}</p></div>
               </div>
             </CardContent>
           </Card>
           <Card className="border-success/30">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center"><CheckCircle className="w-6 h-6 text-success" /></div>
-                <div><p className="text-sm text-muted-foreground">Resolved</p><p className="text-2xl font-bold">{resolvedCount}</p></div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0"><CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-success" /></div>
+                <div><p className="text-xs sm:text-sm text-muted-foreground">Resolved</p><p className="text-xl sm:text-2xl font-bold">{resolvedCount}</p></div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center"><Trash2 className="w-6 h-6 text-muted-foreground" /></div>
-                <div><p className="text-sm text-muted-foreground">Cancelled</p><p className="text-2xl font-bold">{cancelledCount}</p></div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" /></div>
+                <div><p className="text-xs sm:text-sm text-muted-foreground">Cancelled</p><p className="text-xl sm:text-2xl font-bold">{cancelledCount}</p></div>
               </div>
             </CardContent>
           </Card>

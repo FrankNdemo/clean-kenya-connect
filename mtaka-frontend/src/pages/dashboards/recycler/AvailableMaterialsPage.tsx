@@ -315,68 +315,68 @@ export default function AvailableMaterialsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center">
-                  <Package className="w-6 h-6 text-success" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0">
+                  <Package className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Available</p>
-                  <p className="text-2xl font-bold">{availableListings.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Available</p>
+                  <p className="text-xl sm:text-2xl font-bold">{availableListings.length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-info/20 flex items-center justify-center">
-                  <Send className="w-6 h-6 text-info" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-info/20 flex items-center justify-center flex-shrink-0">
+                  <Send className="w-5 h-5 sm:w-6 sm:h-6 text-info" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">My Offers</p>
-                  <p className="text-2xl font-bold">{pendingOffers.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">My Offers</p>
+                  <p className="text-xl sm:text-2xl font-bold">{pendingOffers.length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-destructive/20 flex items-center justify-center">
-                  <XCircle className="w-6 h-6 text-destructive" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
+                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Rejected</p>
-                  <p className="text-2xl font-bold">{rejectedOffers.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Rejected</p>
+                  <p className="text-xl sm:text-2xl font-bold">{rejectedOffers.length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-warning/20 flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-warning" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-warning/20 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">To Schedule</p>
-                  <p className="text-2xl font-bold">{acceptedOfferListings.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">To Schedule</p>
+                  <p className="text-xl sm:text-2xl font-bold">{acceptedOfferListings.length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Truck className="w-6 h-6 text-primary" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Scheduled</p>
-                  <p className="text-2xl font-bold">{myScheduledPickups.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Scheduled</p>
+                  <p className="text-xl sm:text-2xl font-bold">{myScheduledPickups.length}</p>
                 </div>
               </div>
             </CardContent>

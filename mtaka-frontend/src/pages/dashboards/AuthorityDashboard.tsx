@@ -183,7 +183,7 @@ export default function AuthorityDashboard() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <StatCard title="Total Users" value={myStats.totalUsers} icon={Users} description="Registered accounts" iconClassName="bg-primary/20 text-primary" />
           <StatCard title="Collection Requests" value={myStats.totalRequests} icon={Truck} description={`${myStats.pendingRequests} pending`} iconClassName="bg-info/20 text-info" />
           <StatCard title="Dumping Reports" value={reports.length} icon={MapPin} description={`${unresolvedReports.length} unresolved`} iconClassName="bg-destructive/20 text-destructive" />

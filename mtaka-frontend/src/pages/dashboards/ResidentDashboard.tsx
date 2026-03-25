@@ -133,15 +133,15 @@ export default function ResidentDashboard() {
             <h1 className="text-2xl font-bold">Welcome back, {user.name.split(' ')[0]}!</h1>
             <p className="text-muted-foreground">Here's what's happening with your waste management</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link to="/waste/schedule" className="w-full sm:w-auto">
-              <Button className="w-full gap-2 sm:w-auto">
+          <div className="flex flex-row gap-2 sm:gap-3">
+            <Link to="/waste/schedule" className="flex-1">
+              <Button className="w-full gap-2">
                 <Plus className="w-4 h-4" />
                 Schedule Pickup
               </Button>
             </Link>
-            <Link to="/waste/report" className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full gap-2 sm:w-auto">
+            <Link to="/waste/report" className="flex-1">
+              <Button variant="outline" className="w-full gap-2">
                 <MapPin className="w-4 h-4" />
                 Report Issue
               </Button>

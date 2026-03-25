@@ -221,7 +221,7 @@ export default function MyEventsPage() {
                 </Link>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
                 {createdEvents.map((event) => (
                   <div key={event.id} className="bg-card rounded-xl border border-border overflow-hidden">
                     <div className="p-5">
@@ -298,7 +298,7 @@ export default function MyEventsPage() {
                 </Link>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
                 {joinedEvents.map((event) => (
                   <div key={event.id} className="bg-card rounded-xl border border-border overflow-hidden">
                     <div className="p-5">

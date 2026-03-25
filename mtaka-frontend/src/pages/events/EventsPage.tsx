@@ -245,7 +245,7 @@ export default function EventsPage() {
               )}
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6">
               {filteredEvents.map((event) => (
                 <div key={event.id} className="bg-card rounded-xl border border-border overflow-hidden card-hover">
                   {/* Event Header */}

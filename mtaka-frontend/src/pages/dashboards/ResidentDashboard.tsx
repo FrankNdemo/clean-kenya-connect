@@ -234,19 +234,19 @@ export default function ResidentDashboard() {
                 <p>No upcoming events</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                 {events.slice(0, 3).map((event) => (
                   <Link 
                     key={event.id} 
                     to="/events"
-                    className="block p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                    className="block h-full p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex h-full flex-col gap-2">
                       <div>
                         <div className="font-medium text-sm">{event.title}</div>
                         <div className="text-xs text-muted-foreground">{event.date} • {event.location}</div>
                       </div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
+                      <span className="mt-auto self-start px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
                         +{event.rewardPoints} pts
                       </span>
                     </div>

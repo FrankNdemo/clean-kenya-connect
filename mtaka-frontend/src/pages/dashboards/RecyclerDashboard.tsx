@@ -7,23 +7,35 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { RecyclingTransaction } from '@/lib/store';
 import { createRecyclerTransactionDb, fetchRecyclerTransactionsDb } from '@/lib/recyclablesDb';
-import { 
-  Recycle, 
+import {
+  Recycle,
   Package,
-  TrendingUp,
   DollarSign,
   Plus,
-  Scale
+  Scale,
+  FileText,
+  Cog,
+  Droplets,
+  Cpu,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-const materialTypes = [
-  { value: 'plastic', label: '♳ Plastic', pricePerKg: 20 },
-  { value: 'paper', label: '📄 Paper', pricePerKg: 8 },
-  { value: 'metal', label: '🔩 Metal', pricePerKg: 35 },
-  { value: 'glass', label: '🫙 Glass', pricePerKg: 5 },
-  { value: 'electronics', label: '📱 E-Waste', pricePerKg: 50 },
-] as const;
+type MaterialOption = {
+  type: RecyclingTransaction['materialType'];
+  name: string;
+  pricePerKg: number;
+  icon: LucideIcon;
+  tone: string;
+};
+
+const materialTypes: MaterialOption[] = [
+  { type: 'plastic', name: 'Plastic', icon: Recycle, pricePerKg: 20, tone: 'bg-blue-500/20 text-blue-700 dark:text-blue-300' },
+  { type: 'paper', name: 'Paper', icon: FileText, pricePerKg: 8, tone: 'bg-amber-500/20 text-amber-700 dark:text-amber-300' },
+  { type: 'metal', name: 'Metal', icon: Cog, pricePerKg: 35, tone: 'bg-slate-500/20 text-slate-700 dark:text-slate-300' },
+  { type: 'glass', name: 'Glass', icon: Droplets, pricePerKg: 5, tone: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' },
+  { type: 'electronics', name: 'Electronics', icon: Cpu, pricePerKg: 50, tone: 'bg-purple-500/20 text-purple-700 dark:text-purple-300' },
+];
 
 export default function RecyclerDashboard() {
   const { user, isLoading } = useAuth();
@@ -50,21 +62,29 @@ export default function RecyclerDashboard() {
   const totalWeight = transactions.reduce((sum, t) => sum + t.weight, 0);
   const totalValue = transactions.reduce((sum, t) => sum + t.price, 0);
 
-  const materialStats = materialTypes.map(material => ({
-    ...material,
-    weight: transactions.filter(t => t.materialType === material.value).reduce((sum, t) => sum + t.weight, 0),
-    value: transactions.filter(t => t.materialType === material.value).reduce((sum, t) => sum + t.price, 0),
-  }));
+  const materialStats = materialTypes.map((material) => {
+    const materialTransactions = transactions.filter((t) => t.materialType === material.type);
+    return {
+      ...material,
+      weight: materialTransactions.reduce((sum, t) => sum + t.weight, 0),
+      totalValue: materialTransactions.reduce((sum, t) => sum + t.price, 0),
+    };
+  });
+
+  const topMaterial = materialStats.reduce(
+    (best, current) => (current.weight > best.weight ? current : best),
+    materialStats[0]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (formData.paymentMethod === 'mpesa' && !formData.mpesaCode.trim()) {
       toast.error('Please enter M-Pesa transaction code');
       return;
     }
 
-    const material = materialTypes.find(m => m.value === formData.materialType);
+    const material = materialTypes.find((m) => m.type === formData.materialType);
     const weight = parseFloat(formData.weight);
     const price = weight * (material?.pricePerKg || 0);
 
@@ -81,7 +101,7 @@ export default function RecyclerDashboard() {
     setTransactions([...transactions, newTransaction]);
     setFormData({ materialType: 'plastic', weight: '', source: '', paymentMethod: 'cash', mpesaCode: '' });
     setShowForm(false);
-    toast.success(`Recorded ${weight}kg of ${material?.label} for KES ${price}`);
+    toast.success(`Recorded ${weight}kg of ${material?.name || 'material'} for KES ${price}`);
   };
 
   return (
@@ -112,8 +132,10 @@ export default function RecyclerDashboard() {
                     onChange={(e) => setFormData({ ...formData, materialType: e.target.value as RecyclingTransaction['materialType'] })}
                     className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                   >
-                    {materialTypes.map(m => (
-                      <option key={m.value} value={m.value}>{m.label} (KES {m.pricePerKg}/kg)</option>
+                    {materialTypes.map((m) => (
+                      <option key={m.type} value={m.type}>
+                        {m.name} (KES {m.pricePerKg}/kg)
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -144,8 +166,8 @@ export default function RecyclerDashboard() {
                     onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as 'cash' | 'mpesa' })}
                     className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                   >
-                    <option value="cash">💵 Cash</option>
-                    <option value="mpesa">📱 M-Pesa</option>
+                    <option value="cash">Cash</option>
+                    <option value="mpesa">M-Pesa</option>
                   </select>
                 </div>
                 {formData.paymentMethod === 'mpesa' && (
@@ -162,7 +184,9 @@ export default function RecyclerDashboard() {
               </div>
               <div className="flex gap-2">
                 <Button type="submit">Save Transaction</Button>
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                  Cancel
+                </Button>
               </div>
             </form>
           </div>
@@ -193,7 +217,7 @@ export default function RecyclerDashboard() {
           />
           <StatCard
             title="Top Material"
-            value={materialStats.sort((a, b) => b.weight - a.weight)[0]?.label.split(' ')[1] || 'N/A'}
+            value={transactions.length > 0 ? topMaterial?.name || 'N/A' : 'N/A'}
             icon={Recycle}
             description="By weight"
             iconClassName="bg-info/20 text-info"
@@ -204,11 +228,16 @@ export default function RecyclerDashboard() {
         <div className="dashboard-section">
           <h2 className="text-lg font-semibold mb-4">Material Inventory</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {materialStats.map(material => (
-              <div key={material.value} className="p-4 rounded-xl bg-secondary/50 text-center">
-                <div className="text-2xl mb-2">{material.label.split(' ')[0]}</div>
-                <div className="font-semibold">{material.weight} kg</div>
-                <div className="text-sm text-muted-foreground">KES {material.value.toLocaleString()}</div>
+            {materialStats.map((material) => (
+              <div key={material.type} className="p-4 rounded-xl bg-secondary/50 text-center space-y-3">
+                <div className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${material.tone}`}>
+                  <material.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-semibold">{material.name}</div>
+                  <div className="text-sm text-muted-foreground">{material.weight} kg</div>
+                </div>
+                <div className="text-sm text-muted-foreground">KES {material.totalValue.toLocaleString()}</div>
               </div>
             ))}
           </div>
@@ -217,12 +246,14 @@ export default function RecyclerDashboard() {
         {/* Recent Transactions */}
         <div className="dashboard-section">
           <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
-          
+
           {transactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Recycle className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>No transactions yet</p>
-              <Button variant="link" onClick={() => setShowForm(true)}>Record your first transaction</Button>
+              <Button variant="link" onClick={() => setShowForm(true)}>
+                Record your first transaction
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -238,11 +269,11 @@ export default function RecyclerDashboard() {
                 </thead>
                 <tbody>
                   {transactions.slice().reverse().map((txn) => {
-                    const material = materialTypes.find(m => m.value === txn.materialType);
+                    const material = materialTypes.find((m) => m.type === txn.materialType);
                     return (
                       <tr key={txn.id} className="border-b border-border/50 hover:bg-secondary/30">
                         <td className="py-3 px-4 text-sm">{new Date(txn.createdAt).toLocaleDateString()}</td>
-                        <td className="py-3 px-4 text-sm">{material?.label}</td>
+                        <td className="py-3 px-4 text-sm">{material?.name}</td>
                         <td className="py-3 px-4 text-sm">{txn.weight} kg</td>
                         <td className="py-3 px-4 text-sm font-medium">KES {txn.price.toLocaleString()}</td>
                         <td className="py-3 px-4 text-sm text-muted-foreground">{txn.source}</td>

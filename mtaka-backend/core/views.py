@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -723,6 +724,7 @@ class EventViewSet(viewsets.ModelViewSet):
     ).annotate(participant_count_cached=Count('participants', distinct=True))
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
     
     def _expire_past_events(self):
         # Run at most once per minute to avoid expensive update scans on every request.

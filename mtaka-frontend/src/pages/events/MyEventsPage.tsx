@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EventCoverMedia } from '@/components/events/EventCoverMedia';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -224,6 +225,11 @@ export default function MyEventsPage() {
               <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {createdEvents.map((event) => (
                   <div key={event.id} className="bg-card rounded-xl border border-border overflow-hidden">
+                    <EventCoverMedia
+                      src={event.coverImageUrl || event.cover_image || undefined}
+                      alt={event.title}
+                      className="h-28"
+                    />
                     <div className="p-5">
                       <div className="flex items-start justify-between mb-3">
                         <Badge className={statusColors[event.status]}>{event.status}</Badge>
@@ -301,6 +307,11 @@ export default function MyEventsPage() {
               <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {joinedEvents.map((event) => (
                   <div key={event.id} className="bg-card rounded-xl border border-border overflow-hidden">
+                    <EventCoverMedia
+                      src={event.coverImageUrl || event.cover_image || undefined}
+                      alt={event.title}
+                      className="h-28"
+                    />
                     <div className="p-5">
                       <div className="flex items-start justify-between mb-3">
                         <Badge className={statusColors[event.status]}>{event.status}</Badge>

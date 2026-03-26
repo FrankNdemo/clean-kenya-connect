@@ -451,6 +451,7 @@ class EventSerializer(serializers.ModelSerializer):
     creator_name = serializers.CharField(source='creator.username', read_only=True)
     participant_count = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
+    coverImageUrl = serializers.SerializerMethodField()
     organizerId = serializers.IntegerField(source='creator.id', read_only=True)
     organizerName = serializers.CharField(source='creator.username', read_only=True)
     title = serializers.CharField(source='event_name')
@@ -474,6 +475,7 @@ class EventSerializer(serializers.ModelSerializer):
             'event_date',
             'start_time',
             'end_time',
+            'cover_image',
             'max_participants',
             'reward_points',
             'cancellation_reason',
@@ -487,6 +489,7 @@ class EventSerializer(serializers.ModelSerializer):
             'type',
             'date',
             'time',
+            'coverImageUrl',
             'maxParticipants',
             'rewardPoints',
             'cancellationReason',
@@ -498,6 +501,7 @@ class EventSerializer(serializers.ModelSerializer):
             'event_date': {'required': False},
             'start_time': {'required': False},
             'end_time': {'required': False, 'allow_null': True},
+            'cover_image': {'required': False, 'allow_null': True},
             'max_participants': {'required': False, 'allow_null': True},
             'reward_points': {'required': False},
             'status': {'required': False},
@@ -517,6 +521,20 @@ class EventSerializer(serializers.ModelSerializer):
         if prefetched is not None:
             return [participant.user_id for participant in prefetched]
         return list(obj.participants.values_list('user_id', flat=True))
+
+    def get_coverImageUrl(self, obj):
+        cover_image = getattr(obj, 'cover_image', None)
+        if not cover_image:
+            return None
+
+        url = cover_image.url
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        if request is not None:
+            try:
+                return request.build_absolute_uri(url)
+            except Exception:
+                return url
+        return url
 
 class EventParticipantSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)

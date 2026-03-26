@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EventCoverMedia } from '@/components/events/EventCoverMedia';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -99,6 +100,11 @@ export default function EventsManagePage() {
               <div className="space-y-4">
                 {pendingEvents.map((event) => (
                   <div key={event.id} className="p-4 rounded-lg border border-warning/30 bg-warning/5">
+                    <EventCoverMedia
+                      src={event.coverImageUrl || event.cover_image || undefined}
+                      alt={event.title}
+                      className="mb-4 h-32 rounded-lg"
+                    />
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                       <div className="flex-1">
                         <h3 className="font-semibold mb-1">{event.title}</h3>
@@ -131,6 +137,11 @@ export default function EventsManagePage() {
               <div className="space-y-4">
                 {otherEvents.map((event) => (
                   <div key={event.id} className="p-4 rounded-lg border border-border bg-card">
+                    <EventCoverMedia
+                      src={event.coverImageUrl || event.cover_image || undefined}
+                      alt={event.title}
+                      className="mb-4 h-28 rounded-lg"
+                    />
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EventCoverMedia } from '@/components/events/EventCoverMedia';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -249,7 +250,11 @@ export default function EventsPage() {
               {filteredEvents.map((event) => (
                 <div key={event.id} className="bg-card rounded-xl border border-border overflow-hidden card-hover">
                   {/* Event Header */}
-                  <div className="h-32 bg-gradient-to-br from-primary/20 to-success/20 flex items-center justify-center relative">
+                  <EventCoverMedia
+                    src={event.coverImageUrl || event.cover_image || undefined}
+                    alt={event.title}
+                    className="h-32"
+                  >
                     <span className={`absolute top-3 right-3 px-2 py-1 text-xs rounded-full ${eventTypeColors[event.type]}`}>
                       {eventTypeLabels[event.type]}
                     </span>
@@ -258,8 +263,7 @@ export default function EventsPage() {
                         Your Event
                       </Badge>
                     )}
-                    <Calendar className="w-12 h-12 text-primary" />
-                  </div>
+                  </EventCoverMedia>
 
                   {/* Event Content */}
                   <div className="p-5">

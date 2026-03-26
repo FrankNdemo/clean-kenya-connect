@@ -110,6 +110,15 @@ const buildCacheKey = (url: string, params?: unknown) =>
 
 const delay = (ms: number) => new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 
+const appendFormValue = (formData: FormData, key: string, value: unknown) => {
+  if (value === undefined || value === null || value === '') return;
+  if (value instanceof File) {
+    formData.append(key, value);
+    return;
+  }
+  formData.append(key, String(value));
+};
+
 const withRetry = async <T>(
   fn: () => Promise<T>,
   retries = 2,
@@ -349,6 +358,8 @@ export interface BackendEvent {
   title: string;
   description: string;
   type: "cleanup" | "recycling" | "awareness" | "tree-planting";
+  coverImageUrl?: string | null;
+  cover_image?: string | null;
   date: string;
   time: string;
   location: string;
@@ -384,8 +395,23 @@ export const createEvent = async (payload: {
   maxParticipants: number;
   rewardPoints: number;
   status?: BackendEvent["status"];
+  coverImage?: File | null;
 }) => {
-  const response = await API.post("events/", payload);
+  const formData = new FormData();
+  appendFormValue(formData, "title", payload.title);
+  appendFormValue(formData, "description", payload.description);
+  appendFormValue(formData, "type", payload.type);
+  appendFormValue(formData, "date", payload.date);
+  appendFormValue(formData, "time", payload.time);
+  appendFormValue(formData, "location", payload.location);
+  appendFormValue(formData, "maxParticipants", payload.maxParticipants);
+  appendFormValue(formData, "rewardPoints", payload.rewardPoints);
+  appendFormValue(formData, "status", payload.status);
+  appendFormValue(formData, "cover_image", payload.coverImage);
+
+  const response = await API.post("events/", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   invalidateGetCache(["events"]);
   return response.data as BackendEvent;
 };

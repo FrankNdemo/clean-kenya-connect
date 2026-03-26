@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { createEvent, BackendEvent } from '@/api';
+import { EventCoverMedia } from '@/components/events/EventCoverMedia';
 import { 
   ArrowLeft, 
   Calendar,
@@ -39,7 +40,21 @@ export default function CreateEventPage() {
     maxParticipants: '30',
     rewardPoints: '30',
   });
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!coverImage) {
+      setCoverImagePreview(null);
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(coverImage);
+    setCoverImagePreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [coverImage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +82,7 @@ export default function CreateEventPage() {
         maxParticipants: parseInt(formData.maxParticipants),
         rewardPoints: parseInt(formData.rewardPoints),
         status: 'pending',
+        coverImage,
       });
 
       toast.success('Event created! It will be visible once approved by the county authority.');
@@ -88,6 +104,7 @@ export default function CreateEventPage() {
   };
 
   const today = new Date().toISOString().split('T')[0];
+  const coverPreviewSrc = coverImagePreview ?? undefined;
 
   return (
     <Layout showFooter={false}>
@@ -128,6 +145,32 @@ export default function CreateEventPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Cover Image */}
+                <div className="space-y-3 rounded-2xl border border-border bg-secondary/20 p-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="coverImage">Event Cover Image</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Optional. Upload a photo to appear on the event card and in the background area.
+                    </p>
+                  </div>
+                  <Input
+                    id="coverImage"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setCoverImage(e.target.files?.[0] ?? null)}
+                  />
+                  <EventCoverMedia
+                    src={coverPreviewSrc}
+                    alt={formData.title ? `${formData.title} cover preview` : 'Event cover preview'}
+                    className="h-52 rounded-2xl border border-border"
+                  />
+                  {coverImage && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected image: {coverImage.name}
+                    </p>
+                  )}
                 </div>
 
                 {/* Title */}

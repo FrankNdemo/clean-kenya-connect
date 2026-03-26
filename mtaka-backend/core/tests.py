@@ -2,6 +2,7 @@ import json
 import re
 from io import BytesIO
 from datetime import date, time
+from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 from unittest.mock import MagicMock, patch
 
@@ -14,7 +15,7 @@ from rest_framework.test import APIClient
 from PIL import Image
 
 from .county import location_matches_county, resolve_county_from_location
-from .models import CollectionRequest, CollectionRequestUpdate, Collector, Household, WasteType
+from .models import CollectionRequest, CollectionRequestUpdate, Collector, Event, Household, WasteType
 
 
 @override_settings(
@@ -90,6 +91,67 @@ class AuthFlowTests(TestCase):
 
         self.assertEqual(refresh_response.status_code, 200)
         self.assertIn('access', refresh_response.json())
+
+
+@override_settings(
+    RUNTIME_SESSION_ID='test-session-id',
+    DEBUG=True,
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    DEFAULT_FROM_EMAIL='M-Taka No-Reply <no-reply@example.com>',
+    FRONTEND_URL='https://mtaka.example',
+    PASSWORD_RESET_TIMEOUT=3600,
+    ALLOWED_HOSTS=['testserver'],
+    SIMPLE_JWT={
+        'ACCESS_TOKEN_LIFETIME': __import__('datetime').timedelta(minutes=60),
+        'REFRESH_TOKEN_LIFETIME': __import__('datetime').timedelta(days=1),
+        'AUTH_HEADER_TYPES': ('Bearer',),
+    },
+)
+class EventImageUploadTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user_model = get_user_model()
+        self.user = self.user_model.objects.create_user(
+            username='event-organizer',
+            email='event-organizer@example.com',
+            password='StrongPass!1',
+            user_type='authority',
+            phone='+254700009003',
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_event_cover_image_is_saved_and_returned(self):
+        buffer = BytesIO()
+        Image.new('RGB', (1, 1), color='green').save(buffer, format='PNG')
+        cover_image = SimpleUploadedFile(
+            'event-cover.png',
+            buffer.getvalue(),
+            content_type='image/png',
+        )
+
+        with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                '/api/auth/events/',
+                data={
+                    'type': 'cleanup',
+                    'title': 'Community Cleanup Day',
+                    'description': 'Bring gloves and join the cleanup.',
+                    'date': '2026-03-31',
+                    'time': '10:30',
+                    'location': 'Siriba campus',
+                    'maxParticipants': 50,
+                    'rewardPoints': 25,
+                    'status': 'pending',
+                    'cover_image': cover_image,
+                },
+                format='multipart',
+            )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertIn('coverImageUrl', payload)
+        self.assertTrue(payload['coverImageUrl'].startswith('http://testserver/media/event_covers/'))
+        self.assertTrue(Event.objects.filter(event_name='Community Cleanup Day').exists())
 
     def test_registration_rejects_duplicate_email_and_phone(self):
         self.user_model.objects.create_user(

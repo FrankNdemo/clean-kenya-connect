@@ -1,0 +1,44 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="recyclingTitle recyclingDesc">
+  <title id="recyclingTitle">Recycling drives photo scene</title>
+  <desc id="recyclingDesc">A hand holding colorful recycled plastic flakes in a recycling facility.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7FBF7" />
+      <stop offset="0.42" stop-color="#EEF7F0" />
+      <stop offset="1" stop-color="#D8EBD8" />
+    </linearGradient>
+    <linearGradient id="topWash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28" />
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0" />
+      <stop offset="1" stop-color="#1E3A2B" stop-opacity="0.12" />
+    </linearGradient>
+    <linearGradient id="bottomWash" x1="0" y1="560" x2="0" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10231A" stop-opacity="0" />
+      <stop offset="1" stop-color="#10231A" stop-opacity="0.42" />
+    </linearGradient>
+    <linearGradient id="badge" x1="92" y1="62" x2="220" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.96" />
+      <stop offset="1" stop-color="#F0FAF2" stop-opacity="0.94" />
+    </linearGradient>
+    <filter id="shadow" x="-40" y="-40" width="1280" height="980" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#13261C" flood-opacity="0.16" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="900" rx="56" fill="url(#bg)" />
+  <image href="/landing/recycling-real.jpg" x="0" y="0" width="1200" height="900" preserveAspectRatio="xMidYMid slice" />
+  <rect width="1200" height="900" rx="56" fill="url(#topWash)" />
+  <rect width="1200" height="900" rx="56" fill="url(#bottomWash)" />
+
+  <g filter="url(#shadow)">
+    <rect x="84" y="62" width="156" height="44" rx="22" fill="url(#badge)" />
+    <text x="106" y="91" fill="#16613A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Recycle</text>
+  </g>
+
+  <g opacity="0.18">
+    <circle cx="1022" cy="114" r="82" fill="#FFF7C7" />
+    <circle cx="186" cy="150" r="52" fill="#D9F2DE" />
+  </g>
+
+  <path d="M0 754C194 710 336 700 470 712C610 724 732 774 868 782C980 788 1082 772 1200 740V900H0V754Z" fill="#D8ECD9" opacity="0.34" />
+</svg>

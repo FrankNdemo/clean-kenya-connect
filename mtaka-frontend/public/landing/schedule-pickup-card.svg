@@ -1,0 +1,68 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pickupTitle pickupDesc">
+  <title id="pickupTitle">Schedule pickup photo scene</title>
+  <desc id="pickupDesc">A person using a phone beside a pickup truck with a M-Taka schedule overlay.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EEF5FF" />
+      <stop offset="0.45" stop-color="#F9FBFC" />
+      <stop offset="1" stop-color="#DCEEE2" />
+    </linearGradient>
+    <linearGradient id="wash" x1="0" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F2119" stop-opacity="0.22" />
+      <stop offset="0.42" stop-color="#0F2119" stop-opacity="0.02" />
+      <stop offset="1" stop-color="#0F2119" stop-opacity="0.12" />
+    </linearGradient>
+    <linearGradient id="screen" x1="748" y1="240" x2="1012" y2="660" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8FFF9" />
+      <stop offset="1" stop-color="#E7F4EA" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1F8A52" />
+      <stop offset="1" stop-color="#56C87C" />
+    </linearGradient>
+    <linearGradient id="badge" x1="92" y1="62" x2="222" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.96" />
+      <stop offset="1" stop-color="#F0FAF2" stop-opacity="0.94" />
+    </linearGradient>
+    <filter id="shadow" x="-40" y="-40" width="1280" height="980" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#10251A" flood-opacity="0.18" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="900" rx="56" fill="url(#bg)" />
+  <image href="/landing/pickup-real.jpg" x="0" y="0" width="1200" height="900" preserveAspectRatio="xMidYMid slice" />
+  <rect width="1200" height="900" rx="56" fill="url(#wash)" />
+
+  <g filter="url(#shadow)">
+    <rect x="84" y="62" width="150" height="44" rx="22" fill="url(#badge)" />
+    <text x="108" y="91" fill="#16613A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Pickup</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="744" y="208" width="292" height="438" rx="34" fill="#18232D" />
+    <rect x="764" y="230" width="252" height="314" rx="26" fill="url(#screen)" />
+    <rect x="844" y="214" width="92" height="16" rx="8" fill="#18232D" />
+
+    <rect x="790" y="266" width="82" height="20" rx="10" fill="url(#accent)" />
+    <text x="800" y="281" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="12" font-weight="700">M-Taka</text>
+
+    <text x="790" y="322" fill="#163B27" font-family="Arial, sans-serif" font-size="24" font-weight="700">Pickup scheduled</text>
+    <text x="790" y="350" fill="#4D6852" font-family="Arial, sans-serif" font-size="14">Collectors near you</text>
+
+    <rect x="790" y="382" width="188" height="86" rx="20" fill="#FFFFFF" stroke="#D7E7DA" />
+    <circle cx="820" cy="425" r="14" fill="#DAF0DF" />
+    <path d="M813 425H827" stroke="#1F8A52" stroke-width="3" stroke-linecap="round" />
+    <path d="M820 418V432" stroke="#1F8A52" stroke-width="3" stroke-linecap="round" />
+    <text x="852" y="414" fill="#163B27" font-family="Arial, sans-serif" font-size="15" font-weight="700">Your request is live</text>
+    <text x="852" y="436" fill="#4D6852" font-family="Arial, sans-serif" font-size="12">Assigned to the closest collector</text>
+    <rect x="852" y="448" width="78" height="10" rx="5" fill="#D3E8D8" />
+
+    <rect x="790" y="488" width="188" height="52" rx="18" fill="#F4FBF5" />
+    <rect x="810" y="505" width="112" height="10" rx="5" fill="#C7DFCD" />
+    <rect x="810" y="521" width="82" height="10" rx="5" fill="#D7E7DA" />
+    <rect x="790" y="562" width="188" height="42" rx="16" fill="#1F8A52" />
+    <text x="836" y="588" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="14" font-weight="700">View request</text>
+  </g>
+
+  <rect width="1200" height="900" rx="56" fill="#071711" opacity="0.02" />
+</svg>

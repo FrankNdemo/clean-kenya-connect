@@ -1,0 +1,40 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="eWasteTitle eWasteDesc">
+  <title id="eWasteTitle">E-waste handling illustration</title>
+  <desc id="eWasteDesc">A smartphone and battery symbol inside a safe shield to show careful handling of electronic waste.</desc>
+  <defs>
+    <linearGradient id="eWasteBg" x1="132" y1="76" x2="1086" y2="842" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF2FF"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <radialGradient id="eWasteGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(246 202) rotate(41) scale(194 194)">
+      <stop stop-color="#93C5FD"/>
+      <stop offset="1" stop-color="#93C5FD" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="eWastePhone" x1="472" y1="234" x2="744" y2="656" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1E293B"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="eWasteAccent" x1="492" y1="268" x2="724" y2="618" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" rx="56" fill="url(#eWasteBg)"/>
+  <circle cx="238" cy="188" r="170" fill="url(#eWasteGlow)"/>
+  <circle cx="1000" cy="176" r="170" fill="#E0E7FF" opacity="0.55"/>
+  <circle cx="990" cy="688" r="190" fill="#CCFBF1" opacity="0.3"/>
+  <path d="M164 704C282 624 405 586 530 588C660 590 764 634 870 694C934 730 1010 744 1092 738V900H0V736C53 735 111 722 164 704Z" fill="#E0E7FF"/>
+  <path d="M410 240H790C815 240 836 261 836 286V616C836 644 818 670 792 682L628 754C610 762 590 762 572 754L408 682C382 670 364 644 364 616V286C364 261 385 240 410 240Z" fill="url(#eWastePhone)"/>
+  <rect x="422" y="256" width="356" height="388" rx="34" fill="#0F172A" stroke="#334155" stroke-width="2"/>
+  <rect x="456" y="290" width="288" height="260" rx="26" fill="url(#eWasteAccent)"/>
+  <circle cx="600" cy="608" r="18" fill="#E2E8F0"/>
+  <path d="M600 328L638 404H596L624 476L550 372H588L564 328H600Z" fill="#F8FAFC"/>
+  <rect x="514" y="344" width="42" height="18" rx="9" fill="#E2E8F0" opacity="0.9"/>
+  <rect x="644" y="344" width="60" height="18" rx="9" fill="#E2E8F0" opacity="0.9"/>
+  <rect x="452" y="562" width="296" height="14" rx="7" fill="#38BDF8" opacity="0.4"/>
+  <path d="M842 296L964 344L916 478L790 434L842 296Z" fill="#F8FAFC" stroke="#38BDF8" stroke-width="4"/>
+  <path d="M861 350L903 366L890 404L848 390L861 350Z" fill="#38BDF8"/>
+  <path d="M864 412L916 430L902 468L850 450L864 412Z" fill="#10B981"/>
+  <path d="M878 384L924 298" stroke="#38BDF8" stroke-width="10" stroke-linecap="round"/>
+  <path d="M916 298L946 300L930 326" stroke="#38BDF8" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

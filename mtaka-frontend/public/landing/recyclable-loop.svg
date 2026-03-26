@@ -1,0 +1,32 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="recycleTitle recycleDesc">
+  <title id="recycleTitle">Recycling loop illustration</title>
+  <desc id="recycleDesc">A circular recycling symbol with clean blue and green gradients that represent material recovery.</desc>
+  <defs>
+    <linearGradient id="recycleBg" x1="138" y1="76" x2="1098" y2="846" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ECFEFF"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <radialGradient id="recycleGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(972 186) rotate(50) scale(196 196)">
+      <stop stop-color="#67E8F9"/>
+      <stop offset="1" stop-color="#67E8F9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="recycleRing" x1="388" y1="254" x2="792" y2="648" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" rx="56" fill="url(#recycleBg)"/>
+  <circle cx="238" cy="190" r="160" fill="#CFFAFE" opacity="0.55"/>
+  <circle cx="976" cy="184" r="178" fill="url(#recycleGlow)"/>
+  <circle cx="980" cy="690" r="186" fill="#DCFCE7" opacity="0.35"/>
+  <path d="M168 700C284 620 404 584 528 588C653 592 760 636 868 694C934 729 1012 744 1090 738V900H0V738C50 738 109 726 168 700Z" fill="#D1FAE5"/>
+  <rect x="352" y="222" width="496" height="456" rx="56" fill="#FFFFFF" stroke="#BAE6FD" stroke-width="2"/>
+  <circle cx="600" cy="450" r="170" fill="none" stroke="url(#recycleRing)" stroke-width="26" stroke-linecap="round" stroke-dasharray="835 60"/>
+  <path d="M738 318C785 345 821 387 836 440L788 429L824 486L845 430L801 432C787 384 757 346 717 321L738 318Z" fill="#0EA5E9"/>
+  <path d="M824 564C797 611 754 647 700 662L711 614L653 651L708 668L704 623C751 610 788 579 813 539L824 564Z" fill="#10B981"/>
+  <path d="M466 604C414 574 380 524 364 466L415 478L381 420L359 476L401 473C417 524 451 563 495 587L466 604Z" fill="#38BDF8"/>
+  <circle cx="600" cy="450" r="96" fill="#FFFFFF" stroke="#D1FAE5" stroke-width="2"/>
+  <text x="600" y="470" text-anchor="middle" fill="#0F766E" font-family="Inter, Arial, sans-serif" font-size="122" font-weight="800">♻</text>
+  <rect x="480" y="302" width="240" height="40" rx="20" fill="#E0F2FE"/>
+  <rect x="462" y="610" width="276" height="40" rx="20" fill="#DCFCE7"/>
+</svg>

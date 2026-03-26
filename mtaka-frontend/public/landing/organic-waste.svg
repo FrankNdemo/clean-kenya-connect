@@ -1,0 +1,42 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="organicTitle organicDesc">
+  <title id="organicTitle">Organic recovery photo card</title>
+  <desc id="organicDesc">A real collection photo with a compost and soil recovery treatment for organic waste.</desc>
+  <defs>
+    <clipPath id="organicClip">
+      <rect x="0" y="0" width="1200" height="900" rx="56" />
+    </clipPath>
+    <linearGradient id="organicTint" x1="0" y1="0" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ECFDF5" stop-opacity="0.06" />
+      <stop offset="0.55" stop-color="#ECFDF5" stop-opacity="0.1" />
+      <stop offset="1" stop-color="#0F5132" stop-opacity="0.42" />
+    </linearGradient>
+    <linearGradient id="organicHill" x1="0" y1="740" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D7EBC7" />
+      <stop offset="1" stop-color="#B7D6A1" />
+    </linearGradient>
+    <filter id="organicShadow" x="-40" y="-40" width="1280" height="980" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#123620" flood-opacity="0.16" />
+    </filter>
+  </defs>
+
+  <g clip-path="url(#organicClip)">
+    <image href="/landing/cleanup-truck.jpg" x="0" y="0" width="1200" height="900" preserveAspectRatio="xMidYMid slice" />
+    <rect width="1200" height="900" fill="url(#organicTint)" />
+    <path d="M0 760C170 720 314 708 466 726C616 744 728 790 866 798C993 805 1108 786 1200 766V900H0V760Z" fill="url(#organicHill)" opacity="0.9" />
+
+    <g filter="url(#organicShadow)">
+      <circle cx="1000" cy="140" r="74" fill="#FFF7D6" opacity="0.95" />
+      <circle cx="170" cy="150" r="52" fill="#D8F1DC" opacity="0.82" />
+      <rect x="74" y="64" width="186" height="44" rx="22" fill="#FFFFFF" opacity="0.9" />
+      <text x="95" y="92" fill="#16613A" font-family="Arial, sans-serif" font-size="24" font-weight="700">Compost</text>
+    </g>
+
+    <g filter="url(#organicShadow)">
+      <circle cx="862" cy="666" r="112" fill="#F4FFF4" opacity="0.88" />
+      <circle cx="862" cy="666" r="76" fill="#DDF7E4" />
+      <path d="M834 668C851 643 873 630 899 630C893 661 880 684 861 701C849 692 839 681 834 668Z" fill="#2EA55E" />
+      <path d="M867 700L884 677L902 711L885 737L867 700Z" fill="#2EA55E" />
+      <path d="M854 706C845 695 836 689 824 687C825 697 829 706 836 712C846 721 857 725 870 726C866 719 861 712 854 706Z" fill="#6FD38B" />
+    </g>
+  </g>
+</svg>

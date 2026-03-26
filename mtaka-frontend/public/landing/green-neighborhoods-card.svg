@@ -1,0 +1,46 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="neighborhoodTitle neighborhoodDesc">
+  <title id="neighborhoodTitle">Greener neighborhoods photo scene</title>
+  <desc id="neighborhoodDesc">Community members cleaning a neighborhood green space with bags and outdoor stewardship.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EEF8EF" />
+      <stop offset="0.45" stop-color="#F9FCF8" />
+      <stop offset="1" stop-color="#D6EFD7" />
+    </linearGradient>
+    <linearGradient id="greenTint" x1="0" y1="0" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E7B46" stop-opacity="0.10" />
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0" />
+      <stop offset="1" stop-color="#0E2D1E" stop-opacity="0.18" />
+    </linearGradient>
+    <linearGradient id="leafGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#D9F8E3" stop-opacity="0.55" />
+      <stop offset="1" stop-color="#8DD6A4" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="badge" x1="92" y1="62" x2="246" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.96" />
+      <stop offset="1" stop-color="#F0FAF2" stop-opacity="0.94" />
+    </linearGradient>
+    <filter id="shadow" x="-40" y="-40" width="1280" height="980" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#13261C" flood-opacity="0.14" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="900" rx="56" fill="url(#bg)" />
+  <image href="/landing/green-neighborhoods-real.jpg" x="0" y="0" width="1200" height="900" preserveAspectRatio="xMidYMid slice" />
+  <rect width="1200" height="900" rx="56" fill="url(#greenTint)" />
+
+  <g opacity="0.28">
+    <circle cx="1008" cy="126" r="86" fill="#FFF6B8" />
+    <circle cx="170" cy="150" r="54" fill="url(#leafGlow)" />
+    <circle cx="1068" cy="246" r="26" fill="#D8F1DC" />
+  </g>
+
+  <path d="M0 748C170 702 328 692 472 708C620 724 738 762 874 772C1000 780 1102 764 1200 738V900H0V748Z" fill="#CBE8CF" opacity="0.22" />
+
+  <g filter="url(#shadow)">
+    <rect x="84" y="62" width="184" height="44" rx="22" fill="url(#badge)" />
+    <text x="106" y="91" fill="#16613A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Environment</text>
+  </g>
+
+  <rect x="0" y="0" width="1200" height="900" rx="56" fill="#0E2D1E" opacity="0.06" />
+</svg>

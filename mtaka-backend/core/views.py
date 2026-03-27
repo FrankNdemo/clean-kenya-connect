@@ -11,7 +11,7 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.db.models import Q
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch
 from django.db import transaction
 from django.utils import timezone
 from django.utils.encoding import force_bytes
@@ -748,12 +748,32 @@ class CollectionRequestUpdateViewSet(viewsets.ModelViewSet):
         serializer.save(sender=user)
 
 class EventViewSet(viewsets.ModelViewSet):
-    queryset = Event.objects.all().select_related('creator').prefetch_related(
-        Prefetch('participants', queryset=EventParticipant.objects.only('id', 'event_id', 'user_id'))
-    ).annotate(participant_count_cached=Count('participants', distinct=True))
+    queryset = Event.objects.all()
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, FormParser, MultiPartParser]
+
+    def _event_queryset(self, include_participants=False):
+        queryset = Event.objects.select_related('creator').annotate(
+            participant_count_cached=Count('participants', distinct=True)
+        )
+
+        if self.request.user.is_authenticated:
+            queryset = queryset.annotate(
+                is_joined_cached=Exists(
+                    EventParticipant.objects.filter(
+                        event_id=OuterRef('pk'),
+                        user_id=self.request.user.id,
+                    )
+                )
+            )
+
+        if include_participants:
+            queryset = queryset.prefetch_related(
+                Prefetch('participants', queryset=EventParticipant.objects.only('id', 'event_id', 'user_id'))
+            )
+
+        return queryset
     
     def _expire_past_events(self):
         # Run at most once per minute to avoid expensive update scans on every request.
@@ -769,14 +789,17 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         self._expire_past_events()
-        return Event.objects.all().select_related('creator').prefetch_related(
-            Prefetch('participants', queryset=EventParticipant.objects.only('id', 'event_id', 'user_id'))
-        ).annotate(participant_count_cached=Count('participants', distinct=True))
+        return self._event_queryset(include_participants=self.action == 'retrieve')
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
         return [IsAuthenticated()]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['include_participants'] = self.action in ['retrieve']
+        return context
 
     def perform_create(self, serializer):
         event = serializer.save(creator=self.request.user)
@@ -892,11 +915,9 @@ class EventViewSet(viewsets.ModelViewSet):
     def my_events(self, request):
         self._expire_past_events()
         user = request.user
-        queryset = Event.objects.filter(
+        queryset = self._event_queryset().filter(
             Q(creator=user) | Q(participants__user=user)
-        ).distinct().select_related('creator').prefetch_related(
-            Prefetch('participants', queryset=EventParticipant.objects.only('id', 'event_id', 'user_id'))
-        ).annotate(participant_count_cached=Count('participants', distinct=True))
+        ).distinct()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -904,12 +925,10 @@ class EventViewSet(viewsets.ModelViewSet):
     def my_expired_created(self, request):
         self._expire_past_events()
         user = request.user
-        queryset = Event.objects.filter(
+        queryset = self._event_queryset().filter(
             creator=user,
             status='expired'
-        ).select_related('creator').prefetch_related(
-            Prefetch('participants', queryset=EventParticipant.objects.only('id', 'event_id', 'user_id'))
-        ).annotate(participant_count_cached=Count('participants', distinct=True)).order_by('-event_date')
+        ).order_by('-event_date')
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 

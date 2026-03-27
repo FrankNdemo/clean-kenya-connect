@@ -52,6 +52,14 @@ const getDaysRemaining = (eventDate: string) => {
   return Math.floor((startOfEventDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
 };
 
+const getParticipantCount = (event: BackendEvent) => event.participantCount ?? event.participants?.length ?? 0;
+
+const getIsJoined = (event: BackendEvent, userId?: number) => {
+  if (typeof event.isJoined === 'boolean') return event.isJoined;
+  if (!userId) return false;
+  return event.participants?.includes(userId) ?? false;
+};
+
 export default function EventsPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<BackendEvent[]>([]);
@@ -110,8 +118,12 @@ export default function EventsPage() {
     try {
       setEvents((prev) =>
         prev.map((event) =>
-          event.id === eventId && user && !event.participants.includes(Number(user.id))
-            ? { ...event, participants: [...event.participants, Number(user.id)] }
+          event.id === eventId && user && !getIsJoined(event, Number(user.id))
+            ? {
+                ...event,
+                isJoined: true,
+                participantCount: getParticipantCount(event) + 1,
+              }
             : event
         )
       );
@@ -140,7 +152,11 @@ export default function EventsPage() {
       setEvents((prev) =>
         prev.map((event) =>
           event.id === selectedEvent.id && user
-            ? { ...event, participants: event.participants.filter((id) => id !== Number(user.id)) }
+            ? {
+                ...event,
+                isJoined: false,
+                participantCount: Math.max(getParticipantCount(event) - 1, 0),
+              }
             : event
         )
       );
@@ -157,7 +173,7 @@ export default function EventsPage() {
     setLeaveReason('');
   };
 
-  const isJoined = (event: BackendEvent) => user && event.participants.includes(Number(user.id));
+  const isJoined = (event: BackendEvent) => getIsJoined(event, user ? Number(user.id) : undefined);
   const isOrganizer = (event: BackendEvent) => user && event.organizerId === Number(user.id);
 
   return (
@@ -288,7 +304,7 @@ export default function EventsPage() {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Users className="w-4 h-4" />
-                        {event.participants.length} / {event.maxParticipants} participants
+                        {getParticipantCount(event)} / {event.maxParticipants} participants
                       </div>
                     </div>
 

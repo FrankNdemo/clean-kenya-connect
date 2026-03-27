@@ -55,6 +55,13 @@ const statusColors: Record<BackendEvent['status'], string> = {
   cancelled: 'bg-destructive/20 text-destructive',
 };
 
+const getParticipantCount = (event: BackendEvent) => event.participantCount ?? event.participants?.length ?? 0;
+
+const getIsJoined = (event: BackendEvent, userId: number) => {
+  if (typeof event.isJoined === 'boolean') return event.isJoined;
+  return event.participants?.includes(userId) ?? false;
+};
+
 export default function MyEventsPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<BackendEvent[]>([]);
@@ -191,7 +198,7 @@ export default function MyEventsPage() {
   const numericUserId = Number(user?.id || 0);
   const createdEvents = events.filter(e => e.organizerId === numericUserId && e.status !== 'expired');
   const joinedEvents = events.filter(
-    e => e.organizerId !== numericUserId && e.status !== 'expired' && e.participants.includes(numericUserId)
+    e => e.organizerId !== numericUserId && e.status !== 'expired' && getIsJoined(e, numericUserId)
   );
 
   if (!user) {
@@ -278,7 +285,7 @@ export default function MyEventsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4" />
-                          {event.participants.length} / {event.maxParticipants} participants
+                          {getParticipantCount(event)} / {event.maxParticipants} participants
                         </div>
                       </div>
 
@@ -500,7 +507,7 @@ export default function MyEventsPage() {
               <p><span className="font-medium">Time:</span> {selectedExpiredEvent.time}</p>
               <p><span className="font-medium">Location:</span> {selectedExpiredEvent.location}</p>
               <p><span className="font-medium">Status:</span> {selectedExpiredEvent.status}</p>
-              <p><span className="font-medium">Total attendees:</span> {selectedExpiredEvent.participants.length}</p>
+              <p><span className="font-medium">Total attendees:</span> {getParticipantCount(selectedExpiredEvent)}</p>
               <p><span className="font-medium">Max participants:</span> {selectedExpiredEvent.maxParticipants}</p>
               <p><span className="font-medium">Reward points:</span> {selectedExpiredEvent.rewardPoints}</p>
               {selectedExpiredEvent.cancellationReason && (

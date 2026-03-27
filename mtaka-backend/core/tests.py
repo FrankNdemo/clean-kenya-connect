@@ -166,6 +166,9 @@ class EventImageUploadTests(TestCase):
             self.assertEqual(refreshed_response.status_code, 200)
             refreshed_payload = next(item for item in refreshed_response.json() if item['id'] == event.id)
             self.assertTrue(refreshed_payload['coverImageUrl'].startswith('data:image/png;base64,'))
+            self.assertEqual(refreshed_payload['participantCount'], 1)
+            self.assertTrue(refreshed_payload['isJoined'])
+            self.assertEqual(refreshed_payload['participants'], [])
 
         self.assertTrue(Event.objects.filter(event_name='Community Cleanup Day').exists())
 

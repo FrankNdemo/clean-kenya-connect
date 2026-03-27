@@ -450,7 +450,8 @@ class CollectionRequestUpdateSerializer(serializers.ModelSerializer):
 
 class EventSerializer(serializers.ModelSerializer):
     creator_name = serializers.CharField(source='creator.username', read_only=True)
-    participant_count = serializers.SerializerMethodField()
+    participantCount = serializers.SerializerMethodField()
+    isJoined = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
     coverImageUrl = serializers.SerializerMethodField()
     organizerId = serializers.IntegerField(source='creator.id', read_only=True)
@@ -484,7 +485,8 @@ class EventSerializer(serializers.ModelSerializer):
             'description',
             'location',
             'created_at',
-            'participant_count',
+            'participantCount',
+            'isJoined',
             'participants',
             'title',
             'type',
@@ -508,7 +510,7 @@ class EventSerializer(serializers.ModelSerializer):
             'status': {'required': False},
         }
     
-    def get_participant_count(self, obj):
+    def _get_participant_count(self, obj):
         annotated_count = getattr(obj, 'participant_count_cached', None)
         if annotated_count is not None:
             return annotated_count
@@ -517,7 +519,28 @@ class EventSerializer(serializers.ModelSerializer):
             return len(prefetched)
         return obj.participants.count()
 
+    def get_participantCount(self, obj):
+        return self._get_participant_count(obj)
+
+    def get_isJoined(self, obj):
+        cached_value = getattr(obj, 'is_joined_cached', None)
+        if cached_value is not None:
+            return bool(cached_value)
+
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        if request is None or not getattr(request, 'user', None) or not request.user.is_authenticated:
+            return False
+
+        prefetched = getattr(obj, '_prefetched_objects_cache', {}).get('participants')
+        if prefetched is not None:
+            return any(participant.user_id == request.user.id for participant in prefetched)
+
+        return obj.participants.filter(user_id=request.user.id).exists()
+
     def get_participants(self, obj):
+        if not self.context.get('include_participants', False):
+            return []
+
         prefetched = getattr(obj, '_prefetched_objects_cache', {}).get('participants')
         if prefetched is not None:
             return [participant.user_id for participant in prefetched]

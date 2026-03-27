@@ -20,6 +20,11 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const getIsJoined = (event: BackendEvent, userId: number) => {
+  if (typeof event.isJoined === 'boolean') return event.isJoined;
+  return event.participants?.includes(userId) ?? false;
+};
+
 export default function ResidentDashboard() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -92,7 +97,7 @@ export default function ResidentDashboard() {
 
   const numericUserId = Number(user?.id ?? 0);
   const joinedEvents = useMemo(
-    () => events.filter((event) => event.participants.includes(numericUserId)),
+    () => events.filter((event) => getIsJoined(event, numericUserId)),
     [events, numericUserId]
   );
 

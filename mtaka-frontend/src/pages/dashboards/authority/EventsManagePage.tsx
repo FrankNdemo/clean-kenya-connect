@@ -20,6 +20,14 @@ const statusColors: Record<BackendEvent['status'], string> = {
   cancelled: 'bg-destructive/20 text-destructive',
 };
 
+const getParticipantCount = (event: BackendEvent) => event.participantCount ?? event.participants?.length ?? 0;
+
+const getIsJoined = (event: BackendEvent, userId?: number) => {
+  if (typeof event.isJoined === 'boolean') return event.isJoined;
+  if (!userId) return false;
+  return event.participants?.includes(userId) ?? false;
+};
+
 export default function EventsManagePage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<BackendEvent[]>([]);
@@ -68,7 +76,7 @@ export default function EventsManagePage() {
     }
   };
 
-  const isJoined = (event: BackendEvent) => user && event.participants.includes(Number(user.id));
+  const isJoined = (event: BackendEvent) => getIsJoined(event, user ? Number(user.id) : undefined);
   const pendingEvents = events.filter(e => e.status === 'pending');
   const otherEvents = events.filter(e => e.status !== 'pending');
 
@@ -151,7 +159,7 @@ export default function EventsManagePage() {
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                           <span>{event.date}</span>
                           <span>{event.location}</span>
-                          <span>{event.participants.length}/{event.maxParticipants} participants</span>
+                          <span>{getParticipantCount(event)}/{event.maxParticipants} participants</span>
                         </div>
                       </div>
                       {event.status === 'approved' && !isJoined(event) && (

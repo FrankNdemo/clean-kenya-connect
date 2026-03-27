@@ -366,7 +366,9 @@ export interface BackendEvent {
   organizerId: number;
   organizerName: string;
   maxParticipants: number;
-  participants: number[];
+  participantCount?: number;
+  isJoined?: boolean;
+  participants?: number[];
   status: "pending" | "approved" | "rejected" | "ongoing" | "completed" | "expired" | "cancelled";
   rewardPoints: number;
   cancellationReason?: string | null;

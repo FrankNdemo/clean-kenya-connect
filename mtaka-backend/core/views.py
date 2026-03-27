@@ -824,7 +824,7 @@ class EventViewSet(viewsets.ModelViewSet):
         event.cancellation_reason = request.data.get('reason', '')
         event.save(update_fields=['status', 'cancellation_reason'])
 
-        return Response(EventSerializer(event).data)
+        return Response(self.get_serializer(event).data)
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -833,7 +833,7 @@ class EventViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('Only authority users can approve events')
         event.status = 'approved'
         event.save(update_fields=['status'])
-        return Response(EventSerializer(event).data)
+        return Response(self.get_serializer(event).data)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -842,7 +842,7 @@ class EventViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('Only authority users can reject events')
         event.status = 'rejected'
         event.save(update_fields=['status'])
-        return Response(EventSerializer(event).data)
+        return Response(self.get_serializer(event).data)
 
     @action(detail=False, methods=['get'])
     def my_events(self, request):

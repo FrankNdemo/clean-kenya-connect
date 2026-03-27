@@ -4,6 +4,10 @@ from django.views.generic import TemplateView
 from django.views.static import serve
 from django.conf import settings
 
+
+def media_serve(request, path):
+    return serve(request, path, document_root=settings.MEDIA_ROOT)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -19,9 +23,8 @@ urlpatterns = [
         {'document_root': settings.BASE_DIR / 'dist' / '.well-known'},
     ),
     re_path(
-        r'^media/(?P<path>dumping_reports/.*)$',
-        serve,
-        {'document_root': settings.MEDIA_ROOT},
+        r'^media/(?P<path>(dumping_reports|event_covers)/.*)$',
+        media_serve,
     ),
 
     re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),

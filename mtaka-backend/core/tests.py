@@ -129,7 +129,7 @@ class EventImageUploadTests(TestCase):
             content_type='image/png',
         )
 
-        with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+        with TemporaryDirectory(ignore_cleanup_errors=True) as media_root, override_settings(MEDIA_ROOT=media_root):
             response = self.client.post(
                 '/api/auth/events/',
                 data={
@@ -146,11 +146,20 @@ class EventImageUploadTests(TestCase):
                 },
                 format='multipart',
             )
+            self.assertEqual(response.status_code, 201)
+            payload = response.json()
+            self.assertIn('coverImageUrl', payload)
+            self.assertTrue(payload['coverImageUrl'].startswith('http://testserver/media/event_covers/'))
 
-        self.assertEqual(response.status_code, 201)
-        payload = response.json()
-        self.assertIn('coverImageUrl', payload)
-        self.assertTrue(payload['coverImageUrl'].startswith('http://testserver/media/event_covers/'))
+            media_response = self.client.get(urlsplit(payload['coverImageUrl']).path)
+            media_file = getattr(media_response, 'file_to_stream', None)
+            try:
+                self.assertEqual(media_response.status_code, 200)
+                self.assertEqual(media_response['Content-Type'], 'image/png')
+            finally:
+                if hasattr(media_file, 'close'):
+                    media_file.close()
+
         self.assertTrue(Event.objects.filter(event_name='Community Cleanup Day').exists())
 
     def test_registration_rejects_duplicate_email_and_phone(self):

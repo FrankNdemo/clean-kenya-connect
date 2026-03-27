@@ -14,7 +14,7 @@ interface AuthContextType {
   login: (email: string, password?: string) => Promise<User | null>;
   logout: () => Promise<void>;
   register: (
-    userData: Omit<User, 'id' | 'rewardPoints' | 'createdAt'> & {
+    userData: Omit<User, 'id' | 'rewardPoints' | 'createdAt' | 'isSuperuser'> & {
       password: string;
       companyName?: string;
       licenseNumber?: string;
@@ -33,6 +33,7 @@ type ProfileResponse = {
     email?: string;
     phone?: string;
     user_type?: string;
+    is_superuser?: boolean;
     reward_points?: number;
     first_name?: string;
     last_name?: string;
@@ -202,6 +203,7 @@ const mapBackendUserToFrontend = (data: any): User => {
     email: data.user.email,
     phone: data.user.phone || '',
     role: (data.user.user_type === 'household' ? 'resident' : (data.user.user_type as any)) as any,
+    isSuperuser: Boolean(data.user.is_superuser),
     location: locationFromProfile,
     county: countyFromBackend || '',
     rewardPoints: data.user.reward_points ?? data?.profile?.green_credits ?? 0,
@@ -420,6 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: found.email,
           phone: found.phone || '',
           role: (found.user_type === 'household' ? 'resident' : (found.user_type as any)) as any,
+          isSuperuser: Boolean(found.is_superuser),
           location: found.location || '',
           county: found.county || '',
           rewardPoints: found.reward_points ?? 0,

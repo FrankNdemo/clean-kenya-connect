@@ -10,6 +10,7 @@ import { Recycle, ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { createComplaintApi } from '@/api';
 import { AuthError, useAuth } from '@/hooks/useAuth';
 import { isStandaloneAppMode } from '@/lib/appMode';
+import { getDashboardPathForUser } from '@/lib/dashboardPaths';
 import { toast } from 'sonner';
 
 const LOGIN_FORM_CLEAR_KEY = 'mtaka_clear_login_form';
@@ -91,13 +92,7 @@ export default function LoginPage() {
           navigate(fromPath, { replace: true });
           return;
         }
-        switch (user.role) {
-          case 'resident': navigate('/dashboard/resident'); break;
-          case 'collector': navigate('/dashboard/collector'); break;
-          case 'recycler': navigate('/dashboard/recycler'); break;
-          case 'authority': navigate('/dashboard/authority'); break;
-          default: navigate('/');
-        }
+        navigate(getDashboardPathForUser(user), { replace: true });
       } else {
         toast.error('Invalid email or password.');
       }

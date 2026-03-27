@@ -75,7 +75,7 @@ export default function EventsPage() {
 
   const refreshEvents = async () => {
     try {
-      const allEvents = await listEvents();
+      const allEvents = await listEvents({ status: ['approved', 'ongoing'] });
       setEvents(allEvents.filter(e => e.status === 'approved' || e.status === 'ongoing'));
     } catch (error) {
       toast.error('Failed to load events');

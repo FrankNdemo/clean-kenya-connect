@@ -3,23 +3,13 @@ import { Recycle, Menu, X, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { getDashboardPathForUser } from '@/lib/dashboardPaths';
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-
-  const getDashboardLink = () => {
-    if (!user) return '/login';
-    switch (user.role) {
-      case 'resident': return '/dashboard/resident';
-      case 'collector': return '/dashboard/collector';
-      case 'recycler': return '/dashboard/recycler';
-      case 'authority': return '/dashboard/authority';
-      default: return '/';
-    }
-  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -67,7 +57,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
-                <Link to={getDashboardLink()}>
+                <Link to={getDashboardPathForUser(user)}>
                   <Button variant="ghost" size="sm" className="gap-2">
                     <User className="w-4 h-4" />
                     {user.name.split(' ')[0]}
@@ -128,7 +118,7 @@ export function Navbar() {
                 {user ? (
                   <>
                     <Link 
-                      to={getDashboardLink()} 
+                      to={getDashboardPathForUser(user)} 
                       className="block px-4 py-2 text-sm font-medium rounded-lg hover:bg-secondary transition-colors"
                       onClick={() => setIsOpen(false)}
                     >

@@ -494,7 +494,7 @@ def get_user_profile(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def list_users(request):
     cache_key = "api:list_users:v2"
     cached_payload = cache.get(cache_key)
@@ -511,6 +511,44 @@ def list_users(request):
     payload = serializer.data
     cache.set(cache_key, payload, timeout=30)
     return Response(payload)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def manage_user(request, user_id):
+    if not request.user.is_superuser:
+        return Response({'detail': 'Superuser access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+    target_user = User.objects.filter(id=user_id).first()
+    if not target_user:
+        return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'PATCH':
+        serializer = AdminUserPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_password = serializer.validated_data['password']
+        target_user.set_password(new_password)
+        target_user.save(update_fields=['password'])
+        cache.delete("api:list_users:v2")
+        return Response(
+            {
+                'detail': 'Password updated successfully.',
+                'user': UserSerializer(target_user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    if target_user.id == request.user.id:
+        return Response({'detail': 'You cannot delete your own account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if target_user.is_superuser:
+        remaining_superusers = User.objects.filter(is_superuser=True).exclude(id=target_user.id).count()
+        if remaining_superusers < 1:
+            return Response({'detail': 'At least one superuser account must remain.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    target_user.delete()
+    cache.delete("api:list_users:v2")
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['GET'])
@@ -753,6 +791,21 @@ class EventViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, FormParser, MultiPartParser]
 
+    def _parse_status_filters(self):
+        status_param = self.request.query_params.get('status', '')
+        if not status_param:
+            return []
+
+        valid_statuses = {choice for choice, _ in Event.STATUS_CHOICES}
+        return [
+            status
+            for status in (
+                value.strip()
+                for value in status_param.split(',')
+            )
+            if status and status in valid_statuses
+        ]
+
     def _event_queryset(self, include_participants=False):
         queryset = Event.objects.select_related('creator').annotate(
             participant_count_cached=Count('participants', distinct=True)
@@ -789,7 +842,11 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         self._expire_past_events()
-        return self._event_queryset(include_participants=self.action == 'retrieve')
+        queryset = self._event_queryset(include_participants=self.action == 'retrieve')
+        statuses = self._parse_status_filters()
+        if statuses:
+            queryset = queryset.filter(status__in=statuses)
+        return queryset
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EventDescriptionPreview } from '@/components/events/EventDescriptionPreview';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -30,7 +30,7 @@ export default function AuthorityDashboard() {
   const [reports, setReports] = useState<DumpingReport[]>([]);
   const [pendingEvents, setPendingEvents] = useState<BackendEvent[]>([]);
   const [requests, setRequests] = useState<BackendCollectionRequest[]>([]);
-  const [authorityCounty, setAuthorityCounty] = useState('');
+  const [authorityCounty, setAuthorityCounty] = useState<string | null>(null);
   const [myStats, setMyStats] = useState({
     reportsHandled: 0,
     totalUsers: 0,
@@ -40,10 +40,9 @@ export default function AuthorityDashboard() {
     totalRecyclingValue: 0,
   });
 
-  const refreshPendingEvents = async (county: string) => {
+  const refreshPendingEvents = useCallback(async (county: string) => {
     try {
-      const events = await listEvents();
-      const pending = events.filter((event) => event.status === 'pending');
+      const pending = await listEvents({ status: ['pending'] });
       const next = county
         ? pending.filter((event) => locationMatchesCounty(event.location, county))
         : pending;
@@ -51,72 +50,112 @@ export default function AuthorityDashboard() {
     } catch (error) {
       toast.error('Failed to load pending events');
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (user && user.role === 'authority') {
-      Promise.all([
-        getProfile(),
-        fetchDumpingReportsDb(),
-        listCollectionRequests(),
-        listRecyclerTransactionsApi(),
-        listUsers(),
-        listRecyclableListings(),
-      ])
-        .then(([profileRes, allReports, collectionRequests, recyclerTransactions, dbUsers, listings]) => {
-          const currentAuthorityCounty = getAuthorityCountyLabel(profileRes?.profile?.county || '');
-          setAuthorityCounty(currentAuthorityCounty);
+    if (!user || user.role !== 'authority') return;
 
-          const filteredRequests = currentAuthorityCounty
-            ? collectionRequests.filter((request) => locationMatchesCounty(request.address, currentAuthorityCounty))
-            : collectionRequests;
+    let active = true;
 
-          const listingsById = new Map<number, BackendRecyclableListing>();
-          listings.forEach((listing) => listingsById.set(listing.id, listing));
+    const loadAuthorityCounty = async () => {
+      try {
+        const profileRes = await getProfile();
+        if (!active) return;
 
-          const filteredTransactions = currentAuthorityCounty
-            ? recyclerTransactions.filter((transaction) => {
-              const listing = transaction.listing ? listingsById.get(transaction.listing) : undefined;
-                if (listing) return locationMatchesCounty(listing.resident_location, currentAuthorityCounty);
-                return locationMatchesCounty(transaction.source, currentAuthorityCounty);
-              })
-            : recyclerTransactions;
+        const currentAuthorityCounty = getAuthorityCountyLabel(profileRes?.profile?.county || '');
+        setAuthorityCounty(currentAuthorityCounty);
+      } catch {
+        if (!active) return;
+        setAuthorityCounty('');
+      }
+    };
 
-          const filteredReports = currentAuthorityCounty
-            ? allReports.filter((report) => locationMatchesCounty(report.location, currentAuthorityCounty))
-            : allReports;
+    void loadAuthorityCounty();
 
-          const filteredUsers = currentAuthorityCounty
-            ? dbUsers.filter((dbUser) => locationMatchesCounty(dbUser.county || dbUser.location, currentAuthorityCounty))
-            : dbUsers;
-
-          setRequests(filteredRequests);
-          setReports(filteredReports);
-
-          setMyStats({
-            reportsHandled: filteredReports.filter((report) => report.status === 'resolved').length,
-            totalUsers: filteredUsers.length,
-            totalRequests: filteredRequests.length,
-            pendingRequests: filteredRequests.filter((request) => request.status === 'pending').length,
-            totalRecycled: filteredTransactions.reduce((sum, transaction) => sum + Number(transaction.weight || 0), 0),
-            totalRecyclingValue: filteredTransactions.reduce((sum, transaction) => sum + Number(transaction.price || 0), 0),
-          });
-
-          refreshPendingEvents(currentAuthorityCounty);
-        })
-        .catch(() => {
-          setReports([]);
-          setRequests([]);
-        });
-    }
+    return () => {
+      active = false;
+    };
   }, [user]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'authority' || authorityCounty === null) return;
+
+    let active = true;
+
+    const loadAuthorityStats = async () => {
+      try {
+        const [allReports, collectionRequests, recyclerTransactions, dbUsers, listings] = await Promise.all([
+          fetchDumpingReportsDb(),
+          listCollectionRequests(),
+          listRecyclerTransactionsApi(),
+          listUsers(),
+          listRecyclableListings(),
+        ]);
+
+        if (!active) return;
+
+        const currentAuthorityCounty = authorityCounty || '';
+
+        const filteredRequests = currentAuthorityCounty
+          ? collectionRequests.filter((request) => locationMatchesCounty(request.address, currentAuthorityCounty))
+          : collectionRequests;
+
+        const listingsById = new Map<number, BackendRecyclableListing>();
+        listings.forEach((listing) => listingsById.set(listing.id, listing));
+
+        const filteredTransactions = currentAuthorityCounty
+          ? recyclerTransactions.filter((transaction) => {
+            const listing = transaction.listing ? listingsById.get(transaction.listing) : undefined;
+              if (listing) return locationMatchesCounty(listing.resident_location, currentAuthorityCounty);
+              return locationMatchesCounty(transaction.source, currentAuthorityCounty);
+            })
+          : recyclerTransactions;
+
+        const filteredReports = currentAuthorityCounty
+          ? allReports.filter((report) => locationMatchesCounty(report.location, currentAuthorityCounty))
+          : allReports;
+
+        const filteredUsers = currentAuthorityCounty
+          ? dbUsers.filter((dbUser) => locationMatchesCounty(dbUser.county || dbUser.location, currentAuthorityCounty))
+          : dbUsers;
+
+        setRequests(filteredRequests);
+        setReports(filteredReports);
+
+        setMyStats({
+          reportsHandled: filteredReports.filter((report) => report.status === 'resolved').length,
+          totalUsers: filteredUsers.length,
+          totalRequests: filteredRequests.length,
+          pendingRequests: filteredRequests.filter((request) => request.status === 'pending').length,
+          totalRecycled: filteredTransactions.reduce((sum, transaction) => sum + Number(transaction.weight || 0), 0),
+          totalRecyclingValue: filteredTransactions.reduce((sum, transaction) => sum + Number(transaction.price || 0), 0),
+        });
+      } catch {
+        if (!active) return;
+        setReports([]);
+        setRequests([]);
+      }
+    };
+
+    void loadAuthorityStats();
+
+    return () => {
+      active = false;
+    };
+  }, [authorityCounty, user]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'authority' || authorityCounty === null) return;
+
+    void refreshPendingEvents(authorityCounty || '');
+  }, [authorityCounty, refreshPendingEvents, user]);
 
   if (isLoading || !user) return null;
 
   const handleApproveEvent = async (eventId: number) => {
     try {
       await approveEvent(eventId);
-      await refreshPendingEvents(authorityCounty);
+      await refreshPendingEvents(authorityCounty || '');
       toast.success('Event approved!');
     } catch (error) {
       toast.error('Failed to approve event');
@@ -126,7 +165,7 @@ export default function AuthorityDashboard() {
   const handleRejectEvent = async (eventId: number) => {
     try {
       await rejectEvent(eventId);
-      await refreshPendingEvents(authorityCounty);
+      await refreshPendingEvents(authorityCounty || '');
       toast.info('Event rejected.');
     } catch (error) {
       toast.error('Failed to reject event');

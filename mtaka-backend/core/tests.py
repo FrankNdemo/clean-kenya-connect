@@ -172,6 +172,39 @@ class EventImageUploadTests(TestCase):
 
         self.assertTrue(Event.objects.filter(event_name='Community Cleanup Day').exists())
 
+    def test_event_list_can_filter_by_status_values(self):
+        pending_event = Event.objects.create(
+            creator=self.user,
+            event_name='Pending Cleanup',
+            event_type='cleanup',
+            description='Pending event for filter testing.',
+            location='Siriba campus',
+            event_date=date(2026, 4, 8),
+            start_time=time(10, 0),
+            max_participants=20,
+            status='pending',
+            reward_points=20,
+        )
+        approved_event = Event.objects.create(
+            creator=self.user,
+            event_name='Approved Cleanup',
+            event_type='cleanup',
+            description='Approved event for filter testing.',
+            location='Siriba campus',
+            event_date=date(2026, 4, 9),
+            start_time=time(11, 0),
+            max_participants=20,
+            status='approved',
+            reward_points=20,
+        )
+
+        response = self.client.get('/api/auth/events/?status=pending,approved')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        returned_ids = {item['id'] for item in payload}
+        self.assertSetEqual(returned_ids, {pending_event.id, approved_event.id})
+
     def test_event_creator_can_delete_event(self):
         event = Event.objects.create(
             creator=self.user,
@@ -431,6 +464,70 @@ class EventImageUploadTests(TestCase):
             'Phone already used. Try another phone.',
         )
 
+    def test_superuser_can_update_password_and_delete_other_users(self):
+        superuser = self.user_model.objects.create_superuser(
+            username='super-admin',
+            email='super-admin@example.com',
+            password='StrongPass!1',
+            user_type='authority',
+            phone='+254700001210',
+        )
+        target_user = self.user_model.objects.create_user(
+            username='target-user',
+            email='target-user@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001211',
+        )
+
+        self.client.force_authenticate(user=superuser)
+
+        update_response = self.client.patch(
+            f'/api/auth/users/{target_user.id}/',
+            data={
+                'password': 'NewStrongPass!2',
+                'password2': 'NewStrongPass!2',
+            },
+            format='json',
+        )
+        self.assertEqual(update_response.status_code, 200)
+
+        target_user.refresh_from_db()
+        self.assertTrue(target_user.check_password('NewStrongPass!2'))
+
+        delete_response = self.client.delete(f'/api/auth/users/{target_user.id}/')
+        self.assertEqual(delete_response.status_code, 204)
+        self.assertFalse(self.user_model.objects.filter(id=target_user.id).exists())
+
+    def test_non_superuser_cannot_manage_other_users(self):
+        authority_user = self.user_model.objects.create_user(
+            username='authority-user',
+            email='authority-user@example.com',
+            password='StrongPass!1',
+            user_type='authority',
+            phone='+254700001212',
+        )
+        target_user = self.user_model.objects.create_user(
+            username='manage-target',
+            email='manage-target@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001213',
+        )
+
+        self.client.force_authenticate(user=authority_user)
+
+        response = self.client.patch(
+            f'/api/auth/users/{target_user.id}/',
+            data={
+                'password': 'NewStrongPass!3',
+                'password2': 'NewStrongPass!3',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 403)
+
 
 class CountyResolutionTests(TestCase):
     def test_common_locations_map_to_the_expected_county(self):
@@ -438,9 +535,14 @@ class CountyResolutionTests(TestCase):
         self.assertEqual(resolve_county_from_location('Maseno, Kisumu County'), 'Kisumu')
         self.assertEqual(resolve_county_from_location('Kisumu East'), 'Kisumu')
         self.assertEqual(resolve_county_from_location('Karen'), 'Nairobi')
+        self.assertEqual(resolve_county_from_location('Nairobi City County'), 'Nairobi')
+        self.assertEqual(resolve_county_from_location('Voi, Taita Taveta'), 'Taita-Taveta')
+        self.assertEqual(resolve_county_from_location('Muranga Town'), "Murang'a")
         self.assertTrue(location_matches_county('Kisiani', 'Kisumu'))
         self.assertTrue(location_matches_county('Maseno, Kisumu County', 'Kisumu'))
         self.assertFalse(location_matches_county('Kisiani', 'Nairobi'))
+        self.assertTrue(location_matches_county('Voi, Taita Taveta', 'Taita-Taveta'))
+        self.assertTrue(location_matches_county('Muranga Town', "Murang'a"))
 
     def test_location_resolution_endpoint_returns_the_expected_county(self):
         client = APIClient()

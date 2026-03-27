@@ -31,6 +31,7 @@ urlpatterns = [
     path('logout/', views.logout_user, name='logout'),
     path('csrf/', views.get_csrf_token, name='get_csrf'),
     path('users/', views.list_users, name='users'),
+    path('users/<int:user_id>/', views.manage_user, name='manage_user'),
     
     # Router URLs
     path('', include(router.urls)),

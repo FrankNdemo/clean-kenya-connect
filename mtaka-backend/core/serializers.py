@@ -35,6 +35,8 @@ class UserSerializer(serializers.ModelSerializer):
             'username',
             'email',
             'user_type',
+            'is_superuser',
+            'is_active',
             'phone',
             'first_name',
             'last_name',
@@ -341,6 +343,20 @@ class PasswordResetConfirmSerializer(PasswordResetTokenSerializer):
             raise serializers.ValidationError({'password': "Passwords don't match"})
 
         validate_password(password, user=attrs['user'])
+        return attrs
+
+
+class AdminUserPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        password = attrs.get('password') or ''
+        password2 = attrs.get('password2') or ''
+
+        if password != password2:
+            raise serializers.ValidationError({'password': "Passwords don't match"})
+
         return attrs
 
 class HouseholdSerializer(serializers.ModelSerializer):

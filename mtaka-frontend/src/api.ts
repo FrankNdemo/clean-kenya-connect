@@ -375,8 +375,29 @@ export interface BackendEvent {
   created_at: string;
 }
 
-export const listEvents = async (): Promise<BackendEvent[]> => {
-  return cachedGet("events/");
+type EventListParams = {
+  status?: string | string[];
+};
+
+const normalizeEventListParams = (params?: EventListParams) => {
+  if (!params) return undefined;
+
+  const { status, ...rest } = params;
+  return {
+    ...rest,
+    ...(status
+      ? {
+          status: Array.isArray(status) ? status.join(',') : status,
+        }
+      : {}),
+  };
+};
+
+export const listEvents = async (params?: EventListParams): Promise<BackendEvent[]> => {
+  return cachedGet("events/", {
+    params: normalizeEventListParams(params),
+    ttlMs: 60_000,
+  });
 };
 
 export const listMyEvents = async (): Promise<BackendEvent[]> => {
@@ -563,6 +584,8 @@ export interface BackendUser {
   username: string;
   email: string;
   user_type: "household" | "collector" | "recycler" | "authority";
+  is_superuser?: boolean;
+  is_active: boolean;
   phone: string;
   first_name: string;
   last_name: string;
@@ -673,6 +696,23 @@ export const createCollectionUpdateApi = async (payload: {
 
 export const listUsers = async (): Promise<BackendUser[]> => {
   return cachedGet("users/");
+};
+
+export const updateUserPasswordApi = async (
+  id: number | string,
+  payload: {
+    password: string;
+    password2: string;
+  }
+) => {
+  const response = await API.patch(`users/${id}/`, payload);
+  invalidateGetCache(["users"]);
+  return response.data as { detail: string; user: BackendUser };
+};
+
+export const deleteUserApi = async (id: number | string) => {
+  await API.delete(`users/${id}/`);
+  invalidateGetCache(["users"]);
 };
 
 export const resolveLocationCounty = async (location: string) => {

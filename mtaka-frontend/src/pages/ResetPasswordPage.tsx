@@ -8,6 +8,7 @@ import { Recycle, ArrowLeft, Lock, Eye, EyeOff, Check, X, XCircle } from 'lucide
 import { toast } from 'sonner';
 import { validatePasswordResetToken } from '@/api';
 import { useAuth } from '@/hooks/useAuth';
+import { getDashboardPathForUser } from '@/lib/dashboardPaths';
 
 const validatePasswordRules = (password: string) => {
   const hasMinLength = password.length >= 8;
@@ -20,21 +21,6 @@ const validatePasswordRules = (password: string) => {
     hasSymbol,
     isValid: hasMinLength && hasUppercase && hasSymbol,
   };
-};
-
-const getDashboardPath = (role?: string) => {
-  switch (role) {
-    case 'resident':
-      return '/dashboard/resident';
-    case 'collector':
-      return '/dashboard/collector';
-    case 'recycler':
-      return '/dashboard/recycler';
-    case 'authority':
-      return '/dashboard/authority';
-    default:
-      return '/login';
-  }
 };
 
 export default function ResetPasswordPage() {
@@ -112,7 +98,7 @@ export default function ResetPasswordPage() {
       }
 
       toast.success('Password reset successful. You are now signed in.');
-      navigate(getDashboardPath(user.role), { replace: true });
+      navigate(getDashboardPathForUser(user), { replace: true });
     } catch (error: any) {
       const detailPayload = error?.response?.data?.detail;
       const detail = Array.isArray(detailPayload) ? detailPayload[0] : detailPayload;

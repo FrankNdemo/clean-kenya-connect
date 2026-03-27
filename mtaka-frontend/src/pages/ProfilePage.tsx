@@ -89,6 +89,7 @@ export default function ProfilePage() {
   };
 
   const getRoleBadgeClass = () => {
+    if (user.isSuperuser) return 'role-badge-superuser';
     switch (user.role) {
       case 'resident': return 'role-badge-resident';
       case 'collector': return 'role-badge-collector';
@@ -114,7 +115,9 @@ export default function ProfilePage() {
             <CardTitle>{user.name}</CardTitle>
             <div className="flex items-center justify-center gap-2 mt-2">
               <span className={`role-badge ${getRoleBadgeClass()}`}>
-                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                {user.isSuperuser
+                  ? 'Superuser'
+                  : user.role.charAt(0).toUpperCase() + user.role.slice(1)}
               </span>
               <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-accent/20 text-accent-foreground text-xs font-semibold">
                 <Award className="w-3 h-3" />

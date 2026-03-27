@@ -26,6 +26,7 @@ function AuthProbe() {
     <div>
       <span data-testid="loading">{String(isLoading)}</span>
       <span data-testid="user-email">{user?.email || ''}</span>
+      <span data-testid="user-superuser">{String(Boolean(user?.isSuperuser))}</span>
     </div>
   );
 }
@@ -61,6 +62,7 @@ describe('AuthProvider', () => {
         email: 'resident@example.com',
         phone: '+254700000001',
         user_type: 'household',
+        is_superuser: true,
         reward_points: 15,
       },
       profile: {
@@ -77,6 +79,7 @@ describe('AuthProvider', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('user-email')).toHaveTextContent('resident@example.com');
+      expect(screen.getByTestId('user-superuser')).toHaveTextContent('true');
     });
 
     expect(mockGetProfile).toHaveBeenCalledTimes(1);

@@ -183,4 +183,8 @@
   .role-badge-authority {
     @apply bg-accent/20 text-accent-foreground;
   }
+
+  .role-badge-superuser {
+    @apply bg-foreground text-background shadow-sm;
+  }
 }

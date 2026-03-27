@@ -6,6 +6,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-d
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { isStandaloneAppMode } from "@/lib/appMode";
 import { UserRole } from "@/lib/store";
+import { getDashboardPathForUser } from "@/lib/dashboardPaths";
 import { Recycle } from "lucide-react";
 
 // Pages
@@ -23,6 +24,9 @@ import ResidentDashboard from "./pages/dashboards/ResidentDashboard";
 import CollectorDashboard from "./pages/dashboards/CollectorDashboard";
 import RecyclerDashboard from "./pages/dashboards/RecyclerDashboard";
 import AuthorityDashboard from "./pages/dashboards/AuthorityDashboard";
+import SuperuserDashboard from "./pages/dashboards/SuperuserDashboard";
+import SuperuserUsersPage from "./pages/dashboards/superuser/UsersPage";
+import SuperuserStatsPage from "./pages/dashboards/superuser/StatsPage";
 
 // Resident Sub-pages
 import RewardsPage from "./pages/dashboards/resident/RewardsPage";
@@ -59,21 +63,6 @@ import MyEventsPage from "./pages/events/MyEventsPage";
 
 const queryClient = new QueryClient();
 
-const dashboardPathByRole = (role?: UserRole) => {
-  switch (role) {
-    case "resident":
-      return "/dashboard/resident";
-    case "collector":
-      return "/dashboard/collector";
-    case "recycler":
-      return "/dashboard/recycler";
-    case "authority":
-      return "/dashboard/authority";
-    default:
-      return "/login";
-  }
-};
-
 function FullScreenLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -97,7 +86,7 @@ function RootRoute() {
   }
 
   if (user) {
-    return <Navigate to={dashboardPathByRole(user.role)} replace />;
+    return <Navigate to={getDashboardPathForUser(user)} replace />;
   }
 
   return <Navigate to="/login" replace />;
@@ -115,7 +104,7 @@ function MarketingRoute({ element }: { element: JSX.Element }) {
   }
 
   if (user) {
-    return <Navigate to={dashboardPathByRole(user.role)} replace />;
+    return <Navigate to={getDashboardPathForUser(user)} replace />;
   }
 
   return <Navigate to="/login" replace />;
@@ -124,9 +113,11 @@ function MarketingRoute({ element }: { element: JSX.Element }) {
 function ProtectedRoute({
   element,
   allowedRoles,
+  requireSuperuser = false,
 }: {
   element: JSX.Element;
   allowedRoles?: UserRole[];
+  requireSuperuser?: boolean;
 }) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
@@ -140,7 +131,11 @@ function ProtectedRoute({
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to={dashboardPathByRole(user.role)} replace />;
+    return <Navigate to={getDashboardPathForUser(user)} replace />;
+  }
+
+  if (requireSuperuser && !user.isSuperuser) {
+    return <Navigate to={getDashboardPathForUser(user)} replace />;
   }
 
   return element;
@@ -191,6 +186,12 @@ const App = () => (
             <Route path="/dashboard/authority/reports" element={<ProtectedRoute element={<DumpingReportsPage />} allowedRoles={["authority"]} />} />
             <Route path="/dashboard/authority/events" element={<ProtectedRoute element={<EventsManagePage />} allowedRoles={["authority"]} />} />
             <Route path="/dashboard/authority/users" element={<ProtectedRoute element={<UsersPage />} allowedRoles={["authority"]} />} />
+
+            <Route path="/dashboard/superuser" element={<ProtectedRoute element={<SuperuserDashboard />} allowedRoles={["authority"]} requireSuperuser />} />
+            <Route path="/dashboard/superuser/stats" element={<ProtectedRoute element={<SuperuserStatsPage />} allowedRoles={["authority"]} requireSuperuser />} />
+            <Route path="/dashboard/superuser/users" element={<ProtectedRoute element={<SuperuserUsersPage />} allowedRoles={["authority"]} requireSuperuser />} />
+            <Route path="/dashboard/superuser/events" element={<ProtectedRoute element={<Navigate to="/dashboard/superuser" replace />} allowedRoles={["authority"]} requireSuperuser />} />
+            <Route path="/dashboard/superuser/reports" element={<ProtectedRoute element={<Navigate to="/dashboard/superuser/stats" replace />} allowedRoles={["authority"]} requireSuperuser />} />
 
             {/* Waste Management Routes */}
             <Route path="/waste/schedule" element={<ProtectedRoute element={<SchedulePickupPage />} allowedRoles={["resident"]} />} />

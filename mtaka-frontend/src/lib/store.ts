@@ -25,6 +25,7 @@ export interface User {
   email: string;
   phone: string;
   role: UserRole;
+  isSuperuser?: boolean;
   location: string;
   county?: string;
   rewardPoints: number;

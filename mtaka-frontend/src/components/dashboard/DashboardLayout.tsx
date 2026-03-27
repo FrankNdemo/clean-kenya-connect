@@ -14,7 +14,8 @@ import {
   BarChart3,
   FileText,
   Users,
-  Package
+  Package,
+  Crown
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -62,6 +63,12 @@ const roleNavigation: Record<UserRole, { label: string; icon: typeof Home; href:
   ],
 };
 
+const superuserNavigation: { label: string; icon: typeof Home; href: string }[] = [
+  { label: 'System Overview', icon: Crown, href: '/dashboard/superuser' },
+  { label: 'County Statistics', icon: BarChart3, href: '/dashboard/superuser/stats' },
+  { label: 'User Management', icon: Users, href: '/dashboard/superuser/users' },
+];
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout, isLoading } = useAuth();
@@ -83,7 +90,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return <Navigate to="/login" replace />;
   }
 
-  const navigation = roleNavigation[user.role] || [];
+  const navigation = user.isSuperuser ? superuserNavigation : roleNavigation[user.role] || [];
 
   const handleLogout = async () => {
     await logout();
@@ -91,6 +98,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const getRoleBadgeClass = () => {
+    if (user.isSuperuser) return 'role-badge-superuser';
     switch (user.role) {
       case 'resident': return 'role-badge-resident';
       case 'collector': return 'role-badge-collector';
@@ -138,7 +146,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="font-semibold">{user.name}</div>
             <div className="text-sm text-muted-foreground">{user.email}</div>
             <span className={`role-badge mt-2 ${getRoleBadgeClass()}`}>
-              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+              {user.isSuperuser
+                ? 'Superuser'
+                : user.role.charAt(0).toUpperCase() + user.role.slice(1)}
             </span>
           </div>
 

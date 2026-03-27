@@ -43,7 +43,7 @@ export default function ResidentDashboard() {
 
   const loadEvents = useCallback(async () => {
     try {
-      const allEvents = await listEvents();
+      const allEvents = await listEvents({ status: ['approved', 'ongoing'] });
       setEvents(allEvents.filter((event) => event.status === 'approved' || event.status === 'ongoing'));
     } catch {
       // keep last successful event list if request temporarily fails

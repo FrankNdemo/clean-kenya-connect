@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EventDescriptionPreview } from '@/components/events/EventDescriptionPreview';
 import { EventCoverMedia } from '@/components/events/EventCoverMedia';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -284,9 +285,11 @@ export default function EventsPage() {
                   {/* Event Content */}
                   <div className="p-5">
                     <h3 className="font-semibold text-lg mb-2 line-clamp-1">{event.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-4 leading-6 whitespace-pre-line break-words">
-                      {event.description}
-                    </p>
+                    <EventDescriptionPreview
+                      title={event.title}
+                      description={event.description}
+                      className="mb-4"
+                    />
                     {getDaysRemaining(event.date) >= 0 && (
                       <div className="mb-3 inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-bold text-yellow-800">
                         {getDaysRemaining(event.date) === 0

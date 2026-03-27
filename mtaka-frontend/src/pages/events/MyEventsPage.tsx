@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EventDescriptionPreview } from '@/components/events/EventDescriptionPreview';
 import { EventCoverMedia } from '@/components/events/EventCoverMedia';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -273,6 +274,11 @@ export default function MyEventsPage() {
                       </div>
                       
                       <h3 className="font-semibold text-lg mb-2">{event.title}</h3>
+                      <EventDescriptionPreview
+                        title={event.title}
+                        description={event.description}
+                        className="mb-4"
+                      />
                       
                       <div className="space-y-2 mb-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">

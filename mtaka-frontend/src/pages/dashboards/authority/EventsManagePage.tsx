@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EventDescriptionPreview } from '@/components/events/EventDescriptionPreview';
 import { EventCoverMedia } from '@/components/events/EventCoverMedia';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,7 +117,11 @@ export default function EventsManagePage() {
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                       <div className="flex-1">
                         <h3 className="font-semibold mb-1">{event.title}</h3>
-                        <p className="text-sm text-muted-foreground mb-2">{event.description}</p>
+                        <EventDescriptionPreview
+                          title={event.title}
+                          description={event.description}
+                          className="mb-2"
+                        />
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1"><Calendar className="w-4 h-4" />{event.date} at {event.time}</span>
                           <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />{event.location}</span>

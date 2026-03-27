@@ -162,6 +162,52 @@ class EventImageUploadTests(TestCase):
 
         self.assertTrue(Event.objects.filter(event_name='Community Cleanup Day').exists())
 
+    def test_event_creator_can_delete_event(self):
+        event = Event.objects.create(
+            creator=self.user,
+            event_name='Delete Me Cleanup',
+            event_type='cleanup',
+            description='This event should be removable by its creator.',
+            location='Siriba campus',
+            event_date=date(2026, 3, 31),
+            start_time=time(10, 30),
+            max_participants=25,
+            status='pending',
+            reward_points=20,
+        )
+
+        response = self.client.delete(f'/api/auth/events/{event.id}/')
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Event.objects.filter(id=event.id).exists())
+
+    def test_only_event_creator_can_delete_event(self):
+        other_user = self.user_model.objects.create_user(
+            username='other-event-user',
+            email='other-event-user@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009004',
+        )
+        event = Event.objects.create(
+            creator=self.user,
+            event_name='Protected Event',
+            event_type='cleanup',
+            description='Only the creator should be able to delete this event.',
+            location='Siriba campus',
+            event_date=date(2026, 4, 2),
+            start_time=time(9, 0),
+            max_participants=30,
+            status='approved',
+            reward_points=30,
+        )
+
+        self.client.force_authenticate(user=other_user)
+        response = self.client.delete(f'/api/auth/events/{event.id}/')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Event.objects.filter(id=event.id).exists())
+
     def test_registration_rejects_duplicate_email_and_phone(self):
         self.user_model.objects.create_user(
             username='existing-user',
@@ -722,25 +768,31 @@ class IllegalDumpingMediaTests(TestCase):
             content_type='image/png',
         )
 
-        create_response = self.client.post(
-            '/api/auth/dumping-reports/',
-            data={
-                'location': 'Westlands, Nairobi',
-                'description': 'Illegal dumping near the road.',
-                'severity': 'medium',
-                'photo': photo,
-            },
-            format='multipart',
-        )
+        with TemporaryDirectory(ignore_cleanup_errors=True) as media_root, override_settings(MEDIA_ROOT=media_root):
+            create_response = self.client.post(
+                '/api/auth/dumping-reports/',
+                data={
+                    'location': 'Westlands, Nairobi',
+                    'description': 'Illegal dumping near the road.',
+                    'severity': 'medium',
+                    'photo': photo,
+                },
+                format='multipart',
+            )
 
-        self.assertEqual(create_response.status_code, 201)
-        payload = create_response.json()
-        self.assertIn('photo_url', payload)
-        self.assertTrue(payload['photo_url'].startswith('http://testserver/media/dumping_reports/'))
+            self.assertEqual(create_response.status_code, 201)
+            payload = create_response.json()
+            self.assertIn('photo_url', payload)
+            self.assertTrue(payload['photo_url'].startswith('http://testserver/media/dumping_reports/'))
 
-        media_response = self.client.get(urlsplit(payload['photo_url']).path)
-        self.assertEqual(media_response.status_code, 200)
-        self.assertEqual(media_response['Content-Type'], 'image/png')
+            media_response = self.client.get(urlsplit(payload['photo_url']).path)
+            media_file = getattr(media_response, 'file_to_stream', None)
+            try:
+                self.assertEqual(media_response.status_code, 200)
+                self.assertEqual(media_response['Content-Type'], 'image/png')
+            finally:
+                if hasattr(media_file, 'close'):
+                    media_file.close()
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], FRONTEND_URL='https://mtaka.example')

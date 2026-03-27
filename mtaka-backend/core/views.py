@@ -844,6 +844,16 @@ class EventViewSet(viewsets.ModelViewSet):
         event.save(update_fields=['status'])
         return Response(self.get_serializer(event).data)
 
+    def perform_destroy(self, instance):
+        if instance.creator_id != self.request.user.id:
+            raise PermissionDenied('Only event organizer can delete this event')
+
+        cover_image = getattr(instance, 'cover_image', None)
+        if cover_image:
+            cover_image.delete(save=False)
+
+        instance.delete()
+
     @action(detail=False, methods=['get'])
     def my_events(self, request):
         self._expire_past_events()

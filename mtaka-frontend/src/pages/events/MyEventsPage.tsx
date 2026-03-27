@@ -21,6 +21,7 @@ import {
   listMyExpiredCreatedEvents,
   leaveEvent,
   cancelEvent,
+  deleteEvent,
   getEventParticipants,
   BackendEvent
 } from '@/api';
@@ -32,7 +33,8 @@ import {
   Plus,
   XCircle,
   Eye,
-  Clock
+  Clock,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -70,6 +72,8 @@ export default function MyEventsPage() {
     name: string;
     email: string;
   }>>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedDeleteEvent, setSelectedDeleteEvent] = useState<BackendEvent | null>(null);
   const [expiredEvents, setExpiredEvents] = useState<BackendEvent[]>([]);
   const [showExpiredEvents, setShowExpiredEvents] = useState(false);
   const [loadingExpiredEvents, setLoadingExpiredEvents] = useState(false);
@@ -137,6 +141,31 @@ export default function MyEventsPage() {
       setParticipantsDialogOpen(true);
     } catch (error) {
       toast.error('Failed to load participants');
+    }
+  };
+
+  const openDeleteDialog = (event: BackendEvent) => {
+    setSelectedDeleteEvent(event);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedDeleteEvent || !user) {
+      toast.error('Unable to delete event');
+      return;
+    }
+
+    try {
+      await deleteEvent(selectedDeleteEvent.id);
+      setEvents((prev) => prev.filter((event) => event.id !== selectedDeleteEvent.id));
+      setExpiredEvents((prev) => prev.filter((event) => event.id !== selectedDeleteEvent.id));
+      toast.success('Event deleted successfully');
+      await refreshEvents();
+    } catch (error) {
+      toast.error('Failed to delete event');
+    } finally {
+      setDeleteDialogOpen(false);
+      setSelectedDeleteEvent(null);
     }
   };
 
@@ -260,12 +289,12 @@ export default function MyEventsPage() {
                         </div>
                       )}
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Button 
                           size="sm" 
                           variant="outline"
                           onClick={() => openParticipantsDialog(event.id)}
-                          className="flex-1"
+                          className="sm:flex-1"
                         >
                           <Eye className="w-4 h-4 mr-1" />
                           View Participants
@@ -276,9 +305,22 @@ export default function MyEventsPage() {
                             size="sm" 
                             variant="destructive"
                             onClick={() => openCancelDialog(event, true)}
+                            className="w-full sm:w-auto"
                           >
                             <XCircle className="w-4 h-4 mr-1" />
                             Cancel
+                          </Button>
+                        )}
+
+                        {event.status === 'cancelled' && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => openDeleteDialog(event)}
+                            className="w-full sm:w-auto"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
                           </Button>
                         )}
                       </div>
@@ -468,6 +510,33 @@ export default function MyEventsPage() {
           )}
           <DialogFooter>
             <Button onClick={() => setExpiredDetailsOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Event</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the event, its participants, and its cover image. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedDeleteEvent && (
+            <div className="bg-secondary/50 p-4 rounded-lg mb-4">
+              <p className="font-semibold">{selectedDeleteEvent.title}</p>
+              <p className="text-sm text-muted-foreground">{selectedDeleteEvent.date} at {selectedDeleteEvent.time}</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Go Back
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteEvent}>
+              Delete Event
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

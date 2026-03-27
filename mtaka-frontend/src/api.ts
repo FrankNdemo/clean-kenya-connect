@@ -446,6 +446,11 @@ export const rejectEvent = async (eventId: number) => {
   return response.data as BackendEvent;
 };
 
+export const deleteEvent = async (eventId: number) => {
+  await API.delete(`events/${eventId}/`);
+  invalidateGetCache(["events"]);
+};
+
 export const getEventParticipants = async (eventId: number) => {
   return cachedGet(`events/${eventId}/participants_list/`) as Promise<Array<{
     id: number;

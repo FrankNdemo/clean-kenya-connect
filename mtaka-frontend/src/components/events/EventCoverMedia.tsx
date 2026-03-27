@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Calendar } from 'lucide-react';
+import { resolveEventCoverUrl } from '@/lib/eventMedia';
 import { cn } from '@/lib/utils';
 
 type EventCoverMediaProps = {
@@ -18,17 +19,25 @@ export function EventCoverMedia({
   children,
   fallbackIcon: FallbackIcon = Calendar,
 }: EventCoverMediaProps) {
+  const resolvedSrc = resolveEventCoverUrl(src);
+
   return (
-    <div className={cn('relative overflow-hidden bg-gradient-to-br from-primary/20 via-secondary/20 to-success/20', className)}>
-      {src ? (
-        <img src={src} alt={alt} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+    <div className={cn('relative isolate overflow-hidden bg-gradient-to-br from-primary/20 via-secondary/20 to-success/20', className)}>
+      {resolvedSrc ? (
+        <img
+          src={resolvedSrc}
+          alt={alt}
+          className="absolute inset-0 z-0 h-full w-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 via-secondary/25 to-success/20">
+        <div className="absolute inset-0 z-0 flex items-center justify-center bg-gradient-to-br from-primary/20 via-secondary/25 to-success/20">
           <FallbackIcon className="h-12 w-12 text-primary/90" />
         </div>
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent" />
-      {children}
+      <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-background/30 via-transparent to-transparent" />
+      {children ? <div className="absolute inset-0 z-20">{children}</div> : null}
     </div>
   );
 }

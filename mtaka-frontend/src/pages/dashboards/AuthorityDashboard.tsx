@@ -249,7 +249,9 @@ export default function AuthorityDashboard() {
                       <div><div className="font-medium">{event.title}</div><div className="text-sm text-muted-foreground">by {event.organizerName}</div></div>
                       <span className="px-2 py-1 text-xs rounded-full bg-warning/20 text-warning-foreground capitalize">{event.type}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{event.description}</p>
+                    <p className="text-sm text-muted-foreground mb-3 leading-6 whitespace-pre-line break-words">
+                      {event.description}
+                    </p>
                     <div className="text-sm text-muted-foreground mb-3">📅 {event.date} • 📍 {event.location}</div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Button size="sm" className="w-full flex-1 gap-1 sm:w-auto" onClick={() => handleApproveEvent(event.id)}><CheckCircle className="w-4 h-4" />Approve</Button>

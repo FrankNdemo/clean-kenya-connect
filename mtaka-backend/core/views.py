@@ -19,6 +19,8 @@ from django.utils.http import urlsafe_base64_encode
 from django.core.cache import cache
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import base64
+import mimetypes
 import hashlib
 import logging
 import json
@@ -153,6 +155,33 @@ def award_household_credits(user, points, description, reference_id=None):
     )
     household.green_credits += points
     household.save(update_fields=['green_credits'])
+
+
+def _cache_event_cover_image_data(event):
+    cover_image = getattr(event, 'cover_image', None)
+    if not cover_image or not getattr(cover_image, 'name', ''):
+        return
+
+    raw_bytes = b''
+    try:
+        cover_image.open('rb')
+        raw_bytes = cover_image.read()
+    except Exception:
+        logger.exception('Failed to read event cover image for event_id=%s', getattr(event, 'id', None))
+        return
+    finally:
+        try:
+            cover_image.close()
+        except Exception:
+            pass
+
+    if not raw_bytes:
+        return
+
+    content_type = mimetypes.guess_type(cover_image.name)[0] or 'application/octet-stream'
+    event.cover_image_data = base64.b64encode(raw_bytes).decode('ascii')
+    event.cover_image_content_type = content_type
+    event.save(update_fields=['cover_image_data', 'cover_image_content_type'])
 
 
 # Authentication Views - Plain Django views (not @api_view) with @csrf_exempt
@@ -751,8 +780,13 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         event = serializer.save(creator=self.request.user)
+        _cache_event_cover_image_data(event)
         # Creator is auto-registered as a participant for parity with frontend behavior
         EventParticipant.objects.get_or_create(event=event, user=self.request.user)
+
+    def perform_update(self, serializer):
+        event = serializer.save()
+        _cache_event_cover_image_data(event)
     
     @action(detail=True, methods=['post'])
     def register(self, request, pk=None):

@@ -3,6 +3,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.password_validation import validate_password
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
+import mimetypes
 from .models import *
 from .county import resolve_county_from_location
 from django.utils.text import slugify
@@ -524,17 +525,29 @@ class EventSerializer(serializers.ModelSerializer):
 
     def get_coverImageUrl(self, obj):
         cover_image = getattr(obj, 'cover_image', None)
-        if not cover_image:
-            return None
-
-        url = cover_image.url
-        request = self.context.get('request') if hasattr(self, 'context') else None
-        if request is not None:
+        if cover_image and getattr(cover_image, 'name', ''):
             try:
-                return request.build_absolute_uri(url)
+                storage = getattr(cover_image, 'storage', None)
+                if storage is None or storage.exists(cover_image.name):
+                    url = cover_image.url
+                    request = self.context.get('request') if hasattr(self, 'context') else None
+                    if request is not None:
+                        try:
+                            return request.build_absolute_uri(url)
+                        except Exception:
+                            return url
+                    return url
             except Exception:
-                return url
-        return url
+                pass
+
+        cover_image_data = getattr(obj, 'cover_image_data', '')
+        if cover_image_data:
+            content_type = getattr(obj, 'cover_image_content_type', '') or mimetypes.guess_type(
+                getattr(cover_image, 'name', '')
+            )[0] or 'application/octet-stream'
+            return f'data:{content_type};base64,{cover_image_data}'
+
+        return None
 
 class EventParticipantSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)

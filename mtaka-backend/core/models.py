@@ -157,6 +157,8 @@ class Event(models.Model):
     event_type = models.CharField(max_length=20, choices=EVENT_TYPES)
     description = models.TextField()
     cover_image = models.ImageField(upload_to='event_covers/', null=True, blank=True)
+    cover_image_data = models.TextField(blank=True, default='')
+    cover_image_content_type = models.CharField(max_length=100, blank=True, default='')
     location = models.CharField(max_length=255)
     event_date = models.DateField()
     start_time = models.TimeField()

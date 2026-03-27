@@ -160,6 +160,13 @@ class EventImageUploadTests(TestCase):
                 if hasattr(media_file, 'close'):
                     media_file.close()
 
+            event = Event.objects.get(event_name='Community Cleanup Day')
+            with patch.object(event.cover_image.storage, 'exists', return_value=False):
+                refreshed_response = self.client.get('/api/auth/events/')
+            self.assertEqual(refreshed_response.status_code, 200)
+            refreshed_payload = next(item for item in refreshed_response.json() if item['id'] == event.id)
+            self.assertTrue(refreshed_payload['coverImageUrl'].startswith('data:image/png;base64,'))
+
         self.assertTrue(Event.objects.filter(event_name='Community Cleanup Day').exists())
 
     def test_event_creator_can_delete_event(self):

@@ -134,9 +134,9 @@ export default function EventsManagePage() {
             {otherEvents.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No events processed yet</p>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {otherEvents.map((event) => (
-                  <div key={event.id} className="p-4 rounded-lg border border-border bg-card">
+                  <div key={event.id} className="h-full p-4 rounded-lg border border-border bg-card">
                     <EventCoverMedia
                       src={event.coverImageUrl || event.cover_image || undefined}
                       alt={event.title}

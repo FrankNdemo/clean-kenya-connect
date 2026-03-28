@@ -582,6 +582,12 @@ def get_csrf_token(request):
     )
     return resp
 
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    return Response({'status': 'ok'}, status=status.HTTP_200_OK)
+
 # ViewSets
 class WasteTypeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = WasteType.objects.all()

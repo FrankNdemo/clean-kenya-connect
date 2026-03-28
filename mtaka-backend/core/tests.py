@@ -18,6 +18,18 @@ from .county import location_matches_county, resolve_county_from_location
 from .models import CollectionRequest, CollectionRequestUpdate, Collector, Event, Household, WasteType
 
 
+@override_settings(ALLOWED_HOSTS=['testserver'])
+class HealthCheckTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_health_endpoint_returns_ok_without_authentication(self):
+        response = self.client.get('/health/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'status': 'ok'})
+
+
 @override_settings(
     RUNTIME_SESSION_ID='test-session-id',
     DEBUG=True,

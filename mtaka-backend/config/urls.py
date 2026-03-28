@@ -3,6 +3,7 @@ from django.urls import path, include, re_path
 from django.views.generic import TemplateView
 from django.views.static import serve
 from django.conf import settings
+from core import views as core_views
 
 
 def media_serve(request, path):
@@ -10,6 +11,7 @@ def media_serve(request, path):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('health/', core_views.health_check, name='health_check'),
 
     path('api/auth/', include('core.urls')),
     re_path(

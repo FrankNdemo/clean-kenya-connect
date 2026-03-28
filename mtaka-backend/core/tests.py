@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from django.core import mail
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -15,7 +16,7 @@ from rest_framework.test import APIClient
 from PIL import Image
 
 from .county import location_matches_county, resolve_county_from_location
-from .models import CollectionRequest, CollectionRequestUpdate, Collector, Event, Household, WasteType
+from .models import Authority, CollectionRequest, CollectionRequestUpdate, Collector, Event, Household, WasteType
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'])
@@ -28,6 +29,24 @@ class HealthCheckTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'ok'})
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'])
+class SuperuserBootstrapTests(TestCase):
+    def setUp(self):
+        self.user_model = get_user_model()
+
+    def test_ensure_superuser_creates_or_repairs_seed_account(self):
+        call_command('ensure_superuser')
+
+        user = self.user_model.objects.get(username='ndemo frank')
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.check_password('Ombogo1234.'))
+
+        authority = Authority.objects.get(user=user)
+        self.assertEqual(authority.staff_name, 'ndemo frank')
 
 
 @override_settings(

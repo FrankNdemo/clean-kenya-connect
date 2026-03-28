@@ -37,6 +37,14 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
+  const cardClassName = 'border border-[#d6e8e1] bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.2)]';
+  const accentTextClassName = 'text-[#178c66]';
+  const accentSoftSurfaceClassName = 'bg-[#edf4ef]';
+  const accentButtonClassName =
+    'h-10 w-full rounded-full bg-[#19b37e] text-white shadow-md shadow-[#19b37e]/20 hover:bg-[#149a6d] disabled:bg-[#9dbba9] disabled:text-white';
+  const outlineButtonClassName = 'w-full border-[#bfe7d7] text-[#178c66] hover:bg-[#dcf7ec] hover:text-[#0f7154]';
+  const inputClassName =
+    'h-10 rounded-[1rem] border border-[#d6e8e1] bg-white pl-10 pr-10 text-sm text-[#173f31] shadow-none placeholder:text-[#7d978a] focus-visible:border-[#bfe7d7] focus-visible:ring-2 focus-visible:ring-[#19b37e]/20';
 
   const passwordValidation = validatePasswordRules(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
@@ -111,18 +119,18 @@ export default function ResetPasswordPage() {
   };
 
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
-    <div className={`flex items-center gap-2 text-xs ${met ? 'text-success' : 'text-muted-foreground'}`}>
-      {met ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-      {text}
+    <div className={`flex items-center gap-2 text-xs ${met ? 'text-[#2f9b61]' : 'text-[#6f8d7f]'}`}>
+      {met ? <Check className="h-3.5 w-3.5 shrink-0" /> : <X className="h-3.5 w-3.5 shrink-0" />}
+      <span>{text}</span>
     </div>
   );
 
   if (isValidToken === null) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-muted-foreground">Validating reset link...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#19b37e] border-t-transparent" />
+          <p className="text-slate-500">Validating reset link...</p>
         </div>
       </div>
     );
@@ -130,24 +138,24 @@ export default function ResetPasswordPage() {
 
   if (isValidToken === false) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="w-full max-w-md">
-          <Card className="shadow-lg">
+          <Card className={cardClassName}>
             <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/20">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
                 <XCircle className="h-8 w-8 text-destructive" />
               </div>
-              <CardTitle className="text-2xl">Invalid or Expired Link</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-2xl font-semibold text-[#173f31]">Invalid or Expired Link</CardTitle>
+              <CardDescription className="text-slate-500">
                 This password reset link is invalid or has expired. Please request a new one.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Link to="/forgot-password" className="block">
-                <Button className="w-full">Request New Link</Button>
+                <Button className={accentButtonClassName}>Request New Link</Button>
               </Link>
               <Link to="/login" className="block">
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className={outlineButtonClassName}>
                   Back to Login
                 </Button>
               </Link>
@@ -159,48 +167,48 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-md">
-        <Link to="/login" className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <Link to="/login" className="mb-8 inline-flex items-center gap-2 text-sm text-slate-600 transition-colors hover:text-slate-900">
           <ArrowLeft className="h-4 w-4" />
           Back to Login
         </Link>
 
-        <Card className="shadow-lg">
+        <Card className={cardClassName}>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
-              <Recycle className="h-8 w-8 text-primary-foreground" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#178c66] text-white">
+              <Recycle className="h-8 w-8" />
             </div>
-            <CardTitle className="text-2xl">Reset Password</CardTitle>
-            <CardDescription>
+            <CardTitle className={`text-2xl font-semibold ${accentTextClassName}`}>Reset Password</CardTitle>
+            <CardDescription className="text-slate-500">
               {accountEmail ? `Choose a new password for ${accountEmail}` : 'Enter your new password below'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">New Password</Label>
+                <Label htmlFor="password" className="text-slate-700">New Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f8d7f]" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Enter new password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10"
+                    className={inputClassName}
                     required
                     minLength={8}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8d7f] transition-colors hover:text-[#173f31]"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <div className="space-y-1 rounded-lg bg-secondary/50 p-2">
+                <div className={`space-y-1 rounded-xl p-3 ${accentSoftSurfaceClassName}`}>
                   <PasswordRequirement met={passwordValidation.hasMinLength} text="Minimum 8 characters" />
                   <PasswordRequirement met={passwordValidation.hasUppercase} text="At least one uppercase letter" />
                   <PasswordRequirement met={passwordValidation.hasSymbol} text="At least one symbol (!@#$%^&*)" />
@@ -208,35 +216,39 @@ export default function ResetPasswordPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Label htmlFor="confirmPassword" className="text-slate-700">Confirm New Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f8d7f]" />
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm new password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10 pr-10"
+                    className={inputClassName}
                     required
                     minLength={8}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8d7f] transition-colors hover:text-[#173f31]"
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {confirmPassword && (
-                  <p className={`text-xs ${passwordsMatch ? 'text-success' : 'text-destructive'}`}>
+                  <p className={`text-xs ${passwordsMatch ? 'text-[#2f9b61]' : 'text-destructive'}`}>
                     {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
                   </p>
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading || !passwordValidation.isValid || !passwordsMatch}>
+              <Button
+                type="submit"
+                className={accentButtonClassName}
+                disabled={isLoading || !passwordValidation.isValid || !passwordsMatch}
+              >
                 {isLoading ? 'Resetting...' : 'Reset Password'}
               </Button>
             </form>

@@ -47,7 +47,7 @@ export function Footer() {
             © 2026 M-Taka. All rights reserved.
           </p>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
-            Made with <Heart className="w-4 h-4 text-destructive" /> for Kenya
+            Made for all Kenyan's
           </p>
         </div>
       </div>

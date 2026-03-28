@@ -1,0 +1,106 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="loginWasteTitle loginWasteDesc">
+  <title id="loginWasteTitle">Waste management and green environment illustration</title>
+  <desc id="loginWasteDesc">A clean illustrated scene with recycling symbols, pickup bins, leaves, and a green environment motif for the login page hero.</desc>
+  <defs>
+    <linearGradient id="bg" x1="80" y1="60" x2="1120" y2="840" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5FBF5" />
+      <stop offset="0.52" stop-color="#FBFCF8" />
+      <stop offset="1" stop-color="#EEF7EF" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(230 150) rotate(52) scale(220 220)">
+      <stop stop-color="#8EE3A7" stop-opacity="0.7" />
+      <stop offset="1" stop-color="#8EE3A7" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="forest" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E7D4F" />
+      <stop offset="1" stop-color="#1B5E39" />
+    </linearGradient>
+    <linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4DB1DA" />
+      <stop offset="1" stop-color="#1E7AA1" />
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="580" x2="0" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D7EBC8" />
+      <stop offset="1" stop-color="#B9DCA5" />
+    </linearGradient>
+    <linearGradient id="bin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7FFF8" />
+      <stop offset="1" stop-color="#D8F0DE" />
+    </linearGradient>
+    <linearGradient id="truck" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#274C38" />
+      <stop offset="1" stop-color="#183425" />
+    </linearGradient>
+    <linearGradient id="yellow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F0C94D" />
+      <stop offset="1" stop-color="#D9A62F" />
+    </linearGradient>
+    <filter id="shadow" x="-60" y="-60" width="1320" height="1020" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#163221" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="900" rx="56" fill="url(#bg)" />
+  <circle cx="238" cy="172" r="176" fill="url(#glow)" />
+  <circle cx="972" cy="158" r="154" fill="#D8F1DC" opacity="0.55" />
+  <circle cx="1002" cy="696" r="180" fill="#DCEFD8" opacity="0.45" />
+
+  <path d="M0 718C148 676 286 662 430 681C574 700 682 742 814 746C945 750 1060 724 1200 702V900H0V718Z" fill="url(#ground)" />
+  <path d="M0 786C128 752 266 736 402 748C543 760 664 806 798 810C941 814 1062 786 1200 758V900H0V786Z" fill="#D9EFD0" opacity="0.72" />
+
+  <g opacity="0.9">
+    <path d="M116 244C176 194 252 170 338 174C418 178 490 212 542 270C492 280 440 276 388 262C326 245 254 244 184 260C160 266 136 256 116 244Z" fill="#D7F1DD" />
+    <path d="M840 258C902 214 972 196 1048 202C1090 206 1130 216 1166 234C1106 256 1044 268 978 270C932 272 886 266 840 258Z" fill="#E2F5E4" />
+  </g>
+
+  <g filter="url(#shadow)">
+    <circle cx="310" cy="258" r="128" fill="#EAF8EE" />
+    <circle cx="310" cy="258" r="96" fill="#F9FFFA" />
+    <circle cx="310" cy="258" r="72" fill="#DDF1E0" />
+    <path d="M310 206C331 216 345 235 345 258C324 258 305 247 292 230C296 219 302 211 310 206Z" fill="#2D8C56" />
+    <path d="M322 260L353 248L360 284L334 292L322 260Z" fill="#1E7B48" />
+    <path d="M302 269C289 260 276 256 260 258C262 271 269 282 280 290C293 298 306 301 321 299C317 288 311 278 302 269Z" fill="#56C985" />
+    <path d="M308 218C296 226 289 239 289 255C302 254 313 248 321 237C319 228 315 222 308 218Z" fill="#6FD58B" />
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="116" y="564" width="250" height="160" rx="34" fill="url(#truck)" />
+    <rect x="344" y="606" width="142" height="118" rx="28" fill="#1D3B2B" />
+    <rect x="362" y="622" width="92" height="52" rx="16" fill="#DFF3E4" />
+    <rect x="118" y="602" width="120" height="100" rx="24" fill="#2E5D43" />
+    <circle cx="176" cy="734" r="30" fill="#0F1C16" />
+    <circle cx="176" cy="734" r="14" fill="#D9E8DD" />
+    <circle cx="396" cy="734" r="30" fill="#0F1C16" />
+    <circle cx="396" cy="734" r="14" fill="#D9E8DD" />
+    <path d="M126 594H208C220 594 230 604 230 616V636H126V594Z" fill="#2F7C50" />
+    <path d="M246 606H326C336 606 344 614 344 624V684H246V606Z" fill="#315A43" />
+    <path d="M370 626H446C455 626 462 633 462 642V662H370V626Z" fill="#DFF3E4" />
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="548" y="546" width="210" height="182" rx="34" fill="url(#bin)" stroke="#8EC69B" stroke-width="3" />
+    <rect x="570" y="526" width="166" height="28" rx="14" fill="#4CB476" />
+    <path d="M636 596C649 606 657 621 657 637C642 637 628 632 618 621C621 610 625 602 636 596Z" fill="#2D8C56" />
+    <path d="M646 640L678 628L688 664L660 676L646 640Z" fill="#2D8C56" />
+    <path d="M626 654C610 644 594 640 575 642C578 656 586 668 598 676C612 686 628 690 646 688C641 675 634 664 626 654Z" fill="#58CC86" />
+    <path d="M634 604C622 612 614 624 614 640C628 639 640 633 648 622C646 614 641 607 634 604Z" fill="#6FDC91" />
+  </g>
+
+  <g filter="url(#shadow)">
+    <path d="M452 500C488 448 542 420 606 418C665 416 718 438 752 484C716 494 683 497 652 492C612 486 570 484 524 492C494 497 472 499 452 500Z" fill="url(#forest)" />
+    <path d="M452 500C473 458 503 432 540 420C535 455 522 480 502 498C486 513 468 515 452 500Z" fill="#57C984" />
+    <path d="M744 500C786 466 826 446 870 440C908 435 950 443 994 466C960 486 922 499 878 504C832 510 786 507 744 500Z" fill="#2F7D4E" />
+    <path d="M752 498C767 476 786 459 810 448C810 470 803 488 790 503C778 516 765 521 752 498Z" fill="#7DE29D" />
+  </g>
+
+  <path d="M0 154C126 108 250 84 374 78C520 72 650 98 762 146C866 190 964 208 1072 202C1124 199 1164 194 1200 186V0H0V154Z" fill="#EAF8EE" opacity="0.65" />
+  <path d="M0 162C96 132 182 112 254 104C332 94 408 100 486 120C564 140 640 178 716 186C784 194 860 186 946 158C1032 130 1110 110 1200 96V0H0V162Z" fill="#2A5C43" opacity="0.06" />
+
+  <g opacity="0.9">
+    <circle cx="992" cy="286" r="18" fill="#D7F1DC" />
+    <circle cx="1060" cy="250" r="12" fill="#D7F1DC" />
+    <circle cx="1042" cy="336" r="10" fill="#D7F1DC" />
+    <circle cx="106" cy="348" r="12" fill="#CFECD6" />
+    <circle cx="166" cy="304" r="18" fill="#E4F5E7" />
+  </g>
+</svg>

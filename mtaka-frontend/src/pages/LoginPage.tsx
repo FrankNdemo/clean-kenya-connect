@@ -74,6 +74,10 @@ export default function LoginPage() {
     };
   }, [clearLoginForm]);
 
+  const handleScrollToForm = useCallback(() => {
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -137,97 +141,159 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="w-full max-w-md">
+      <div className="relative min-h-[100dvh] overflow-hidden bg-[#6c6c6c]">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_30%)]" />
+
+        <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col gap-5 px-4 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-8">
           {!isStandaloneApp && (
-            <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
-              <ArrowLeft className="w-4 h-4" />
+            <Link
+              to="/"
+              className="inline-flex w-fit items-center gap-2 text-sm font-medium text-white/80 transition-colors hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
               Back to Home
             </Link>
           )}
 
-          <Card className="shadow-lg">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
-                <Recycle className="w-8 h-8 text-primary-foreground" />
+          <div className="grid flex-1 gap-0 overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.45)] lg:grid-cols-[1.2fr_0.8fr] lg:items-stretch">
+            <section className="relative min-h-[20rem] overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-500 p-6 text-white sm:p-8 lg:min-h-[calc(100dvh-8rem)] lg:p-10">
+              <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10" />
+              <div className="absolute -left-6 bottom-0 h-[28rem] w-[28rem] rounded-full bg-emerald-900/30" />
+              <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-white/10" />
+              <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full bg-emerald-950/20 blur-2xl" />
+
+              <div className="relative flex h-full flex-col justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-emerald-700 shadow-lg">
+                    <Recycle className="h-6 w-6" />
+                  </div>
+                  <div className="pt-1">
+                    <p className="text-sm font-semibold uppercase tracking-[0.35em] text-white/85">M-Taka</p>
+                  </div>
+                </div>
+
+                <div className="max-w-md space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-4xl font-semibold leading-tight sm:text-5xl">Welcome Back!</p>
+                    <p className="text-sm leading-6 text-white/75 sm:text-base">
+                      To stay connected with us, please log in with your personal info
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleScrollToForm}
+                    className="inline-flex h-10 items-center justify-center rounded-full border border-white/35 px-8 text-xs font-semibold uppercase tracking-[0.3em] text-white transition-colors hover:bg-white/10"
+                  >
+                    Sign In
+                  </button>
+                </div>
               </div>
-              <CardTitle className="text-2xl">Welcome Back</CardTitle>
-              <CardDescription>Sign in to your M-Taka account</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-                <div className="sr-only" aria-hidden="true">
-                  <input type="text" name="mtaka_fake_username" autoComplete="username" tabIndex={-1} />
-                  <input type="password" name="mtaka_fake_password" autoComplete="current-password" tabIndex={-1} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      ref={emailInputRef}
-                      id="email"
-                      name="mtaka_login_email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onFocus={() => setManualEntryEnabled(true)}
-                      className="pl-10"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      data-lpignore="true"
-                      data-1p-ignore="true"
-                      readOnly={!manualEntryEnabled}
-                      required
-                    />
-                  </div>
-                </div>
+            </section>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      ref={passwordInputRef}
-                      id="password"
-                      name="mtaka_login_password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onFocus={() => setManualEntryEnabled(true)}
-                      className="pl-10 pr-10"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      data-lpignore="true"
-                      data-1p-ignore="true"
-                      readOnly={!manualEntryEnabled}
-                      required
-                      minLength={8}
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
+            <section className="flex items-center justify-center bg-white px-6 py-8 sm:px-8 lg:px-10 lg:py-12">
+              <Card className="w-full max-w-sm border-0 bg-transparent shadow-none">
+                <CardHeader className="space-y-2 p-0 text-center">
+                  <CardTitle className="text-3xl font-semibold capitalize text-emerald-700">welcome</CardTitle>
+                  <CardDescription className="text-sm text-muted-foreground">
+                    Login to your account to continue
+                  </CardDescription>
+                </CardHeader>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? 'Signing in...' : 'Sign In'}</Button>
-              </form>
+                <CardContent className="p-0 pt-8">
+                  <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+                    <div className="sr-only" aria-hidden="true">
+                      <input type="text" name="mtaka_fake_username" autoComplete="username" tabIndex={-1} />
+                      <input type="password" name="mtaka_fake_password" autoComplete="current-password" tabIndex={-1} />
+                    </div>
 
-              <p className="text-sm text-center text-muted-foreground mt-6">
-                Don't have an account?{' '}
-                <Link to="/register" className="text-primary font-medium hover:underline">Register here</Link>
-              </p>
-            </CardContent>
-          </Card>
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Email
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          ref={emailInputRef}
+                          id="email"
+                          name="mtaka_login_email"
+                          type="email"
+                          placeholder="Email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          onFocus={() => setManualEntryEnabled(true)}
+                          className="h-10 rounded-full border-0 bg-emerald-100/85 px-4 text-sm shadow-none placeholder:text-emerald-500/70 focus-visible:ring-2 focus-visible:ring-emerald-500/20"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          readOnly={!manualEntryEnabled}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="password" className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          ref={passwordInputRef}
+                          id="password"
+                          name="mtaka_login_password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          onFocus={() => setManualEntryEnabled(true)}
+                          className="h-10 rounded-full border-0 bg-emerald-100/85 px-4 pr-10 text-sm shadow-none placeholder:text-emerald-500/70 focus-visible:ring-2 focus-visible:ring-emerald-500/20"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          readOnly={!manualEntryEnabled}
+                          required
+                          minLength={8}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-emerald-700/70 transition-colors hover:text-emerald-800"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <div className="text-right">
+                        <Link to="/forgot-password" className="text-xs text-slate-500 hover:text-slate-700 hover:underline">
+                          Forgot your password?
+                        </Link>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      size="default"
+                      className="h-10 w-full rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Signing in...' : 'Login'}
+                    </Button>
+                  </form>
+
+                  <p className="mt-6 text-center text-xs text-slate-500">
+                    Don&apos;t have an account?{' '}
+                    <Link to="/register" className="font-semibold text-emerald-700 hover:underline">
+                      Sign up
+                    </Link>
+                  </p>
+                </CardContent>
+              </Card>
+            </section>
+          </div>
         </div>
       </div>
 

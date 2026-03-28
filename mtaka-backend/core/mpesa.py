@@ -108,6 +108,21 @@ def _http_json(
     request = Request(url, data=data, headers=request_headers, method=method)
     timeout = int(getattr(settings, 'MPESA_TIMEOUT_SECONDS', 20))
 
+    def _describe_mpesa_error(message: str, *, parsed_payload: dict) -> str:
+        normalized_message = str(message or '').strip()
+        if 'wrong credentials' in normalized_message.lower():
+            if '/oauth/v1/generate' in url:
+                return (
+                    'Wrong Daraja app credentials. Check MPESA_CONSUMER_KEY, '
+                    'MPESA_CONSUMER_SECRET, and MPESA_ENV on the deployed backend.'
+                )
+            if '/mpesa/stkpush/v1/processrequest' in url:
+                return (
+                    'Wrong STK credentials. Check MPESA_BUSINESS_SHORTCODE, '
+                    'MPESA_PASSKEY, and MPESA_ENV on the deployed backend.'
+                )
+        return normalized_message or 'M-Pesa request failed.'
+
     try:
         with urlopen(request, timeout=timeout) as response:
             body = response.read().decode('utf-8').strip()
@@ -120,14 +135,21 @@ def _http_json(
                 parsed = json.loads(body)
             except json.JSONDecodeError:
                 parsed = {'detail': body}
-        logger.exception('M-Pesa HTTP error for %s %s', method, url)
         message = (
             parsed.get('errorMessage')
             or parsed.get('error')
             or parsed.get('detail')
             or 'M-Pesa request failed.'
         )
-        raise MpesaIntegrationError(message, status_code=502, payload=parsed) from exc
+        described_message = _describe_mpesa_error(message, parsed_payload=parsed)
+        logger.exception(
+            'M-Pesa HTTP error for %s %s: %s payload=%s',
+            method,
+            url,
+            described_message,
+            parsed,
+        )
+        raise MpesaIntegrationError(described_message, status_code=502, payload=parsed) from exc
     except URLError as exc:
         logger.exception('M-Pesa network error for %s %s', method, url)
         raise MpesaIntegrationError(

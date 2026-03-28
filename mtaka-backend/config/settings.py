@@ -193,7 +193,10 @@ DEFAULT_FROM_EMAIL = os.getenv('DJANGO_DEFAULT_FROM_EMAIL', 'M-Taka No-Reply <no
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 BREVO_API_KEY = os.getenv('DJANGO_BREVO_API_KEY', '').strip()
 FRONTEND_URL = os.getenv('MTAKA_FRONTEND_URL', '').strip()
-API_PUBLIC_URL = os.getenv('MTAKA_API_PUBLIC_URL', '').strip()
+API_PUBLIC_URL = (
+    os.getenv('MTAKA_API_PUBLIC_URL', '').strip()
+    or os.getenv('RENDER_EXTERNAL_URL', '').strip()
+)
 PASSWORD_RESET_TIMEOUT = int(os.getenv('DJANGO_PASSWORD_RESET_TIMEOUT', '3600'))
 
 MPESA_ENV = os.getenv('MPESA_ENV', 'sandbox').strip().lower()

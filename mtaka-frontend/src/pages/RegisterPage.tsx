@@ -1,28 +1,52 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Recycle, ArrowLeft, Mail, User, Phone, MapPin, Users, Truck, Factory, Building2, Lock, Eye, EyeOff, Check, X } from 'lucide-react';
+import { ArrowLeft, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, Recycle, Truck, User, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { isStandaloneAppMode } from '@/lib/appMode';
 import { toast } from 'sonner';
 import { UserRole } from '@/lib/store';
 import axios from 'axios';
 
-const roles: { value: UserRole; label: string; icon: typeof Users; description: string }[] = [
-  { value: 'resident', label: 'Resident', icon: Users, description: 'Schedule pickups, report issues, join events' },
-  { value: 'collector', label: 'Collector', icon: Truck, description: 'Manage routes and collection requests' },
-  { value: 'recycler', label: 'Recycler', icon: Factory, description: 'Record and manage recycling transactions' },
-  { value: 'authority', label: 'County Authority', icon: Building2, description: 'Monitor metrics and manage the system' },
+const roles: { value: UserRole; label: string; description: string; surface: string; text: string }[] = [
+  {
+    value: 'resident',
+    label: 'Resident',
+    description: 'Schedule pickups, report issues, join events',
+    surface: '#056b10',
+    text: '#ffffff',
+  },
+  {
+    value: 'collector',
+    label: 'Collector',
+    description: 'Manage routes and collection requests',
+    surface: '#6ea964',
+    text: '#173f31',
+  },
+  {
+    value: 'recycler',
+    label: 'Recycler',
+    description: 'Record and manage recycling transactions',
+    surface: '#004b28',
+    text: '#ffffff',
+  },
+  {
+    value: 'authority',
+    label: 'County Authority',
+    description: 'Monitor metrics and manage the system',
+    surface: '#a7cfca',
+    text: '#173f31',
+  },
 ];
+
+const fieldClass =
+  'h-11 rounded-[10px] border-[#cad7ca] bg-[#fdfefd] text-[13px] shadow-none placeholder:text-[#8d9b95] focus-visible:border-[#94bfad] focus-visible:ring-4 focus-visible:ring-[#94bfad]/20';
 
 const validatePassword = (password: string) => {
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
-  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-  
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};'"'"':"\\|,.<>\/?]/.test(password);
+
   return {
     hasMinLength,
     hasUppercase,
@@ -47,12 +71,36 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isChoosingRole, setIsChoosingRole] = useState(true);
   const { login, register } = useAuth();
   const navigate = useNavigate();
-  const isStandaloneApp = isStandaloneAppMode();
 
+  const selectedRole = formData.role ? roles.find((role) => role.value === formData.role) : undefined;
   const passwordValidation = validatePassword(formData.password);
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0;
+  const isBusinessRole = formData.role === 'collector' || formData.role === 'recycler';
+  const hasRequiredIdentityDetails =
+    formData.name.trim().length > 0 &&
+    formData.email.trim().length > 0 &&
+    formData.phone.trim().length > 0 &&
+    (formData.role === 'authority' ? formData.countyOfOperation.trim().length > 0 : formData.location.trim().length > 0);
+  const hasRequiredBusinessDetails =
+    !isBusinessRole || (formData.companyName.trim().length > 0 && formData.licenseNumber.trim().length > 0);
+  const isSubmitReady = hasRequiredIdentityDetails && hasRequiredBusinessDetails && passwordValidation.isValid && passwordsMatch;
+  const pageColumnStyle = { width: '100%', maxWidth: '430px' } as const;
+  const formColumnStyle = { width: '100%', maxWidth: '360px' } as const;
+  const dividerBarClass = 'h-[8px] w-[78px] rounded-[2px] border border-[#1f3a33] bg-[#9ccbc1]';
+  const titleBadgeClass = 'inline-flex items-center justify-center bg-white px-8 py-2';
+  const roleCardBaseClass =
+    'mx-auto block w-full max-w-[344px] overflow-hidden border-[1.5px] px-9 py-6 text-center shadow-none transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9cc8b7] focus-visible:ring-offset-2';
+  const roleCardContentClass = 'mx-auto flex max-w-[13.75rem] flex-col items-center justify-center gap-2';
+  const roleLabelClass = 'text-[15px] font-semibold leading-none tracking-tight';
+  const roleDescriptionClass = 'text-[10px] leading-[1.2] opacity-95';
+  const formLabelClass = 'text-[12px] font-medium text-[#173f31]';
+  const inputIconWrapClass = 'pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center';
+  const inputIconClass = 'h-4 w-4 text-[#91a09a]';
+  const inputWithIconStyle = { paddingLeft: '3rem' } as const;
+  const inputWithDualIconsStyle = { paddingLeft: '3rem', paddingRight: '2.75rem' } as const;
 
   const getErrorMessage = (error: unknown) => {
     if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
@@ -90,11 +138,31 @@ export default function RegisterPage() {
     }
   };
 
+  const handleRoleSelect = (role: UserRole) => {
+    setFormData((prev) => ({ ...prev, role }));
+    setIsChoosingRole(false);
+  };
+
+  const handleBackToRoles = () => {
+    setIsChoosingRole(true);
+    setFormData((prev) => ({ ...prev, role: '' }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.role) {
       toast.error('Please select a role');
+      return;
+    }
+
+    if (formData.role !== 'authority' && !formData.location.trim()) {
+      toast.error('Location is required for this role');
+      return;
+    }
+
+    if (formData.role === 'authority' && !formData.countyOfOperation.trim()) {
+      toast.error('County of operation is required for county authority accounts');
       return;
     }
 
@@ -108,7 +176,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if ((formData.role === 'collector' || formData.role === 'recycler')) {
+    if (isBusinessRole) {
       if (!formData.companyName.trim()) {
         toast.error('Company name is required for collectors and recyclers');
         return;
@@ -157,113 +225,207 @@ export default function RegisterPage() {
   };
 
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
-    <div className={`flex items-center gap-2 text-xs ${met ? 'text-success' : 'text-muted-foreground'}`}>
-      {met ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-      {text}
+    <div className="flex items-center gap-2 text-[11px]" style={{ color: met ? '#2f9b61' : '#c35f5f' }}>
+      {met ? <Check className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" /> : <X className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />}
+      <span>{text}</span>
     </div>
   );
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background px-4 py-12 pt-[max(3rem,env(safe-area-inset-top))] pb-[max(3rem,env(safe-area-inset-bottom))]">
-      <div className="w-full max-w-lg">
-        {!isStandaloneApp && (
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
-          </Link>
-        )}
+    <div className="min-h-[100dvh] bg-white px-4 py-6 sm:py-10">
+      <main className="mx-auto flex w-full flex-col items-center" style={pageColumnStyle}>
+        <div className="flex w-full flex-col items-center text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[16px] bg-primary text-primary-foreground">
+            <Recycle className="h-7 w-7" />
+          </div>
 
-        <Card className="shadow-lg">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
-              <Recycle className="w-8 h-8 text-primary-foreground" />
+          <div className={titleBadgeClass}>
+            <h1 className="text-[28px] font-semibold leading-none tracking-tight text-[#173f31]">
+              Join M-Taka
+            </h1>
+          </div>
+
+          <div className="mt-3 flex w-full items-center justify-center gap-2 whitespace-nowrap text-[#6a746f]">
+            {isChoosingRole && (
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-[#7a857f] transition-colors hover:text-[#173f31]"
+                aria-label="Back to login"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Back</span>
+              </button>
+            )}
+            <p className="rounded-[4px] bg-white px-2 py-1 text-[11px] leading-none text-[#6a746f] sm:text-[12px]">
+              Create your account and start making a difference
+            </p>
+          </div>
+        </div>
+
+        {isChoosingRole ? (
+          <section className="mt-7 w-full text-center">
+            <div className="flex items-center justify-center gap-3">
+              <span className={dividerBarClass} />
+              <span className="shrink-0 text-[13px] font-semibold text-[#173f31]">
+                Select Your Role
+              </span>
+              <span className={dividerBarClass} />
             </div>
-            <CardTitle className="text-2xl">Join M-Taka</CardTitle>
-            <CardDescription>Create your account and start making a difference</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Role Selection */}
-              <div className="space-y-2">
-                <Label>Select Your Role</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {roles.map((role) => (
-                    <button
-                      key={role.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, role: role.value })}
-                      className={`p-4 rounded-xl border-2 text-left transition-all ${
-                        formData.role === role.value
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <role.icon className={`w-6 h-6 mb-2 ${formData.role === role.value ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <div className="font-semibold text-sm">{role.label}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{role.description}</div>
-                    </button>
-                  ))}
-                </div>
+
+            <div className="mt-6 space-y-5">
+              {roles.map((role) => (
+                <button
+                  key={role.value}
+                  type="button"
+                  onClick={() => handleRoleSelect(role.value)}
+                  className={roleCardBaseClass}
+                  style={{
+                    backgroundColor: role.surface,
+                    color: role.text,
+                    borderColor: '#1f3a33',
+                    borderRadius: '14px',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                  }}
+                  aria-label={`Register as ${role.label}`}
+                >
+                  <div className={roleCardContentClass}>
+                    <div className={roleLabelClass}>{role.label}</div>
+                    <div className={roleDescriptionClass}>{role.description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-12 text-center text-[11px] text-[#6a746f] sm:text-[12px]">
+              <span>Already have an account? </span>
+              <Link to="/login" className="font-medium text-primary hover:underline">
+                Sign in here
+              </Link>
+            </p>
+          </section>
+        ) : selectedRole ? (
+          <form onSubmit={handleSubmit} className="mt-6 w-full text-left" style={formColumnStyle}>
+            <div className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-2 text-[#8d948f]">
+              <button
+                type="button"
+                onClick={handleBackToRoles}
+                className="inline-flex h-8 items-center gap-1.5 rounded-[10px] px-2 text-[11px] font-medium text-[#6f7c75] transition-colors hover:text-[#42554d]"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Back
+              </button>
+
+              <div className="flex items-center justify-center gap-3">
+                <span className={dividerBarClass} />
+                <span className="shrink-0 text-[13px] font-semibold text-[#173f31]">
+                  Select Your Role
+                </span>
+                <span className={dividerBarClass} />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+              <div aria-hidden="true" className="h-8" />
+            </div>
+
+            <div
+              className={[roleCardBaseClass, 'mt-3 cursor-default'].join(' ')}
+              style={{
+                backgroundColor: selectedRole.surface,
+                color: selectedRole.text,
+                borderColor: '#1f3a33',
+                borderRadius: '14px',
+              }}
+            >
+              <div className={roleCardContentClass}>
+                <div className={roleLabelClass}>{selectedRole.label}</div>
+                <div className={roleDescriptionClass}>{selectedRole.description}</div>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className={formLabelClass}>
+                  Full Name
+                </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className={inputIconWrapClass}>
+                    <User className={inputIconClass} />
+                  </div>
                   <Input
                     id="name"
                     placeholder="John Kamau"
+                    autoComplete="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="pl-10"
+                    className={fieldClass}
+                    style={inputWithIconStyle}
                     required
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className={formLabelClass}>
+                  Email Address
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className={inputIconWrapClass}>
+                    <Mail className={inputIconClass} />
+                  </div>
                   <Input
                     id="email"
                     type="email"
                     placeholder="john@email.com"
+                    autoComplete="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="pl-10"
+                    className={fieldClass}
+                    style={inputWithIconStyle}
                     required
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="phone" className={formLabelClass}>
+                  Phone Number
+                </Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className={inputIconWrapClass}>
+                    <Phone className={inputIconClass} />
+                  </div>
                   <Input
                     id="phone"
                     type="tel"
                     placeholder="+254 712 345 678"
+                    autoComplete="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="pl-10"
+                    className={fieldClass}
+                    style={inputWithIconStyle}
                     required
                   />
                 </div>
               </div>
 
               {formData.role !== 'authority' && (
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="location" className={formLabelClass}>
+                    Location
+                  </Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <div className={inputIconWrapClass}>
+                      <MapPin className={inputIconClass} />
+                    </div>
                     <Input
                       id="location"
                       placeholder="Westlands, Nairobi"
+                      autoComplete="address-level2"
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="pl-10"
+                      className={fieldClass}
+                      style={inputWithIconStyle}
                       required
                     />
                   </div>
@@ -271,48 +433,67 @@ export default function RegisterPage() {
               )}
 
               {formData.role === 'authority' && (
-                <div className="space-y-2">
-                  <Label htmlFor="countyOfOperation">County of operation</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="countyOfOperation" className={formLabelClass}>
+                    County of operation
+                  </Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <div className={inputIconWrapClass}>
+                      <MapPin className={inputIconClass} />
+                    </div>
                     <Input
                       id="countyOfOperation"
                       placeholder="Nairobi"
+                      autoComplete="address-level1"
                       value={formData.countyOfOperation}
                       onChange={(e) => setFormData({ ...formData, countyOfOperation: e.target.value })}
-                      className="pl-10"
+                      className={fieldClass}
+                      style={inputWithIconStyle}
                       required
                     />
                   </div>
                 </div>
               )}
 
-              {(formData.role === 'collector' || formData.role === 'recycler') && (
+              {isBusinessRole && (
                 <>
-                  <div className="space-y-2">
-                    <Label htmlFor="companyName">Company name</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="companyName" className={formLabelClass}>
+                      Company name
+                    </Label>
                     <div className="relative">
-                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <div className={inputIconWrapClass}>
+                        <Building2 className={inputIconClass} />
+                      </div>
                       <Input
                         id="companyName"
                         placeholder="GreenCycle Ltd"
+                        autoComplete="organization"
                         value={formData.companyName}
                         onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                        className="pl-10"
+                        className={fieldClass}
+                        style={inputWithIconStyle}
                         required
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="licenseNumber">License number</Label>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="licenseNumber" className={formLabelClass}>
+                      License number
+                    </Label>
                     <div className="relative">
-                      <Truck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <div className={inputIconWrapClass}>
+                        <Truck className={inputIconClass} />
+                      </div>
                       <Input
                         id="licenseNumber"
                         placeholder="LIC-2026-001"
+                        autoComplete="off"
                         value={formData.licenseNumber}
                         onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                        className="pl-10"
+                        className={fieldClass}
+                        style={inputWithIconStyle}
                         required
                       />
                     </div>
@@ -320,76 +501,112 @@ export default function RegisterPage() {
                 </>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className={formLabelClass}>
+                  Password
+                </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className={inputIconWrapClass}>
+                    <Lock className={inputIconClass} />
+                  </div>
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Create a password (min 8 characters)"
+                    autoComplete="new-password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="pl-10 pr-10"
+                    className={fieldClass}
+                    style={inputWithDualIconsStyle}
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#91a09a] transition-colors hover:text-[#173f31]"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <div className="space-y-1 p-2 bg-secondary/50 rounded-lg">
-                  <PasswordRequirement met={passwordValidation.hasMinLength} text="Minimum 8 characters" />
-                  <PasswordRequirement met={passwordValidation.hasUppercase} text="At least one uppercase letter" />
-                  <PasswordRequirement met={passwordValidation.hasSymbol} text="At least one symbol (!@#$%^&*)" />
-                </div>
+                {formData.password.length > 0 && (
+                  <div className="space-y-1.5 rounded-[10px] border border-[#d9e4da] bg-[#edf4ef] px-3 py-2.5">
+                    <PasswordRequirement met={passwordValidation.hasMinLength} text="Minimum 8 characters" />
+                    <PasswordRequirement met={passwordValidation.hasUppercase} text="At least one uppercase letter" />
+                    <PasswordRequirement met={passwordValidation.hasSymbol} text="At least one symbol (!@#$%^&*)" />
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword" className={formLabelClass}>
+                  Confirm Password
+                </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className={inputIconWrapClass}>
+                    <Lock className={inputIconClass} />
+                  </div>
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm your password"
+                    autoComplete="new-password"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className="pl-10 pr-10"
+                    className={fieldClass}
+                    style={inputWithDualIconsStyle}
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#91a09a] transition-colors hover:text-[#173f31]"
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                   >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {formData.confirmPassword && (
-                  <p className={`text-xs ${passwordsMatch ? 'text-success' : 'text-destructive'}`}>
-                    {passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match'}
+                  <p className={`text-[11px] ${passwordsMatch ? 'text-success' : 'text-destructive'}`}>
+                    {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
                   </p>
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading || !passwordValidation.isValid || !passwordsMatch}>
+              <button
+                type="submit"
+                className={[
+                  'mt-2 inline-flex h-11 w-full appearance-none items-center justify-center rounded-[10px] border border-transparent text-[13px] font-semibold shadow-[0_16px_28px_-22px_rgba(15,95,47,0.75)] transition-colors',
+                  isSubmitReady
+                    ? 'bg-[#5f9f73] text-white hover:bg-[#4f8f63]'
+                    : 'bg-[#a8c3b0] text-[#f7fff9] hover:bg-[#a8c3b0]',
+                ].join(' ')}
+                style={{
+                  backgroundColor: isSubmitReady ? '#5f9f73' : '#a8c3b0',
+                  color: '#ffffff',
+                  opacity: 1,
+                }}
+                aria-disabled={isLoading || !isSubmitReady}
+                disabled={isLoading}
+                onClick={(e) => {
+                  if (!isSubmitReady || isLoading) {
+                    e.preventDefault();
+                  }
+                }}
+              >
                 {isLoading ? 'Creating Account...' : 'Create Account'}
-              </Button>
-            </form>
+              </button>
+            </div>
 
-            <p className="text-sm text-center text-muted-foreground mt-6">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary font-medium hover:underline">
+            <p className="pt-6 text-center text-[12px] text-[#6a746f]">
+              <span>Already have an account? </span>
+              <Link to="/login" className="font-medium text-primary hover:underline">
                 Sign in here
               </Link>
             </p>
-          </CardContent>
-        </Card>
-      </div>
+          </form>
+        ) : null}
+      </main>
     </div>
   );
 }

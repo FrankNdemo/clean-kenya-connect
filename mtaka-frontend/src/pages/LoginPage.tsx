@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Recycle, ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Recycle, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { createComplaintApi } from '@/api';
 import { AuthError, useAuth } from '@/hooks/useAuth';
 import { isStandaloneAppMode } from '@/lib/appMode';
@@ -141,14 +141,12 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="relative min-h-[100dvh] overflow-hidden bg-[#6c6c6c]">
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_30%)]" />
-
+      <div className="relative min-h-[100dvh] overflow-hidden bg-white">
         <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col gap-5 px-4 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-8">
           {!isStandaloneApp && (
             <Link
               to="/"
-              className="inline-flex w-fit items-center gap-2 text-sm font-medium text-white/80 transition-colors hover:text-white"
+              className="inline-flex w-fit items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Home

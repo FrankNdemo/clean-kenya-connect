@@ -188,16 +188,16 @@ export default function LoginPage() {
               </div>
             </section>
 
-            <section className="flex items-center justify-center bg-white px-6 py-8 sm:px-8 lg:px-10 lg:py-12">
+            <section className="flex items-center justify-center bg-white px-6 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-12">
               <Card className="w-full max-w-sm border-0 bg-transparent shadow-none">
-                <CardHeader className="space-y-2 p-0 text-center">
+                <CardHeader className="hidden space-y-2 p-0 text-center sm:block">
                   <CardTitle className="text-3xl font-semibold capitalize text-emerald-700">welcome</CardTitle>
                   <CardDescription className="text-sm text-muted-foreground">
                     Login to your account to continue
                   </CardDescription>
                 </CardHeader>
 
-                <CardContent className="p-0 pt-8">
+                <CardContent className="p-0 pt-0 sm:pt-8">
                   <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                     <div className="sr-only" aria-hidden="true">
                       <input type="text" name="mtaka_fake_username" autoComplete="username" tabIndex={-1} />

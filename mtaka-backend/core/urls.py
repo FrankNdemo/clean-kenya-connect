@@ -12,6 +12,7 @@ router.register(r'recyclable-listings', views.RecyclableListingViewSet, basename
 router.register(r'price-offers', views.PriceOfferViewSet, basename='price-offer')
 router.register(r'recycler-transactions', views.RecyclerTransactionViewSet, basename='recycler-transaction')
 router.register(r'collector-transactions', views.CollectorTransactionViewSet, basename='collector-transaction')
+router.register(r'mpesa-payments', views.MpesaPaymentViewSet, basename='mpesa-payment')
 router.register(r'dumping-reports', views.IllegalDumpingViewSet, basename='dumping')
 router.register(r'green-credits', views.GreenCreditViewSet, basename='credits')
 router.register(r'complaints', views.ComplaintViewSet, basename='complaints')
@@ -25,6 +26,7 @@ urlpatterns = [
     path('password-reset/request/', views.password_reset_request, name='password_reset_request'),
     path('password-reset/validate/', views.password_reset_validate, name='password_reset_validate'),
     path('password-reset/confirm/', views.password_reset_confirm, name='password_reset_confirm'),
+    path('mpesa/callback/', views.mpesa_stk_callback, name='mpesa_stk_callback'),
     path('profile/', views.get_user_profile, name='profile'),
     path('location/resolve/', views.resolve_location_county, name='location_resolve'),
     path('token/refresh/', views.refresh_token_cookie, name='token_refresh'),

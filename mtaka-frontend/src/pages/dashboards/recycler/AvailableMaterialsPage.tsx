@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { getApiErrorMessage } from '@/api';
 import { 
   RecyclableListing,
   PriceOffer
@@ -17,7 +19,10 @@ import {
   createPriceOfferDb,
   fetchRecyclerListingsDb,
   fetchRecyclerOffersDb,
+  initiateRecyclerMpesaPaymentDb,
+  saveRecyclerMpesaPaymentCompletionNotesDb,
   scheduleRecyclablePickupDb,
+  waitForRecyclerMpesaPaymentDb,
 } from '@/lib/recyclablesDb';
 import { 
   Package, 
@@ -108,8 +113,15 @@ export default function AvailableMaterialsPage() {
   const [completeForm, setCompleteForm] = useState({
     actualWeight: '',
     paymentMethod: 'cash' as 'cash' | 'mpesa',
-    mpesaCode: '',
+    useOtherPhone: false,
+    phoneNumber: '',
+    completionNotes: '',
   });
+  const [completePaymentStatus, setCompletePaymentStatus] = useState('');
+  const [mpesaPaymentId, setMpesaPaymentId] = useState('');
+  const [isMpesaPaymentConfirmed, setIsMpesaPaymentConfirmed] = useState(false);
+  const [pendingRecyclerTransaction, setPendingRecyclerTransaction] = useState<Awaited<ReturnType<typeof waitForRecyclerMpesaPaymentDb>>['recyclerTransaction'] | null>(null);
+  const [isCompletingPickup, setIsCompletingPickup] = useState(false);
   const [liveStartCoords, setLiveStartCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -202,6 +214,13 @@ export default function AvailableMaterialsPage() {
     return pricePerKg * weight;
   };
 
+  const residentPaymentPhone = (completeDialog.listing?.residentPhone || '').trim();
+  const effectivePaymentPhone = (
+    completeForm.useOtherPhone ? completeForm.phoneNumber : residentPaymentPhone
+  ).trim();
+  const showRecyclerCompletionNotes =
+    completeForm.paymentMethod === 'cash' || isMpesaPaymentConfirmed;
+
   const handleSendOffer = async () => {
     if (!offerDialog.listing) return;
     
@@ -242,26 +261,115 @@ export default function AvailableMaterialsPage() {
 
   const handleCompletePickup = async () => {
     if (!completeDialog.listing) return;
-    
-    if (completeForm.paymentMethod === 'mpesa' && !completeForm.mpesaCode.trim()) {
-      toast.error('Please enter M-Pesa transaction code');
+
+    const actualWeightValue =
+      parseFloat(completeForm.actualWeight) || completeDialog.listing.estimatedWeight;
+
+    if (!Number.isFinite(actualWeightValue) || actualWeightValue <= 0) {
+      toast.error('Enter a valid actual weight');
       return;
     }
 
-    const result = await completeRecyclablePickupDb(
-      completeDialog.listing.id,
-      completeForm.paymentMethod,
-      parseFloat(completeForm.actualWeight) || completeDialog.listing.estimatedWeight,
-      completeForm.mpesaCode || undefined
-    );
+    if (completeForm.paymentMethod === 'mpesa' && !isMpesaPaymentConfirmed && !effectivePaymentPhone) {
+      toast.error(
+        completeForm.useOtherPhone
+          ? 'Enter the M-Pesa number to charge'
+          : 'Resident phone number is missing. Use another number instead.'
+      );
+      return;
+    }
 
-    if (result) {
-      toast.success(`Pickup completed! ${result.inventory.stock}kg of ${result.transaction.materialType} now in inventory`);
+    setIsCompletingPickup(true);
+    setCompletePaymentStatus('');
+
+    try {
+      if (completeForm.paymentMethod === 'cash') {
+        const result = await completeRecyclablePickupDb(
+          completeDialog.listing.id,
+          completeForm.paymentMethod,
+          actualWeightValue,
+          undefined,
+          completeForm.completionNotes
+        );
+
+        toast.success(`Pickup completed! ${result.inventory.stock}kg of ${result.transaction.materialType} now in inventory`);
+      } else {
+        if (isMpesaPaymentConfirmed && mpesaPaymentId) {
+          await saveRecyclerMpesaPaymentCompletionNotesDb(mpesaPaymentId, completeForm.completionNotes);
+          toast.success('Pickup finished successfully');
+        } else {
+          const payment = await initiateRecyclerMpesaPaymentDb({
+            listingId: completeDialog.listing.id,
+            actualWeight: actualWeightValue,
+            phoneNumber: effectivePaymentPhone,
+          });
+
+          setCompletePaymentStatus(
+            payment.customerMessage || `STK push sent to ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
+          );
+          toast.success(payment.customerMessage || 'M-Pesa prompt sent to the payer phone');
+
+          const settledPayment = await waitForRecyclerMpesaPaymentDb(payment.id, {
+            pollMs: 4000,
+            maxAttempts: 30,
+            onUpdate: (nextPayment) => {
+              if (nextPayment.status === 'pending') {
+                setCompletePaymentStatus(
+                  nextPayment.customerMessage ||
+                    `Waiting for payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
+                );
+              }
+            },
+          });
+
+          if (settledPayment.status === 'success' && settledPayment.recyclerTransaction) {
+            setMpesaPaymentId(settledPayment.id);
+            setIsMpesaPaymentConfirmed(true);
+            setPendingRecyclerTransaction(settledPayment.recyclerTransaction);
+            setCompletePaymentStatus(
+              settledPayment.mpesaReceiptNumber
+                ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber} recorded. You can now add optional completion notes and finish pickup.`
+                : 'Payment confirmed. You can now add optional completion notes and finish pickup.'
+            );
+            toast.success(
+              settledPayment.mpesaReceiptNumber
+                ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber}`
+                : 'Payment confirmed. Finish the pickup to close the dialog.'
+            );
+            return;
+          } else if (settledPayment.status === 'pending') {
+            toast('Payment request is still pending. Keep the page open or refresh shortly.');
+            setCompletePaymentStatus('Payment request is still pending.');
+            return;
+          } else {
+            const failureMessage =
+              settledPayment.resultDesc || settledPayment.responseDescription || 'M-Pesa payment was not completed.';
+            setCompletePaymentStatus(failureMessage);
+            toast.error(failureMessage);
+            return;
+          }
+        }
+      }
+
       setCompleteDialog({ open: false, listing: null });
-      setCompleteForm({ actualWeight: '', paymentMethod: 'cash', mpesaCode: '' });
+      setCompleteForm({
+        actualWeight: '',
+        paymentMethod: 'cash',
+        useOtherPhone: false,
+        phoneNumber: '',
+        completionNotes: '',
+      });
+      setCompletePaymentStatus('');
+      setMpesaPaymentId('');
+      setIsMpesaPaymentConfirmed(false);
+      setPendingRecyclerTransaction(null);
       await refreshData();
-    } else {
-      toast.error('Failed to complete pickup');
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Failed to complete pickup');
+      setCompletePaymentStatus(message);
+      toast.error(message);
+    } finally {
+      setIsCompletingPickup(false);
     }
   };
 
@@ -645,8 +753,14 @@ export default function AvailableMaterialsPage() {
                             setCompleteForm({
                               actualWeight: String(listing.estimatedWeight),
                               paymentMethod: 'cash',
-                              mpesaCode: '',
+                              useOtherPhone: false,
+                              phoneNumber: '',
+                              completionNotes: '',
                             });
+                            setCompletePaymentStatus('');
+                            setMpesaPaymentId('');
+                            setIsMpesaPaymentConfirmed(false);
+                            setPendingRecyclerTransaction(null);
                             setCompleteDialog({ open: true, listing });
                           }}
                         >
@@ -834,7 +948,25 @@ export default function AvailableMaterialsPage() {
       </Dialog>
 
       {/* Complete Pickup Dialog */}
-      <Dialog open={completeDialog.open} onOpenChange={(open) => setCompleteDialog({ open, listing: null })}>
+      <Dialog
+        open={completeDialog.open}
+        onOpenChange={(open) => {
+          setCompleteDialog({ open, listing: null });
+          if (!open) {
+            setCompleteForm({
+              actualWeight: '',
+              paymentMethod: 'cash',
+              useOtherPhone: false,
+              phoneNumber: '',
+              completionNotes: '',
+            });
+            setCompletePaymentStatus('');
+            setMpesaPaymentId('');
+            setIsMpesaPaymentConfirmed(false);
+            setPendingRecyclerTransaction(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Complete Pickup</DialogTitle>
@@ -859,6 +991,7 @@ export default function AvailableMaterialsPage() {
                   placeholder={`Estimated: ${completeDialog.listing.estimatedWeight} kg`}
                   value={completeForm.actualWeight}
                   onChange={(e) => setCompleteForm({ ...completeForm, actualWeight: e.target.value })}
+                  disabled={isCompletingPickup || isMpesaPaymentConfirmed}
                 />
                 <p className="text-xs text-muted-foreground">
                   Leave empty to use estimated weight ({completeDialog.listing.estimatedWeight} kg)
@@ -869,11 +1002,15 @@ export default function AvailableMaterialsPage() {
                 <Label>Payment Method</Label>
                 <select
                   value={completeForm.paymentMethod}
-                  onChange={(e) => setCompleteForm({ 
-                    ...completeForm, 
-                    paymentMethod: e.target.value as 'cash' | 'mpesa',
-                    mpesaCode: e.target.value === 'cash' ? '' : completeForm.mpesaCode
-                  })}
+                  onChange={(e) =>
+                    setCompleteForm({
+                      ...completeForm,
+                      paymentMethod: e.target.value as 'cash' | 'mpesa',
+                      useOtherPhone: e.target.value === 'cash' ? false : completeForm.useOtherPhone,
+                      phoneNumber: e.target.value === 'cash' ? '' : completeForm.phoneNumber,
+                    })
+                  }
+                  disabled={isCompletingPickup || isMpesaPaymentConfirmed}
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                 >
                   <option value="cash">💵 Cash</option>
@@ -882,25 +1019,83 @@ export default function AvailableMaterialsPage() {
               </div>
 
               {completeForm.paymentMethod === 'mpesa' && (
-                <div className="space-y-2">
-                  <Label>M-Pesa Transaction Code</Label>
-                  <Input
-                    placeholder="e.g., SHK7X9M2YP"
-                    value={completeForm.mpesaCode}
-                    onChange={(e) => setCompleteForm({ ...completeForm, mpesaCode: e.target.value.toUpperCase() })}
-                    required
-                  />
+                <div className="space-y-4 rounded-lg border border-primary/15 bg-primary/5 p-4">
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium text-foreground">
+                      STK push amount: KES {Number(completeDialog.listing.offeredPrice || 0).toLocaleString()}
+                    </p>
+                    <p className="text-muted-foreground">
+                      The resident phone is selected automatically. Enable the option below if you want to charge another M-Pesa number.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Resident Phone</Label>
+                    <Input
+                      value={residentPaymentPhone || 'No resident phone available'}
+                      readOnly
+                      disabled={!residentPaymentPhone}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="recycler-other-phone"
+                      checked={completeForm.useOtherPhone}
+                      onCheckedChange={(checked) =>
+                        setCompleteForm((prev) => ({
+                          ...prev,
+                          useOtherPhone: checked === true,
+                          phoneNumber: checked === true ? prev.phoneNumber : '',
+                        }))
+                      }
+                    />
+                    <Label htmlFor="recycler-other-phone">Use another M-Pesa number</Label>
+                  </div>
+                  {completeForm.useOtherPhone && (
+                    <div className="space-y-2">
+                      <Label>Other M-Pesa Number</Label>
+                      <Input
+                        placeholder="e.g. 0712345678"
+                        value={completeForm.phoneNumber}
+                        onChange={(e) => setCompleteForm({ ...completeForm, phoneNumber: e.target.value })}
+                        disabled={isCompletingPickup || isMpesaPaymentConfirmed}
+                      />
+                    </div>
+                  )}
+                  {completePaymentStatus && (
+                    <p className="text-xs text-muted-foreground">{completePaymentStatus}</p>
+                  )}
                 </div>
+              )}
+
+              {showRecyclerCompletionNotes && (
+              <div className="space-y-2">
+                <Label>Completion Notes (Optional)</Label>
+                <Textarea
+                  placeholder="Add any pickup notes..."
+                  value={completeForm.completionNotes}
+                  onChange={(e) => setCompleteForm({ ...completeForm, completionNotes: e.target.value })}
+                />
+              </div>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCompleteDialog({ open: false, listing: null })}>
+            <Button variant="outline" onClick={() => setCompleteDialog({ open: false, listing: null })} disabled={isCompletingPickup}>
               Cancel
             </Button>
-            <Button onClick={handleCompletePickup}>
+            <Button onClick={handleCompletePickup} disabled={isCompletingPickup}>
               <CheckCircle className="w-4 h-4 mr-2" />
-              Complete Pickup
+              {isCompletingPickup
+                ? completeForm.paymentMethod === 'mpesa'
+                  ? isMpesaPaymentConfirmed
+                    ? 'Finishing...'
+                    : 'Waiting for Payment...'
+                  : 'Completing...'
+                : completeForm.paymentMethod === 'mpesa'
+                ? isMpesaPaymentConfirmed
+                  ? 'Finish Pickup'
+                  : 'Push Payment'
+                : 'Complete Pickup'}
             </Button>
           </DialogFooter>
         </DialogContent>

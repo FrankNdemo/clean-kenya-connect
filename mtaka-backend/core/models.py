@@ -410,3 +410,77 @@ class CollectorTransaction(models.Model):
         indexes = [
             models.Index(fields=['collector', 'created_at'], name='ct_collector_time_idx'),
         ]
+
+
+class MpesaPayment(models.Model):
+    PAYMENT_SCOPES = (
+        ('collector_pickup', 'Collector Pickup'),
+        ('recycler_pickup', 'Recycler Pickup'),
+    )
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    )
+
+    initiated_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='mpesa_payments',
+    )
+    payment_scope = models.CharField(max_length=30, choices=PAYMENT_SCOPES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    collection_request = models.ForeignKey(
+        CollectionRequest,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mpesa_payments',
+    )
+    recyclable_listing = models.ForeignKey(
+        RecyclableListing,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mpesa_payments',
+    )
+    collector_transaction = models.OneToOneField(
+        'CollectorTransaction',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mpesa_payment',
+    )
+    recycler_transaction = models.OneToOneField(
+        'RecyclerTransaction',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mpesa_payment',
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    recorded_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    phone_number = models.CharField(max_length=20)
+    completion_notes = models.TextField(blank=True, default='')
+    merchant_request_id = models.CharField(max_length=120, blank=True, default='')
+    checkout_request_id = models.CharField(max_length=120, blank=True, default='', db_index=True)
+    response_code = models.CharField(max_length=20, blank=True, default='')
+    response_description = models.TextField(blank=True, default='')
+    customer_message = models.TextField(blank=True, default='')
+    result_code = models.CharField(max_length=20, blank=True, default='')
+    result_desc = models.TextField(blank=True, default='')
+    mpesa_receipt_number = models.CharField(max_length=50, blank=True, default='')
+    raw_request_payload = models.JSONField(default=dict, blank=True)
+    raw_response_payload = models.JSONField(default=dict, blank=True)
+    raw_callback_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'mpesa_payments'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['initiated_by', 'status'], name='mpesa_user_status_idx'),
+            models.Index(fields=['payment_scope', 'status'], name='mpesa_scope_status_idx'),
+        ]

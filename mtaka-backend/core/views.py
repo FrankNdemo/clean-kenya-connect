@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.core.cache import cache
+from django.urls import reverse
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import base64
@@ -35,8 +36,281 @@ from .auth_email import (
     send_password_reset_email,
     send_welcome_email,
 )
+from .mpesa import MpesaIntegrationError, initiate_stk_push, mpesa_is_configured
 
 logger = logging.getLogger(__name__)
+
+
+def _build_mpesa_callback_url(request):
+    configured_url = str(getattr(settings, 'MPESA_CALLBACK_URL', '') or '').strip()
+    if configured_url:
+        return configured_url
+
+    callback_path = reverse('mpesa_stk_callback')
+    public_api_url = str(getattr(settings, 'API_PUBLIC_URL', '') or '').strip()
+    if public_api_url:
+        return f"{public_api_url.rstrip('/')}{callback_path}"
+    return request.build_absolute_uri(callback_path)
+
+
+def _parse_decimal_field(value, *, field_name, default=None, min_value=None):
+    candidate = value
+    if candidate in (None, '', 'null'):
+        candidate = default
+    if candidate in (None, '', 'null'):
+        raise ValidationError({field_name: 'This field is required.'})
+
+    try:
+        parsed = Decimal(str(candidate))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError({field_name: 'Enter a valid number.'})
+
+    if min_value is not None and parsed < Decimal(str(min_value)):
+        raise ValidationError({field_name: f'Value must be at least {min_value}.'})
+
+    return parsed
+
+
+def _extract_mpesa_callback(payload):
+    body = payload.get('Body') if isinstance(payload, dict) else {}
+    callback = body.get('stkCallback') if isinstance(body, dict) else {}
+    metadata_items = []
+    if isinstance(callback, dict):
+        callback_metadata = callback.get('CallbackMetadata') or {}
+        if isinstance(callback_metadata, dict):
+            metadata_items = callback_metadata.get('Item') or []
+
+    metadata = {}
+    if isinstance(metadata_items, list):
+        for item in metadata_items:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get('Name') or '').strip()
+            if not name:
+                continue
+            metadata[name] = item.get('Value')
+
+    def _stringify(value):
+        if value is None:
+            return ''
+        return str(value).strip()
+
+    return {
+        'merchant_request_id': _stringify(callback.get('MerchantRequestID')),
+        'checkout_request_id': _stringify(callback.get('CheckoutRequestID')),
+        'result_code': _stringify(callback.get('ResultCode')),
+        'result_desc': _stringify(callback.get('ResultDesc')),
+        'metadata': metadata,
+    }
+
+
+def _mark_collection_request_completed(collection_request, completion_notes=''):
+    instructions = str(collection_request.instructions or '').strip()
+    notes = [instructions] if instructions else []
+    if completion_notes:
+        notes.append(f'Completion: {completion_notes}')
+    notes.append(f'CompletedAt: {timezone.now().isoformat()}')
+    collection_request.status = 'completed'
+    collection_request.instructions = '\n'.join(note for note in notes if note)
+    collection_request.save(update_fields=['status', 'instructions'])
+
+
+def _set_collection_request_completion_notes(collection_request, completion_notes=''):
+    lines = [
+        str(line).strip()
+        for line in str(collection_request.instructions or '').splitlines()
+        if str(line).strip()
+    ]
+    completed_at_lines = [line for line in lines if line.startswith('CompletedAt:')]
+    preserved_lines = [
+        line for line in lines if not line.startswith('Completion:') and not line.startswith('CompletedAt:')
+    ]
+    if completion_notes:
+        preserved_lines.append(f'Completion: {completion_notes}')
+    preserved_lines.extend(completed_at_lines)
+    collection_request.instructions = '\n'.join(preserved_lines)
+    collection_request.save(update_fields=['instructions'])
+
+
+def _award_recyclable_listing_completion_credits(listing, weight_value):
+    try:
+        earned_points = int((weight_value * Decimal('5')).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, TypeError, ValueError):
+        earned_points = 0
+
+    award_household_credits(
+        user=listing.resident,
+        points=earned_points,
+        description='Recyclables pickup completed',
+        reference_id=listing.id,
+    )
+
+
+def _finalize_mpesa_payment(payment):
+    if payment.status != 'success':
+        return payment
+
+    if payment.payment_scope == 'collector_pickup':
+        collection_request = payment.collection_request
+        if not collection_request:
+            raise ValidationError({'detail': 'Collector pickup payment is missing its collection request.'})
+
+        collector_transaction = payment.collector_transaction
+        if not collector_transaction:
+            collector_transaction = CollectorTransaction.objects.filter(collection_request=collection_request).first()
+
+        if collector_transaction:
+            update_fields = []
+            if collector_transaction.payment_method != 'mpesa':
+                collector_transaction.payment_method = 'mpesa'
+                update_fields.append('payment_method')
+            if payment.mpesa_receipt_number and collector_transaction.mpesa_code != payment.mpesa_receipt_number:
+                collector_transaction.mpesa_code = payment.mpesa_receipt_number
+                update_fields.append('mpesa_code')
+            if update_fields:
+                collector_transaction.save(update_fields=update_fields)
+        else:
+            collector = collection_request.collector or Collector.objects.filter(user=payment.initiated_by).first()
+            if not collector:
+                raise ValidationError({'detail': 'Collector profile not found for this payment.'})
+
+            collector_transaction = CollectorTransaction.objects.create(
+                collection_request=collection_request,
+                collector=collector,
+                total_weight=payment.recorded_weight or Decimal('0'),
+                total_price=payment.amount,
+                payment_method='mpesa',
+                mpesa_code=payment.mpesa_receipt_number or '',
+            )
+
+        payment_updates = []
+        if payment.collector_transaction_id != collector_transaction.id:
+            payment.collector_transaction = collector_transaction
+            payment_updates.append('collector_transaction')
+
+        if payment_updates:
+            payment.save(update_fields=payment_updates)
+
+        if collection_request.status != 'completed':
+            _mark_collection_request_completed(collection_request, payment.completion_notes)
+
+        return payment
+
+    if payment.payment_scope == 'recycler_pickup':
+        listing = payment.recyclable_listing
+        if not listing:
+            raise ValidationError({'detail': 'Recycler pickup payment is missing its recyclable listing.'})
+
+        weight_value = payment.recorded_weight or listing.actual_weight or listing.estimated_weight or Decimal('0')
+        recycler_transaction = payment.recycler_transaction
+        if not recycler_transaction:
+            recycler_transaction = RecyclerTransaction.objects.filter(listing=listing).order_by('-created_at').first()
+
+        created_transaction = False
+        if recycler_transaction:
+            update_fields = []
+            if recycler_transaction.payment_method != 'mpesa':
+                recycler_transaction.payment_method = 'mpesa'
+                update_fields.append('payment_method')
+            if payment.mpesa_receipt_number and recycler_transaction.mpesa_code != payment.mpesa_receipt_number:
+                recycler_transaction.mpesa_code = payment.mpesa_receipt_number
+                update_fields.append('mpesa_code')
+            if update_fields:
+                recycler_transaction.save(update_fields=update_fields)
+        else:
+            recycler_transaction = RecyclerTransaction.objects.create(
+                listing=listing,
+                recycler=listing.recycler or payment.initiated_by,
+                material_type=listing.material_type,
+                weight=weight_value,
+                price=payment.amount,
+                source=f'{listing.resident_name} - {listing.resident_location}',
+                payment_method='mpesa',
+                mpesa_code=payment.mpesa_receipt_number or '',
+            )
+            created_transaction = True
+
+        payment_updates = []
+        if payment.recycler_transaction_id != recycler_transaction.id:
+            payment.recycler_transaction = recycler_transaction
+            payment_updates.append('recycler_transaction')
+        if payment.recorded_weight != weight_value:
+            payment.recorded_weight = weight_value
+            payment_updates.append('recorded_weight')
+        if payment_updates:
+            payment.save(update_fields=payment_updates)
+
+        listing_updates = []
+        if listing.actual_weight != weight_value:
+            listing.actual_weight = weight_value
+            listing_updates.append('actual_weight')
+        if listing.status != 'completed':
+            listing.status = 'completed'
+            listing_updates.append('status')
+        if payment.completion_notes and listing.completion_notes != payment.completion_notes:
+            listing.completion_notes = payment.completion_notes
+            listing_updates.append('completion_notes')
+        if listing_updates:
+            listing_updates.append('updated_at')
+            listing.save(update_fields=list(dict.fromkeys(listing_updates)))
+
+        if created_transaction:
+            _award_recyclable_listing_completion_credits(listing, weight_value)
+
+        return payment
+
+    raise ValidationError({'detail': 'Unsupported M-Pesa payment scope.'})
+
+
+def _apply_mpesa_callback_to_payment(payment, payload):
+    callback = _extract_mpesa_callback(payload)
+    metadata = callback.get('metadata') or {}
+    result_code = str(callback.get('result_code') or '').strip()
+
+    payment.raw_callback_payload = payload if isinstance(payload, dict) else {}
+    payment.result_code = result_code
+    payment.result_desc = str(callback.get('result_desc') or '').strip()
+    payment.mpesa_receipt_number = str(metadata.get('MpesaReceiptNumber') or '').strip()
+
+    if result_code == '0':
+        payment.status = 'success'
+    elif result_code == '1032':
+        payment.status = 'cancelled'
+    else:
+        payment.status = 'failed'
+
+    payment.save(
+        update_fields=[
+            'raw_callback_payload',
+            'result_code',
+            'result_desc',
+            'mpesa_receipt_number',
+            'status',
+            'updated_at',
+        ]
+    )
+
+    if payment.status == 'success':
+        _finalize_mpesa_payment(payment)
+
+    return payment
+
+
+def _save_mpesa_completion_notes(payment, completion_notes=''):
+    if payment.status != 'success':
+        raise ValidationError({'detail': 'Completion notes can only be saved after a successful payment.'})
+
+    cleaned_notes = str(completion_notes or '').strip()
+    payment.completion_notes = cleaned_notes
+    payment.save(update_fields=['completion_notes', 'updated_at'])
+
+    if payment.payment_scope == 'collector_pickup' and payment.collection_request:
+        _set_collection_request_completion_notes(payment.collection_request, cleaned_notes)
+    elif payment.payment_scope == 'recycler_pickup' and payment.recyclable_listing:
+        payment.recyclable_listing.completion_notes = cleaned_notes
+        payment.recyclable_listing.save(update_fields=['completion_notes', 'updated_at'])
+
+    return payment
 
 
 def _get_profile_data_for_user(user, create_if_missing=True):
@@ -1084,6 +1358,9 @@ class RecyclableListingViewSet(viewsets.ModelViewSet):
         mpesa_code = request.data.get('mpesa_code', '')
         completion_notes = request.data.get('completion_notes', '')
 
+        if payment_method == 'mpesa' and not str(mpesa_code or '').strip():
+            return Response({'error': 'M-Pesa transaction code is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
             listing.actual_weight = actual_weight
             listing.status = 'completed'
@@ -1118,6 +1395,87 @@ class RecyclableListingViewSet(viewsets.ModelViewSet):
             'listing': RecyclableListingSerializer(listing).data,
             'transaction': RecyclerTransactionSerializer(tx).data,
         })
+
+    @action(detail=True, methods=['post'], url_path='mpesa/stk-push')
+    def mpesa_stk_push(self, request, pk=None):
+        listing = self.get_object()
+        if request.user.user_type != 'recycler':
+            raise PermissionDenied('Only recyclers can initiate M-Pesa for recyclables pickups')
+        if listing.recycler_id != request.user.id:
+            raise PermissionDenied('You are not assigned to this listing')
+        if listing.status != 'scheduled':
+            return Response({'detail': 'Only scheduled listings can receive an M-Pesa payment request.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not listing.offered_price or Decimal(str(listing.offered_price)) <= 0:
+            return Response({'detail': 'This listing does not have a valid agreed price yet.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not mpesa_is_configured():
+            return Response({'detail': 'M-Pesa is not configured on the server yet.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        phone_number = request.data.get('phone_number') or listing.resident_phone or listing.resident.phone
+        actual_weight = _parse_decimal_field(
+            request.data.get('actual_weight'),
+            field_name='actual_weight',
+            default=listing.estimated_weight,
+            min_value='0.01',
+        )
+        completion_notes = str(request.data.get('completion_notes') or '').strip()
+
+        payment = MpesaPayment.objects.create(
+            initiated_by=request.user,
+            payment_scope='recycler_pickup',
+            recyclable_listing=listing,
+            amount=listing.offered_price,
+            recorded_weight=actual_weight,
+            phone_number=str(phone_number or '').strip(),
+            completion_notes=completion_notes,
+        )
+
+        try:
+            stk_result = initiate_stk_push(
+                phone_number=phone_number,
+                amount=listing.offered_price,
+                callback_url=_build_mpesa_callback_url(request),
+                account_reference=f'RECYCLE-{listing.id}',
+                transaction_desc=f'{listing.material_type.title()} pickup',
+            )
+        except MpesaIntegrationError as exc:
+            payment.status = 'failed'
+            payment.response_description = exc.message
+            payment.raw_response_payload = exc.payload or {}
+            payment.save(update_fields=['status', 'response_description', 'raw_response_payload', 'updated_at'])
+            return Response(
+                {
+                    'detail': exc.message,
+                    'payment': MpesaPaymentSerializer(payment).data,
+                },
+                status=exc.status_code,
+            )
+
+        response_payload = stk_result.get('response_payload') or {}
+        payment.phone_number = stk_result.get('normalized_phone') or payment.phone_number
+        payment.amount = Decimal(str(stk_result.get('normalized_amount') or payment.amount))
+        payment.raw_request_payload = stk_result.get('request_payload') or {}
+        payment.raw_response_payload = response_payload
+        payment.merchant_request_id = str(response_payload.get('MerchantRequestID') or '').strip()
+        payment.checkout_request_id = str(response_payload.get('CheckoutRequestID') or '').strip()
+        payment.response_code = str(response_payload.get('ResponseCode') or '').strip()
+        payment.response_description = str(response_payload.get('ResponseDescription') or '').strip()
+        payment.customer_message = str(response_payload.get('CustomerMessage') or '').strip()
+        payment.save(
+            update_fields=[
+                'phone_number',
+                'amount',
+                'raw_request_payload',
+                'raw_response_payload',
+                'merchant_request_id',
+                'checkout_request_id',
+                'response_code',
+                'response_description',
+                'customer_message',
+                'updated_at',
+            ]
+        )
+
+        return Response(MpesaPaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
 
 
 class PriceOfferViewSet(viewsets.ModelViewSet):
@@ -1256,6 +1614,169 @@ class CollectorTransactionViewSet(viewsets.ModelViewSet):
             notes.append(f'CompletedAt: {timezone.now().isoformat()}')
             collection_request.instructions = '\n'.join([note for note in notes if note])
             collection_request.save(update_fields=['status', 'instructions'])
+
+    @action(detail=False, methods=['post'], url_path='mpesa/stk-push')
+    def mpesa_stk_push(self, request):
+        user = request.user
+        if user.user_type != 'collector':
+            raise PermissionDenied('Only collectors can initiate M-Pesa for collection pickups')
+
+        collector = Collector.objects.filter(user=user).first()
+        if not collector:
+            raise PermissionDenied('Collector profile not found')
+        if not mpesa_is_configured():
+            return Response({'detail': 'M-Pesa is not configured on the server yet.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        collection_request_id = request.data.get('collection_request') or request.data.get('collection_request_id')
+        if collection_request_id in (None, '', 'null'):
+            raise ValidationError({'collection_request': 'This field is required.'})
+
+        collection_request = CollectionRequest.objects.select_related(
+            'household',
+            'household__user',
+            'collector',
+        ).filter(id=collection_request_id).first()
+        if not collection_request:
+            return Response({'detail': 'Pickup request not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if collection_request.collector_id != collector.id:
+            raise PermissionDenied('This pickup is not assigned to you.')
+        if collection_request.status not in ['scheduled', 'in_progress']:
+            return Response({'detail': 'Only scheduled or in-progress pickups can receive an M-Pesa payment request.'}, status=status.HTTP_400_BAD_REQUEST)
+        if CollectorTransaction.objects.filter(collection_request=collection_request).exists():
+            return Response({'detail': 'This pickup has already been completed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_weight = _parse_decimal_field(
+            request.data.get('total_weight'),
+            field_name='total_weight',
+            min_value='0.01',
+        )
+        total_price = _parse_decimal_field(
+            request.data.get('total_price'),
+            field_name='total_price',
+            min_value='1',
+        )
+        phone_number = request.data.get('phone_number') or collection_request.household.user.phone
+        completion_notes = str(request.data.get('completion_notes') or '').strip()
+
+        payment = MpesaPayment.objects.create(
+            initiated_by=user,
+            payment_scope='collector_pickup',
+            collection_request=collection_request,
+            amount=total_price,
+            recorded_weight=total_weight,
+            phone_number=str(phone_number or '').strip(),
+            completion_notes=completion_notes,
+        )
+
+        try:
+            stk_result = initiate_stk_push(
+                phone_number=phone_number,
+                amount=total_price,
+                callback_url=_build_mpesa_callback_url(request),
+                account_reference=f'COLLECT-{collection_request.id}',
+                transaction_desc=f'Waste pickup {collection_request.id}',
+            )
+        except MpesaIntegrationError as exc:
+            payment.status = 'failed'
+            payment.response_description = exc.message
+            payment.raw_response_payload = exc.payload or {}
+            payment.save(update_fields=['status', 'response_description', 'raw_response_payload', 'updated_at'])
+            return Response(
+                {
+                    'detail': exc.message,
+                    'payment': MpesaPaymentSerializer(payment).data,
+                },
+                status=exc.status_code,
+            )
+
+        response_payload = stk_result.get('response_payload') or {}
+        payment.phone_number = stk_result.get('normalized_phone') or payment.phone_number
+        payment.amount = Decimal(str(stk_result.get('normalized_amount') or payment.amount))
+        payment.raw_request_payload = stk_result.get('request_payload') or {}
+        payment.raw_response_payload = response_payload
+        payment.merchant_request_id = str(response_payload.get('MerchantRequestID') or '').strip()
+        payment.checkout_request_id = str(response_payload.get('CheckoutRequestID') or '').strip()
+        payment.response_code = str(response_payload.get('ResponseCode') or '').strip()
+        payment.response_description = str(response_payload.get('ResponseDescription') or '').strip()
+        payment.customer_message = str(response_payload.get('CustomerMessage') or '').strip()
+        payment.save(
+            update_fields=[
+                'phone_number',
+                'amount',
+                'raw_request_payload',
+                'raw_response_payload',
+                'merchant_request_id',
+                'checkout_request_id',
+                'response_code',
+                'response_description',
+                'customer_message',
+                'updated_at',
+            ]
+        )
+
+        return Response(MpesaPaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+
+class MpesaPaymentViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = MpesaPaymentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = MpesaPayment.objects.select_related(
+            'initiated_by',
+            'collection_request',
+            'collection_request__household',
+            'collection_request__household__user',
+            'collection_request__collector',
+            'recyclable_listing',
+            'recyclable_listing__resident',
+            'recyclable_listing__recycler',
+            'collector_transaction',
+            'collector_transaction__collector',
+            'recycler_transaction',
+            'recycler_transaction__listing',
+        )
+        if user.user_type == 'authority':
+            return queryset
+        return queryset.filter(initiated_by=user)
+
+    @action(detail=True, methods=['post'], url_path='save-notes')
+    def save_notes(self, request, pk=None):
+        payment = self.get_object()
+        payment = _save_mpesa_completion_notes(
+            payment,
+            request.data.get('completion_notes', ''),
+        )
+        return Response(MpesaPaymentSerializer(payment).data, status=status.HTTP_200_OK)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def mpesa_stk_callback(request):
+    payload = request.data if isinstance(request.data, dict) else {}
+    callback = _extract_mpesa_callback(payload)
+    checkout_request_id = callback.get('checkout_request_id')
+    merchant_request_id = callback.get('merchant_request_id')
+
+    payment = None
+    with transaction.atomic():
+        if checkout_request_id:
+            payment = MpesaPayment.objects.select_for_update().filter(checkout_request_id=checkout_request_id).first()
+        if not payment and merchant_request_id:
+            payment = MpesaPayment.objects.select_for_update().filter(merchant_request_id=merchant_request_id).first()
+
+        if payment:
+            _apply_mpesa_callback_to_payment(payment, payload)
+        else:
+            logger.warning(
+                'Received M-Pesa callback with no matching payment checkout_request_id=%s merchant_request_id=%s',
+                checkout_request_id,
+                merchant_request_id,
+            )
+
+    return Response({'ResultCode': 0, 'ResultDesc': 'Accepted'})
 
 class IllegalDumpingViewSet(viewsets.ModelViewSet):
     serializer_class = IllegalDumpingSerializer

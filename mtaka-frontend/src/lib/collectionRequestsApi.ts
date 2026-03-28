@@ -2,19 +2,24 @@ import {
   createCollectorTransactionApi,
   createCollectionUpdateApi,
   createCollectionRequest,
+  getMpesaPaymentApi,
   deleteCollectionRequest,
+  initiateCollectorMpesaPaymentApi,
   listCollectorRouteSummaryApi,
   listCollectorTransactionsApi,
+  saveMpesaPaymentCompletionNotesApi,
   listCollectionUpdatesApi,
   listCollectionRequests,
   listUsers,
   listWasteTypes,
   updateCollectionRequest,
+  waitForMpesaPaymentSettlementApi,
   type BackendCollectionUpdate,
   type BackendCollectorTransaction,
   type BackendCollectorRouteStop,
   type BackendCollectorRouteSummary,
   type BackendCollectionRequest,
+  type BackendMpesaPayment,
 } from "@/api";
 import { getCountyFromLocation } from "@/lib/county";
 import type { CollectorUpdate, User, WasteRequest } from "@/lib/store";
@@ -495,6 +500,20 @@ export interface CollectorTransaction {
   createdAt: string;
 }
 
+export interface CollectorMpesaPaymentSession {
+  id: string;
+  status: "pending" | "success" | "failed" | "cancelled";
+  amount: number;
+  phoneNumber: string;
+  phoneNumberMasked: string;
+  checkoutRequestId: string;
+  customerMessage?: string;
+  responseDescription?: string;
+  resultDesc?: string;
+  mpesaReceiptNumber?: string;
+  collectorTransaction?: CollectorTransaction;
+}
+
 const toFrontendCollectorTransaction = (
   item: BackendCollectorTransaction
 ): CollectorTransaction => ({
@@ -512,6 +531,26 @@ const toFrontendCollectorTransaction = (
   paymentMethod: item.payment_method,
   mpesaCode: item.mpesa_code || undefined,
   createdAt: item.created_at,
+});
+
+const toCollectorMpesaPaymentSession = (
+  item: BackendMpesaPayment
+): CollectorMpesaPaymentSession => ({
+  id: String(item.id),
+  status: item.status,
+  amount: Number(item.amount || 0),
+  phoneNumber: item.phoneNumber || item.phone_number || "",
+  phoneNumberMasked: item.phoneNumberMasked || "",
+  checkoutRequestId: item.checkout_request_id || "",
+  customerMessage: item.customerMessage || item.customer_message || undefined,
+  responseDescription: item.responseDescription || item.response_description || undefined,
+  resultDesc: item.resultDesc || item.result_desc || undefined,
+  mpesaReceiptNumber: item.mpesaReceiptNumber || item.mpesa_receipt_number || undefined,
+  collectorTransaction: item.collectorTransaction
+    ? toFrontendCollectorTransaction(item.collectorTransaction)
+    : item.collector_transaction
+    ? toFrontendCollectorTransaction(item.collector_transaction)
+    : undefined,
 });
 
 export const fetchCollectorTransactionsDb = async (force = false): Promise<CollectorTransaction[]> => {
@@ -554,4 +593,56 @@ export const createCollectorTransactionDb = async (payload: {
   });
   clearCollectionCaches();
   return toFrontendCollectorTransaction(created);
+};
+
+export const initiateCollectorMpesaPaymentDb = async (payload: {
+  collectionRequestId: string;
+  totalWeight: number;
+  totalPrice: number;
+  phoneNumber?: string;
+  completionNotes?: string;
+}) => {
+  const created = await initiateCollectorMpesaPaymentApi({
+    collection_request: Number(payload.collectionRequestId),
+    total_weight: payload.totalWeight,
+    total_price: payload.totalPrice,
+    phone_number: payload.phoneNumber || undefined,
+    completion_notes: payload.completionNotes || "",
+  });
+  return toCollectorMpesaPaymentSession(created);
+};
+
+export const getCollectorMpesaPaymentDb = async (paymentId: string, force = false) => {
+  const payment = await getMpesaPaymentApi(paymentId, { force });
+  return toCollectorMpesaPaymentSession(payment);
+};
+
+export const waitForCollectorMpesaPaymentDb = async (
+  paymentId: string,
+  options?: {
+    pollMs?: number;
+    maxAttempts?: number;
+    onUpdate?: (payment: CollectorMpesaPaymentSession) => void;
+  }
+) => {
+  const payment = await waitForMpesaPaymentSettlementApi(paymentId, {
+    pollMs: options?.pollMs,
+    maxAttempts: options?.maxAttempts,
+    onUpdate: options?.onUpdate
+      ? (nextPayment) => options.onUpdate?.(toCollectorMpesaPaymentSession(nextPayment))
+      : undefined,
+  });
+  clearCollectionCaches();
+  return toCollectorMpesaPaymentSession(payment);
+};
+
+export const saveCollectorMpesaPaymentCompletionNotesDb = async (
+  paymentId: string,
+  completionNotes?: string
+) => {
+  const payment = await saveMpesaPaymentCompletionNotesApi(paymentId, {
+    completion_notes: completionNotes || "",
+  });
+  clearCollectionCaches();
+  return toCollectorMpesaPaymentSession(payment);
 };

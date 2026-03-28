@@ -22,6 +22,22 @@ def normalize_phone_number(value):
         normalized = f"+{normalized.replace('+', '')}"
     return normalized
 
+
+def normalize_mpesa_phone_number(value):
+    normalized = normalize_phone_number(value)
+    digits = ''.join(char for char in normalized if char.isdigit())
+    if not digits:
+        raise serializers.ValidationError('Phone number is required.')
+    if digits.startswith('0') and len(digits) == 10:
+        digits = f'254{digits[1:]}'
+    elif digits.startswith('7') and len(digits) == 9:
+        digits = f'254{digits}'
+    elif digits.startswith('254') and len(digits) == 12:
+        digits = digits
+    else:
+        raise serializers.ValidationError('Use a valid Kenyan M-Pesa number.')
+    return digits
+
 class UserSerializer(serializers.ModelSerializer):
     reward_points = serializers.SerializerMethodField()
     company_name = serializers.SerializerMethodField()
@@ -776,3 +792,73 @@ class CollectorTransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'mpesa_code': 'M-Pesa transaction code is required.'})
 
         return attrs
+
+
+class MpesaPaymentSerializer(serializers.ModelSerializer):
+    paymentScope = serializers.CharField(source='payment_scope', read_only=True)
+    phoneNumber = serializers.CharField(source='phone_number', read_only=True)
+    phoneNumberMasked = serializers.SerializerMethodField()
+    mpesaReceiptNumber = serializers.CharField(source='mpesa_receipt_number', read_only=True)
+    resultCode = serializers.CharField(source='result_code', read_only=True)
+    resultDesc = serializers.CharField(source='result_desc', read_only=True)
+    responseCode = serializers.CharField(source='response_code', read_only=True)
+    responseDescription = serializers.CharField(source='response_description', read_only=True)
+    customerMessage = serializers.CharField(source='customer_message', read_only=True)
+    recordedWeight = serializers.DecimalField(source='recorded_weight', max_digits=10, decimal_places=2, read_only=True)
+    completionNotes = serializers.CharField(source='completion_notes', read_only=True)
+    collectionRequestId = serializers.IntegerField(source='collection_request.id', read_only=True)
+    recyclableListingId = serializers.IntegerField(source='recyclable_listing.id', read_only=True)
+    collectorTransaction = CollectorTransactionSerializer(source='collector_transaction', read_only=True)
+    recyclerTransaction = RecyclerTransactionSerializer(source='recycler_transaction', read_only=True)
+    createdAt = serializers.DateTimeField(source='created_at', read_only=True)
+    updatedAt = serializers.DateTimeField(source='updated_at', read_only=True)
+
+    class Meta:
+        model = MpesaPayment
+        fields = [
+            'id',
+            'payment_scope',
+            'paymentScope',
+            'status',
+            'amount',
+            'recorded_weight',
+            'recordedWeight',
+            'phone_number',
+            'phoneNumber',
+            'phoneNumberMasked',
+            'completion_notes',
+            'completionNotes',
+            'merchant_request_id',
+            'checkout_request_id',
+            'response_code',
+            'responseCode',
+            'response_description',
+            'responseDescription',
+            'customer_message',
+            'customerMessage',
+            'result_code',
+            'resultCode',
+            'result_desc',
+            'resultDesc',
+            'mpesa_receipt_number',
+            'mpesaReceiptNumber',
+            'collection_request',
+            'collectionRequestId',
+            'recyclable_listing',
+            'recyclableListingId',
+            'collector_transaction',
+            'collectorTransaction',
+            'recycler_transaction',
+            'recyclerTransaction',
+            'created_at',
+            'createdAt',
+            'updated_at',
+            'updatedAt',
+        ]
+        read_only_fields = fields
+
+    def get_phoneNumberMasked(self, obj):
+        digits = ''.join(char for char in str(obj.phone_number or '') if char.isdigit())
+        if len(digits) < 6:
+            return digits
+        return f'{digits[:3]}******{digits[-3:]}'

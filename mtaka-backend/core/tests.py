@@ -2,6 +2,7 @@ import json
 import re
 from io import BytesIO
 from datetime import date, time
+from decimal import Decimal
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 from unittest.mock import MagicMock, patch
@@ -16,7 +17,19 @@ from rest_framework.test import APIClient
 from PIL import Image
 
 from .county import location_matches_county, resolve_county_from_location
-from .models import Authority, CollectionRequest, CollectionRequestUpdate, Collector, Event, Household, WasteType
+from .models import (
+    Authority,
+    CollectionRequest,
+    CollectionRequestUpdate,
+    Collector,
+    CollectorTransaction,
+    Event,
+    Household,
+    MpesaPayment,
+    RecyclableListing,
+    RecyclerTransaction,
+    WasteType,
+)
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'])
@@ -1119,3 +1132,266 @@ class CollectorRouteSummaryTests(TestCase):
         )
         self.assertEqual(westlands_stop['coordinates']['lat'], -1.2635)
         self.assertEqual(westlands_stop['coordinates']['lng'], 36.8020)
+
+
+@override_settings(
+    ALLOWED_HOSTS=['testserver'],
+    MPESA_ENV='sandbox',
+    MPESA_CONSUMER_KEY='test-key',
+    MPESA_CONSUMER_SECRET='test-secret',
+    MPESA_BUSINESS_SHORTCODE='174379',
+    MPESA_PASSKEY='test-passkey',
+    MPESA_TRANSACTION_TYPE='CustomerPayBillOnline',
+)
+class MpesaPickupFlowTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user_model = get_user_model()
+        cache.clear()
+
+        self.waste_type = WasteType.objects.create(type_name='General Waste')
+
+        self.collector_user = self.user_model.objects.create_user(
+            username='collector-mpesa',
+            email='collector-mpesa@example.com',
+            password='StrongPass!1',
+            user_type='collector',
+            phone='+254700010001',
+        )
+        self.collector = Collector.objects.create(
+            user=self.collector_user,
+            company_name='Collector Flow Ltd',
+            service_areas='Westlands, Nairobi',
+        )
+
+        self.household_user = self.user_model.objects.create_user(
+            username='resident-mpesa',
+            email='resident-mpesa@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='0712345678',
+        )
+        self.household = Household.objects.create(
+            user=self.household_user,
+            full_name='Resident Mpesa',
+            address='Westlands, Nairobi',
+        )
+
+        self.collection_request = CollectionRequest.objects.create(
+            household=self.household,
+            waste_type=self.waste_type,
+            collector=self.collector,
+            scheduled_date=date(2026, 4, 2),
+            scheduled_time=time(9, 30),
+            status='scheduled',
+            address='Westlands, Nairobi',
+        )
+
+        self.recycler_user = self.user_model.objects.create_user(
+            username='recycler-mpesa',
+            email='recycler-mpesa@example.com',
+            password='StrongPass!1',
+            user_type='recycler',
+            phone='+254700010002',
+        )
+        self.listing = RecyclableListing.objects.create(
+            resident=self.household_user,
+            resident_name='Resident Mpesa',
+            resident_phone='0722000111',
+            resident_location='Westlands, Nairobi',
+            material_type='plastic',
+            estimated_weight=Decimal('12.50'),
+            description='Sorted plastics',
+            preferred_date=date(2026, 4, 3),
+            preferred_time=time(11, 0),
+            status='scheduled',
+            recycler=self.recycler_user,
+            recycler_name='Recycler Flow Ltd',
+            scheduled_date=date(2026, 4, 3),
+            scheduled_time=time(11, 0),
+            offered_price=Decimal('625.00'),
+        )
+
+    @staticmethod
+    def _successful_stk_response(phone_number='254712345678', amount=850):
+        return {
+            'request_payload': {
+                'PhoneNumber': phone_number,
+                'Amount': amount,
+            },
+            'response_payload': {
+                'MerchantRequestID': '29115-34620561-1',
+                'CheckoutRequestID': 'ws_CO_123456789',
+                'ResponseCode': '0',
+                'ResponseDescription': 'Success. Request accepted for processing',
+                'CustomerMessage': 'Success. Request accepted for processing',
+            },
+            'normalized_phone': phone_number,
+            'normalized_amount': amount,
+        }
+
+    @staticmethod
+    def _callback_payload(*, checkout_request_id, merchant_request_id, receipt_number, amount, phone_number):
+        return {
+            'Body': {
+                'stkCallback': {
+                    'MerchantRequestID': merchant_request_id,
+                    'CheckoutRequestID': checkout_request_id,
+                    'ResultCode': 0,
+                    'ResultDesc': 'The service request is processed successfully.',
+                    'CallbackMetadata': {
+                        'Item': [
+                            {'Name': 'Amount', 'Value': amount},
+                            {'Name': 'MpesaReceiptNumber', 'Value': receipt_number},
+                            {'Name': 'TransactionDate', 'Value': 20260328193015},
+                            {'Name': 'PhoneNumber', 'Value': phone_number},
+                        ]
+                    },
+                }
+            }
+        }
+
+    @patch('core.views.initiate_stk_push')
+    def test_collector_stk_push_defaults_to_household_phone(self, mock_initiate_stk_push):
+        mock_initiate_stk_push.return_value = self._successful_stk_response(
+            phone_number='254712345678',
+            amount=850,
+        )
+        self.client.force_authenticate(user=self.collector_user)
+
+        response = self.client.post(
+            '/api/auth/collector-transactions/mpesa/stk-push/',
+            data={
+                'collection_request': self.collection_request.id,
+                'total_weight': '42.5',
+                'total_price': '850',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload['status'], 'pending')
+        self.assertEqual(payload['paymentScope'], 'collector_pickup')
+        self.assertEqual(payload['phoneNumber'], '254712345678')
+        self.assertEqual(payload['amount'], '850.00')
+
+        payment = MpesaPayment.objects.get(id=payload['id'])
+        self.assertEqual(payment.phone_number, '254712345678')
+        self.assertEqual(payment.collection_request_id, self.collection_request.id)
+        self.assertEqual(payment.recorded_weight, Decimal('42.5'))
+
+        mock_initiate_stk_push.assert_called_once()
+        self.assertEqual(mock_initiate_stk_push.call_args.kwargs['phone_number'], '0712345678')
+
+    def test_collector_callback_success_creates_transaction_and_completes_request(self):
+        payment = MpesaPayment.objects.create(
+            initiated_by=self.collector_user,
+            payment_scope='collector_pickup',
+            collection_request=self.collection_request,
+            amount=Decimal('900.00'),
+            recorded_weight=Decimal('50.00'),
+            phone_number='254712345678',
+            merchant_request_id='29115-34620561-1',
+            checkout_request_id='ws_CO_987654321',
+            status='pending',
+        )
+
+        response = self.client.post(
+            '/api/auth/mpesa/callback/',
+            data=self._callback_payload(
+                checkout_request_id='ws_CO_987654321',
+                merchant_request_id='29115-34620561-1',
+                receipt_number='TJH123ABC9',
+                amount=900,
+                phone_number=254712345678,
+            ),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.collection_request.refresh_from_db()
+
+        self.assertEqual(payment.status, 'success')
+        self.assertEqual(payment.mpesa_receipt_number, 'TJH123ABC9')
+        self.assertEqual(self.collection_request.status, 'completed')
+        self.assertTrue(CollectorTransaction.objects.filter(collection_request=self.collection_request).exists())
+
+        transaction = CollectorTransaction.objects.get(collection_request=self.collection_request)
+        self.assertEqual(transaction.payment_method, 'mpesa')
+        self.assertEqual(transaction.mpesa_code, 'TJH123ABC9')
+        self.assertEqual(transaction.total_weight, Decimal('50.00'))
+        self.assertEqual(transaction.total_price, Decimal('900.00'))
+
+    def test_recycler_callback_success_creates_transaction_and_completes_listing(self):
+        payment = MpesaPayment.objects.create(
+            initiated_by=self.recycler_user,
+            payment_scope='recycler_pickup',
+            recyclable_listing=self.listing,
+            amount=Decimal('625.00'),
+            recorded_weight=Decimal('13.00'),
+            phone_number='254722000111',
+            merchant_request_id='29115-34620561-2',
+            checkout_request_id='ws_CO_222333444',
+            status='pending',
+            completion_notes='Pickup paid successfully',
+        )
+
+        response = self.client.post(
+            '/api/auth/mpesa/callback/',
+            data=self._callback_payload(
+                checkout_request_id='ws_CO_222333444',
+                merchant_request_id='29115-34620561-2',
+                receipt_number='TJH555XYZ1',
+                amount=625,
+                phone_number=254722000111,
+            ),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.listing.refresh_from_db()
+
+        self.assertEqual(payment.status, 'success')
+        self.assertEqual(payment.mpesa_receipt_number, 'TJH555XYZ1')
+        self.assertEqual(self.listing.status, 'completed')
+        self.assertEqual(self.listing.actual_weight, Decimal('13.00'))
+        self.assertEqual(self.listing.completion_notes, 'Pickup paid successfully')
+        self.assertTrue(RecyclerTransaction.objects.filter(listing=self.listing).exists())
+
+        transaction = RecyclerTransaction.objects.get(listing=self.listing)
+        self.assertEqual(transaction.payment_method, 'mpesa')
+        self.assertEqual(transaction.mpesa_code, 'TJH555XYZ1')
+        self.assertEqual(transaction.price, Decimal('625.00'))
+
+    def test_successful_payment_notes_can_be_saved_after_payment(self):
+        self.client.force_authenticate(user=self.collector_user)
+        self.collection_request.status = 'completed'
+        self.collection_request.instructions = 'CompletedAt: 2026-03-29T10:00:00+03:00'
+        self.collection_request.save(update_fields=['status', 'instructions'])
+
+        payment = MpesaPayment.objects.create(
+            initiated_by=self.collector_user,
+            payment_scope='collector_pickup',
+            collection_request=self.collection_request,
+            amount=Decimal('900.00'),
+            recorded_weight=Decimal('50.00'),
+            phone_number='254712345678',
+            status='success',
+            mpesa_receipt_number='TJH777FIN',
+        )
+
+        response = self.client.post(
+            f'/api/auth/mpesa-payments/{payment.id}/save-notes/',
+            data={'completion_notes': 'Resident paid and bags were weighed on site.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.collection_request.refresh_from_db()
+        self.assertEqual(payment.completion_notes, 'Resident paid and bags were weighed on site.')
+        self.assertIn('Completion: Resident paid and bags were weighed on site.', self.collection_request.instructions)
+        self.assertIn('CompletedAt: 2026-03-29T10:00:00+03:00', self.collection_request.instructions)

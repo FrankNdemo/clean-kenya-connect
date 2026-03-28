@@ -110,6 +110,37 @@ const buildCacheKey = (url: string, params?: unknown) =>
 
 const delay = (ms: number) => new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 
+export const getApiErrorMessage = (error: unknown, fallback = "Something went wrong.") => {
+  if (!axios.isAxiosError(error)) return fallback;
+
+  const data = error.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    const directMessageKeys = ["detail", "error", "message", "responseDescription", "resultDesc"] as const;
+    for (const key of directMessageKeys) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) return value;
+    }
+
+    for (const value of Object.values(record)) {
+      if (typeof value === "string" && value.trim()) return value;
+      if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string" && value[0].trim()) {
+        return value[0];
+      }
+      if (value && typeof value === "object") {
+        const nested = value as Record<string, unknown>;
+        for (const nestedValue of Object.values(nested)) {
+          if (typeof nestedValue === "string" && nestedValue.trim()) return nestedValue;
+        }
+      }
+    }
+  }
+
+  if (typeof error.message === "string" && error.message.trim()) return error.message;
+  return fallback;
+};
+
 const appendFormValue = (formData: FormData, key: string, value: unknown) => {
   if (value === undefined || value === null || value === '') return;
   if (value instanceof File) {
@@ -858,6 +889,47 @@ export interface BackendCollectorTransaction {
   created_at: string;
 }
 
+export interface BackendMpesaPayment {
+  id: number;
+  payment_scope: "collector_pickup" | "recycler_pickup";
+  paymentScope: "collector_pickup" | "recycler_pickup";
+  status: "pending" | "success" | "failed" | "cancelled";
+  amount: string;
+  recorded_weight?: string | null;
+  recordedWeight?: string | null;
+  phone_number: string;
+  phoneNumber: string;
+  phoneNumberMasked: string;
+  completion_notes: string;
+  completionNotes: string;
+  merchant_request_id: string;
+  checkout_request_id: string;
+  response_code: string;
+  responseCode: string;
+  response_description: string;
+  responseDescription: string;
+  customer_message: string;
+  customerMessage: string;
+  result_code: string;
+  resultCode: string;
+  result_desc: string;
+  resultDesc: string;
+  mpesa_receipt_number: string;
+  mpesaReceiptNumber: string;
+  collection_request?: number | null;
+  collectionRequestId?: number | null;
+  recyclable_listing?: number | null;
+  recyclableListingId?: number | null;
+  collector_transaction?: BackendCollectorTransaction | null;
+  collectorTransaction?: BackendCollectorTransaction | null;
+  recycler_transaction?: BackendRecyclerTransaction | null;
+  recyclerTransaction?: BackendRecyclerTransaction | null;
+  created_at: string;
+  createdAt: string;
+  updated_at: string;
+  updatedAt: string;
+}
+
 export interface BackendDumpingReport {
   id: number;
   reporter: number | null;
@@ -1065,6 +1137,89 @@ export const createCollectorTransactionApi = async (payload: {
   const response = await API.post("collector-transactions/", payload);
   invalidateGetCache(["collector-transactions", "collections"]);
   return response.data as BackendCollectorTransaction;
+};
+
+export const initiateCollectorMpesaPaymentApi = async (payload: {
+  collection_request: number;
+  total_weight: number;
+  total_price: number;
+  phone_number?: string;
+  completion_notes?: string;
+}) => {
+  const response = await API.post("collector-transactions/mpesa/stk-push/", payload);
+  invalidateGetCache(["mpesa-payments"]);
+  return response.data as BackendMpesaPayment;
+};
+
+export const initiateRecyclerMpesaPaymentApi = async (
+  id: number | string,
+  payload: {
+    actual_weight?: number;
+    phone_number?: string;
+    completion_notes?: string;
+  }
+) => {
+  const response = await API.post(`recyclable-listings/${id}/mpesa/stk-push/`, payload);
+  invalidateGetCache(["mpesa-payments"]);
+  return response.data as BackendMpesaPayment;
+};
+
+export const getMpesaPaymentApi = async (
+  id: number | string,
+  options?: { force?: boolean }
+): Promise<BackendMpesaPayment> => {
+  return cachedGet(`mpesa-payments/${id}/`, { force: options?.force, ttlMs: 5_000 });
+};
+
+export const saveMpesaPaymentCompletionNotesApi = async (
+  id: number | string,
+  payload: { completion_notes?: string }
+) => {
+  const response = await API.post(`mpesa-payments/${id}/save-notes/`, payload);
+  invalidateGetCache([
+    "mpesa-payments",
+    "collector-transactions",
+    "recycler-transactions",
+    "collections",
+    "recyclable-listings",
+  ]);
+  return response.data as BackendMpesaPayment;
+};
+
+export const waitForMpesaPaymentSettlementApi = async (
+  id: number | string,
+  options?: {
+    pollMs?: number;
+    maxAttempts?: number;
+    onUpdate?: (payment: BackendMpesaPayment) => void;
+  }
+): Promise<BackendMpesaPayment> => {
+  const pollMs = Math.max(1000, options?.pollMs ?? 4000);
+  const maxAttempts = Math.max(1, options?.maxAttempts ?? 30);
+  let latest: BackendMpesaPayment | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    latest = await getMpesaPaymentApi(id, { force: true });
+    options?.onUpdate?.(latest);
+    if (latest.status !== "pending") {
+      if (latest.status === "success") {
+        invalidateGetCache([
+          "mpesa-payments",
+          "collector-transactions",
+          "recycler-transactions",
+          "collections",
+          "recyclable-listings",
+        ]);
+      }
+      return latest;
+    }
+
+    if (attempt < maxAttempts - 1) {
+      await delay(pollMs);
+    }
+  }
+
+  return latest ?? getMpesaPaymentApi(id, { force: true });
 };
 
 export default API;

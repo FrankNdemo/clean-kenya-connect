@@ -5,12 +5,17 @@ import {
   createRecyclableListingApi,
   createRecyclerTransactionApi,
   deleteRecyclableListingApi,
+  getMpesaPaymentApi,
+  initiateRecyclerMpesaPaymentApi,
   listPriceOffersApi,
   listRecyclableListings,
   listRecyclerTransactionsApi,
   rejectPriceOfferApi,
+  saveMpesaPaymentCompletionNotesApi,
   scheduleRecyclablePickupApi,
   updateRecyclableListingApi,
+  waitForMpesaPaymentSettlementApi,
+  type BackendMpesaPayment,
   type BackendPriceOffer,
   type BackendRecyclableListing,
   type BackendRecyclerTransaction,
@@ -89,6 +94,40 @@ const toTransaction = (row: BackendRecyclerTransaction): RecyclingTransaction =>
   mpesaCode: row.mpesa_code || undefined,
   listingId: row.listing ? String(row.listing) : undefined,
   createdAt: row.created_at,
+});
+
+export interface RecyclerMpesaPaymentSession {
+  id: string;
+  status: "pending" | "success" | "failed" | "cancelled";
+  amount: number;
+  phoneNumber: string;
+  phoneNumberMasked: string;
+  checkoutRequestId: string;
+  customerMessage?: string;
+  responseDescription?: string;
+  resultDesc?: string;
+  mpesaReceiptNumber?: string;
+  recyclerTransaction?: RecyclingTransaction;
+}
+
+const toRecyclerMpesaPaymentSession = (
+  item: BackendMpesaPayment
+): RecyclerMpesaPaymentSession => ({
+  id: String(item.id),
+  status: item.status,
+  amount: Number(item.amount || 0),
+  phoneNumber: item.phoneNumber || item.phone_number || "",
+  phoneNumberMasked: item.phoneNumberMasked || "",
+  checkoutRequestId: item.checkout_request_id || "",
+  customerMessage: item.customerMessage || item.customer_message || undefined,
+  responseDescription: item.responseDescription || item.response_description || undefined,
+  resultDesc: item.resultDesc || item.result_desc || undefined,
+  mpesaReceiptNumber: item.mpesaReceiptNumber || item.mpesa_receipt_number || undefined,
+  recyclerTransaction: item.recyclerTransaction
+    ? toTransaction(item.recyclerTransaction)
+    : item.recycler_transaction
+    ? toTransaction(item.recycler_transaction)
+    : undefined,
 });
 
 export const fetchResidentListingsDb = async () => {
@@ -195,12 +234,14 @@ export const completeRecyclablePickupDb = async (
   listingId: string,
   paymentMethod: "cash" | "mpesa",
   actualWeight: number,
-  mpesaCode?: string
+  mpesaCode?: string,
+  completionNotes?: string
 ) => {
   const result = await completeRecyclablePickupApi(listingId, {
     payment_method: paymentMethod,
     actual_weight: actualWeight,
     mpesa_code: mpesaCode,
+    completion_notes: completionNotes,
   });
   const tx = toTransaction(result.transaction);
   const inventory = await fetchRecyclerInventoryDb();
@@ -216,6 +257,53 @@ export const completeRecyclablePickupDb = async (
     } as MaterialInventory);
 
   return { transaction: tx, inventory: inventoryItem };
+};
+
+export const initiateRecyclerMpesaPaymentDb = async (payload: {
+  listingId: string;
+  actualWeight: number;
+  phoneNumber?: string;
+  completionNotes?: string;
+}) => {
+  const created = await initiateRecyclerMpesaPaymentApi(payload.listingId, {
+    actual_weight: payload.actualWeight,
+    phone_number: payload.phoneNumber || undefined,
+    completion_notes: payload.completionNotes || "",
+  });
+  return toRecyclerMpesaPaymentSession(created);
+};
+
+export const getRecyclerMpesaPaymentDb = async (paymentId: string, force = false) => {
+  const payment = await getMpesaPaymentApi(paymentId, { force });
+  return toRecyclerMpesaPaymentSession(payment);
+};
+
+export const waitForRecyclerMpesaPaymentDb = async (
+  paymentId: string,
+  options?: {
+    pollMs?: number;
+    maxAttempts?: number;
+    onUpdate?: (payment: RecyclerMpesaPaymentSession) => void;
+  }
+) => {
+  const payment = await waitForMpesaPaymentSettlementApi(paymentId, {
+    pollMs: options?.pollMs,
+    maxAttempts: options?.maxAttempts,
+    onUpdate: options?.onUpdate
+      ? (nextPayment) => options.onUpdate?.(toRecyclerMpesaPaymentSession(nextPayment))
+      : undefined,
+  });
+  return toRecyclerMpesaPaymentSession(payment);
+};
+
+export const saveRecyclerMpesaPaymentCompletionNotesDb = async (
+  paymentId: string,
+  completionNotes?: string
+) => {
+  const payment = await saveMpesaPaymentCompletionNotesApi(paymentId, {
+    completion_notes: completionNotes || "",
+  });
+  return toRecyclerMpesaPaymentSession(payment);
 };
 
 export const fetchRecyclerTransactionsDb = async () => {

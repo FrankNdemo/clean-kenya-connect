@@ -3,16 +3,21 @@ import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import type { WasteRequest } from '@/lib/store';
+import { getApiErrorMessage } from '@/api';
 import {
   createCollectorTransactionDb,
   fetchCollectorTransactionsDb,
   fetchCurrentUserCollectionRequests,
+  initiateCollectorMpesaPaymentDb,
+  saveCollectorMpesaPaymentCompletionNotesDb,
+  waitForCollectorMpesaPaymentDb,
   type CollectorTransaction,
 } from '@/lib/collectionRequestsApi';
 import { Download, FileText, Plus } from 'lucide-react';
@@ -27,8 +32,13 @@ export default function CollectorTransactionsPage() {
   const [totalWeight, setTotalWeight] = useState('');
   const [totalPrice, setTotalPrice] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mpesa'>('cash');
-  const [mpesaCode, setMpesaCode] = useState('');
+  const [useOtherPhone, setUseOtherPhone] = useState(false);
+  const [otherPhoneNumber, setOtherPhoneNumber] = useState('');
   const [completionNotes, setCompletionNotes] = useState('');
+  const [paymentStatusText, setPaymentStatusText] = useState('');
+  const [mpesaPaymentId, setMpesaPaymentId] = useState('');
+  const [isMpesaPaymentConfirmed, setIsMpesaPaymentConfirmed] = useState(false);
+  const [pendingCollectorTransaction, setPendingCollectorTransaction] = useState<CollectorTransaction | null>(null);
   const [newTransactionOpen, setNewTransactionOpen] = useState(Boolean(searchParams.get('request')));
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,6 +100,24 @@ export default function CollectorTransactionsPage() {
   );
 
   const selectedRequest = eligibleRequests.find((item) => item.id === selectedRequestId);
+  const residentPhoneNumber = (selectedRequest?.userPhone || '').trim();
+  const effectiveMpesaPhone = (useOtherPhone ? otherPhoneNumber : residentPhoneNumber).trim();
+  const displayAmount = Number(totalPrice);
+  const showCompletionNotes = paymentMethod === 'cash' || isMpesaPaymentConfirmed;
+
+  const resetForm = () => {
+    setTotalWeight('');
+    setTotalPrice('');
+    setPaymentMethod('cash');
+    setUseOtherPhone(false);
+    setOtherPhoneNumber('');
+    setCompletionNotes('');
+    setPaymentStatusText('');
+    setMpesaPaymentId('');
+    setIsMpesaPaymentConfirmed(false);
+    setPendingCollectorTransaction(null);
+    setSelectedRequestId('');
+  };
 
   const handleCreateTransaction = async () => {
     if (!selectedRequestId) {
@@ -107,40 +135,107 @@ export default function CollectorTransactionsPage() {
       toast.error('Enter a valid agreed price');
       return;
     }
-    if (paymentMethod === 'mpesa' && !mpesaCode.trim()) {
-      toast.error('Enter M-Pesa transaction code');
+    if (paymentMethod === 'mpesa' && !isMpesaPaymentConfirmed && !effectiveMpesaPhone) {
+      toast.error(useOtherPhone ? 'Enter the M-Pesa number to charge' : 'Resident phone number is missing. Use another number instead.');
       return;
     }
 
     setIsSubmitting(true);
+    setPaymentStatusText('');
     try {
-      const createdTransaction = await createCollectorTransactionDb({
-        collectionRequestId: selectedRequestId,
-        totalWeight: weightValue,
-        totalPrice: priceValue,
-        paymentMethod,
-        mpesaCode: mpesaCode.trim(),
-        completionNotes,
-      });
+      let createdTransaction: CollectorTransaction | undefined;
 
-      toast.success('Transaction saved and pickup completed');
-      setTransactions((prev) => [createdTransaction, ...prev]);
+      if (paymentMethod === 'cash') {
+        createdTransaction = await createCollectorTransactionDb({
+          collectionRequestId: selectedRequestId,
+          totalWeight: weightValue,
+          totalPrice: priceValue,
+          paymentMethod,
+          completionNotes,
+        });
+        toast.success('Transaction saved and pickup completed');
+      } else {
+        if (isMpesaPaymentConfirmed && mpesaPaymentId) {
+          await saveCollectorMpesaPaymentCompletionNotesDb(mpesaPaymentId, completionNotes);
+          createdTransaction = pendingCollectorTransaction || undefined;
+          toast.success('Pickup finished successfully');
+        } else {
+          const payment = await initiateCollectorMpesaPaymentDb({
+            collectionRequestId: selectedRequestId,
+            totalWeight: weightValue,
+            totalPrice: priceValue,
+            phoneNumber: effectiveMpesaPhone,
+          });
+
+          setPaymentStatusText(
+            payment.customerMessage || `STK push sent to ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
+          );
+          toast.success(payment.customerMessage || 'M-Pesa prompt sent to the payer phone');
+
+          const settledPayment = await waitForCollectorMpesaPaymentDb(payment.id, {
+            pollMs: 4000,
+            maxAttempts: 30,
+            onUpdate: (nextPayment) => {
+              if (nextPayment.status === 'pending') {
+                setPaymentStatusText(
+                  nextPayment.customerMessage ||
+                    `Waiting for payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
+                );
+              }
+            },
+          });
+
+          if (settledPayment.status === 'success' && settledPayment.collectorTransaction) {
+            setMpesaPaymentId(settledPayment.id);
+            setIsMpesaPaymentConfirmed(true);
+            setPendingCollectorTransaction(settledPayment.collectorTransaction);
+            setPaymentStatusText(
+              settledPayment.mpesaReceiptNumber
+                ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber} recorded. You can now add optional completion notes and finish pickup.`
+                : 'Payment confirmed. You can now add optional completion notes and finish pickup.'
+            );
+            toast.success(
+              settledPayment.mpesaReceiptNumber
+                ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber}`
+                : 'Payment confirmed. Finish the pickup to close the dialog.'
+            );
+            return;
+          } else if (settledPayment.status === 'pending') {
+            toast('Payment request is still pending. Keep the page open or refresh shortly.');
+            setPaymentStatusText('Payment request is still pending.');
+            return;
+          } else {
+            const failureMessage =
+              settledPayment.resultDesc || settledPayment.responseDescription || 'M-Pesa payment was not completed.';
+            setPaymentStatusText(failureMessage);
+            toast.error(failureMessage);
+            return;
+          }
+        }
+      }
+
+      if (!createdTransaction) {
+        void refreshData(true);
+      }
+
+      if (createdTransaction) {
+        setTransactions((prev) =>
+          prev.some((item) => item.id === createdTransaction?.id) ? prev : [createdTransaction, ...prev]
+        );
+      }
       setRequests((prev) =>
         prev.map((request) =>
           request.id === selectedRequestId ? { ...request, status: 'completed' } : request
         )
       );
-      setTotalWeight('');
-      setTotalPrice('');
-      setPaymentMethod('cash');
-      setMpesaCode('');
-      setCompletionNotes('');
-      setSelectedRequestId('');
+      resetForm();
       setNewTransactionOpen(false);
       setSearchParams({});
       void refreshData(true);
-    } catch {
-      toast.error('Failed to save transaction');
+    } catch (error) {
+      const message = getApiErrorMessage(error, 'Failed to save transaction');
+      setPaymentStatusText(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -253,7 +348,10 @@ export default function CollectorTransactionsPage() {
         open={newTransactionOpen}
         onOpenChange={(open) => {
           setNewTransactionOpen(open);
-          if (!open) setSearchParams({});
+          if (!open) {
+            resetForm();
+            setSearchParams({});
+          }
         }}
       >
         <DialogContent>
@@ -267,6 +365,7 @@ export default function CollectorTransactionsPage() {
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={selectedRequestId}
                 onChange={(e) => setSelectedRequestId(e.target.value)}
+                disabled={isSubmitting || isMpesaPaymentConfirmed}
               >
                 <option value="">Select assigned pickup</option>
                 {eligibleRequests.map((item) => (
@@ -284,11 +383,11 @@ export default function CollectorTransactionsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Total Weight Collected (kg)</Label>
-                <Input type="number" min="0" step="0.01" value={totalWeight} onChange={(e) => setTotalWeight(e.target.value)} placeholder="e.g. 45.5" />
+                <Input type="number" min="0" step="0.01" value={totalWeight} onChange={(e) => setTotalWeight(e.target.value)} placeholder="e.g. 45.5" disabled={isSubmitting || isMpesaPaymentConfirmed} />
               </div>
               <div className="space-y-2">
                 <Label>Total Agreed Price (KES)</Label>
-                <Input type="number" min="0" step="0.01" value={totalPrice} onChange={(e) => setTotalPrice(e.target.value)} placeholder="e.g. 3500" />
+                <Input type="number" min="0" step="0.01" value={totalPrice} onChange={(e) => setTotalPrice(e.target.value)} placeholder="e.g. 3500" disabled={isSubmitting || isMpesaPaymentConfirmed} />
               </div>
             </div>
             <div className="space-y-2">
@@ -296,27 +395,94 @@ export default function CollectorTransactionsPage() {
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'mpesa')}
+                onChange={(e) => {
+                  const nextMethod = e.target.value as 'cash' | 'mpesa';
+                  setPaymentMethod(nextMethod);
+                  if (nextMethod === 'cash') {
+                    setUseOtherPhone(false);
+                    setOtherPhoneNumber('');
+                    setPaymentStatusText('');
+                    setMpesaPaymentId('');
+                    setIsMpesaPaymentConfirmed(false);
+                    setPendingCollectorTransaction(null);
+                  }
+                }}
+                disabled={isSubmitting || isMpesaPaymentConfirmed}
               >
                 <option value="cash">Cash</option>
                 <option value="mpesa">M-Pesa</option>
               </select>
             </div>
             {paymentMethod === 'mpesa' && (
-              <div className="space-y-2">
-                <Label>M-Pesa Transaction Code</Label>
-                <Input value={mpesaCode} onChange={(e) => setMpesaCode(e.target.value)} placeholder="e.g. TGH45KLM12" />
+              <div className="space-y-4 rounded-lg border border-primary/15 bg-primary/5 p-4">
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium text-foreground">
+                    STK push amount: KES {Number.isFinite(displayAmount) && displayAmount > 0 ? displayAmount.toLocaleString() : '0'}
+                  </p>
+                  <p className="text-muted-foreground">
+                    The resident phone is selected automatically. Enable the option below if you want to charge another M-Pesa number.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Resident Phone</Label>
+                  <Input
+                    value={residentPhoneNumber || 'No resident phone available'}
+                    readOnly
+                    disabled={!residentPhoneNumber}
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="collector-other-phone"
+                    checked={useOtherPhone}
+                    onCheckedChange={(checked) => {
+                      const nextValue = checked === true;
+                      setUseOtherPhone(nextValue);
+                      setPaymentStatusText('');
+                      if (!nextValue) {
+                        setOtherPhoneNumber('');
+                      }
+                    }}
+                  />
+                  <Label htmlFor="collector-other-phone">Use another M-Pesa number</Label>
+                </div>
+                {useOtherPhone && (
+                  <div className="space-y-2">
+                    <Label>Other M-Pesa Number</Label>
+                    <Input
+                    value={otherPhoneNumber}
+                    onChange={(e) => setOtherPhoneNumber(e.target.value)}
+                    placeholder="e.g. 0712345678"
+                    disabled={isSubmitting || isMpesaPaymentConfirmed}
+                  />
+                </div>
+                )}
+                {paymentStatusText && (
+                  <p className="text-xs text-muted-foreground">{paymentStatusText}</p>
+                )}
               </div>
             )}
+            {showCompletionNotes && (
             <div className="space-y-2">
               <Label>Completion Notes (Optional)</Label>
               <Input value={completionNotes} onChange={(e) => setCompletionNotes(e.target.value)} placeholder="Short completion note" />
             </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewTransactionOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setNewTransactionOpen(false)} disabled={isSubmitting}>Cancel</Button>
             <Button onClick={handleCreateTransaction} disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save Transaction'}
+              {isSubmitting
+                ? paymentMethod === 'mpesa'
+                  ? isMpesaPaymentConfirmed
+                    ? 'Finishing...'
+                    : 'Waiting for Payment...'
+                  : 'Saving...'
+                : paymentMethod === 'mpesa'
+                ? isMpesaPaymentConfirmed
+                  ? 'Finish Pickup'
+                  : 'Push Payment'
+                : 'Save Transaction'}
             </Button>
           </DialogFooter>
         </DialogContent>

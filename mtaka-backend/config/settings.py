@@ -193,7 +193,17 @@ DEFAULT_FROM_EMAIL = os.getenv('DJANGO_DEFAULT_FROM_EMAIL', 'M-Taka No-Reply <no
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 BREVO_API_KEY = os.getenv('DJANGO_BREVO_API_KEY', '').strip()
 FRONTEND_URL = os.getenv('MTAKA_FRONTEND_URL', '').strip()
+API_PUBLIC_URL = os.getenv('MTAKA_API_PUBLIC_URL', '').strip()
 PASSWORD_RESET_TIMEOUT = int(os.getenv('DJANGO_PASSWORD_RESET_TIMEOUT', '3600'))
+
+MPESA_ENV = os.getenv('MPESA_ENV', 'sandbox').strip().lower()
+MPESA_CONSUMER_KEY = os.getenv('MPESA_CONSUMER_KEY', '').strip()
+MPESA_CONSUMER_SECRET = os.getenv('MPESA_CONSUMER_SECRET', '').strip()
+MPESA_BUSINESS_SHORTCODE = os.getenv('MPESA_BUSINESS_SHORTCODE', '').strip() or os.getenv('MPESA_SHORTCODE', '').strip()
+MPESA_PASSKEY = os.getenv('MPESA_PASSKEY', '').strip()
+MPESA_CALLBACK_URL = os.getenv('MPESA_CALLBACK_URL', '').strip()
+MPESA_TRANSACTION_TYPE = os.getenv('MPESA_TRANSACTION_TYPE', 'CustomerPayBillOnline').strip()
+MPESA_TIMEOUT_SECONDS = int(os.getenv('MPESA_TIMEOUT_SECONDS', '20'))
 
 database_url = os.getenv('DATABASE_URL', '').strip()
 db_engine = os.getenv('DB_ENGINE', 'sqlite').strip().lower()

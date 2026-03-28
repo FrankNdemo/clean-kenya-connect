@@ -40,7 +40,7 @@ const roles: { value: UserRole; label: string; description: string; surface: str
 ];
 
 const fieldClass =
-  'h-11 rounded-[10px] border-[#cad7ca] bg-[#fdfefd] text-[13px] shadow-none placeholder:text-[#8d9b95] focus-visible:border-[#94bfad] focus-visible:ring-4 focus-visible:ring-[#94bfad]/20';
+  'h-11 rounded-[10px] border-border bg-card text-[13px] shadow-none placeholder:text-muted-foreground focus-visible:border-primary/40 focus-visible:ring-4 focus-visible:ring-primary/15';
 
 const validatePassword = (password: string) => {
   const hasMinLength = password.length >= 8;
@@ -89,16 +89,16 @@ export default function RegisterPage() {
   const isSubmitReady = hasRequiredIdentityDetails && hasRequiredBusinessDetails && passwordValidation.isValid && passwordsMatch;
   const pageColumnStyle = { width: '100%', maxWidth: '430px' } as const;
   const formColumnStyle = { width: '100%', maxWidth: '360px' } as const;
-  const dividerBarClass = 'h-[8px] w-[78px] rounded-[2px] border border-[#1f3a33] bg-[#9ccbc1]';
-  const titleBadgeClass = 'inline-flex items-center justify-center bg-white px-8 py-2';
+  const dividerBarClass = 'h-[8px] w-[78px] rounded-[2px] border border-primary/30 bg-primary/20';
+  const titleBadgeClass = 'inline-flex items-center justify-center rounded-[10px] bg-primary/10 px-8 py-2';
   const roleCardBaseClass =
-    'mx-auto block w-full max-w-[344px] overflow-hidden border-[1.5px] px-9 py-6 text-center shadow-none transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9cc8b7] focus-visible:ring-offset-2';
+    'mx-auto block w-full max-w-[344px] overflow-hidden border-[1.5px] px-9 py-6 text-center shadow-none transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
   const roleCardContentClass = 'mx-auto flex max-w-[13.75rem] flex-col items-center justify-center gap-2';
   const roleLabelClass = 'text-[15px] font-semibold leading-none tracking-tight';
   const roleDescriptionClass = 'text-[10px] leading-[1.2] opacity-95';
-  const formLabelClass = 'text-[12px] font-medium text-[#173f31]';
+  const formLabelClass = 'text-[12px] font-medium text-foreground';
   const inputIconWrapClass = 'pointer-events-none absolute inset-y-0 left-0 flex w-12 items-center justify-center';
-  const inputIconClass = 'h-4 w-4 text-[#91a09a]';
+  const inputIconClass = 'h-4 w-4 text-primary/55';
   const inputWithIconStyle = { paddingLeft: '3rem' } as const;
   const inputWithDualIconsStyle = { paddingLeft: '3rem', paddingRight: '2.75rem' } as const;
 
@@ -225,7 +225,7 @@ export default function RegisterPage() {
   };
 
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
-    <div className="flex items-center gap-2 text-[11px]" style={{ color: met ? '#2f9b61' : '#c35f5f' }}>
+    <div className={`flex items-center gap-2 text-[11px] ${met ? 'text-primary' : 'text-destructive'}`}>
       {met ? <Check className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" /> : <X className="h-3.5 w-3.5 shrink-0 stroke-[2.5]" />}
       <span>{text}</span>
     </div>
@@ -240,7 +240,7 @@ export default function RegisterPage() {
           </div>
 
           <div className={titleBadgeClass}>
-            <h1 className="text-[28px] font-semibold leading-none tracking-tight text-[#173f31]">
+            <h1 className="text-[28px] font-semibold leading-none tracking-tight text-primary">
               Join M-Taka
             </h1>
           </div>
@@ -250,7 +250,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => navigate('/login')}
-                className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-[#7a857f] transition-colors hover:text-[#173f31]"
+                className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-primary"
                 aria-label="Back to login"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -267,7 +267,7 @@ export default function RegisterPage() {
           <section className="mt-7 w-full text-center">
             <div className="flex items-center justify-center gap-3">
               <span className={dividerBarClass} />
-              <span className="shrink-0 text-[13px] font-semibold text-[#173f31]">
+              <span className="shrink-0 text-[13px] font-semibold text-primary">
                 Select Your Role
               </span>
               <span className={dividerBarClass} />
@@ -311,7 +311,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={handleBackToRoles}
-                className="inline-flex h-8 items-center gap-1.5 rounded-[10px] px-2 text-[11px] font-medium text-[#6f7c75] transition-colors hover:text-[#42554d]"
+                className="inline-flex h-8 items-center gap-1.5 rounded-[10px] px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-primary"
               >
                 <ArrowLeft className="h-3 w-3" />
                 Back
@@ -319,7 +319,7 @@ export default function RegisterPage() {
 
               <div className="flex items-center justify-center gap-3">
                 <span className={dividerBarClass} />
-                <span className="shrink-0 text-[13px] font-semibold text-[#173f31]">
+                <span className="shrink-0 text-[13px] font-semibold text-primary">
                   Select Your Role
                 </span>
                 <span className={dividerBarClass} />
@@ -523,14 +523,14 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#91a09a] transition-colors hover:text-[#173f31]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/55 transition-colors hover:text-primary"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {formData.password.length > 0 && (
-                  <div className="space-y-1.5 rounded-[10px] border border-[#d9e4da] bg-[#edf4ef] px-3 py-2.5">
+                  <div className="space-y-1.5 rounded-[10px] border border-primary/10 bg-primary/10 px-3 py-2.5">
                     <PasswordRequirement met={passwordValidation.hasMinLength} text="Minimum 8 characters" />
                     <PasswordRequirement met={passwordValidation.hasUppercase} text="At least one uppercase letter" />
                     <PasswordRequirement met={passwordValidation.hasSymbol} text="At least one symbol (!@#$%^&*)" />
@@ -560,7 +560,7 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#91a09a] transition-colors hover:text-[#173f31]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/55 transition-colors hover:text-primary"
                     aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -576,16 +576,11 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 className={[
-                  'mt-2 inline-flex h-11 w-full appearance-none items-center justify-center rounded-[10px] border border-transparent text-[13px] font-semibold shadow-[0_16px_28px_-22px_rgba(15,95,47,0.75)] transition-colors',
+                  'mt-2 inline-flex h-11 w-full appearance-none items-center justify-center rounded-[10px] border border-transparent text-[13px] font-semibold shadow-[0_16px_28px_-22px_hsl(var(--primary)/0.75)] transition-colors',
                   isSubmitReady
-                    ? 'bg-[#5f9f73] text-white hover:bg-[#4f8f63]'
-                    : 'bg-[#a8c3b0] text-[#f7fff9] hover:bg-[#a8c3b0]',
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-primary/40 text-primary-foreground hover:bg-primary/40',
                 ].join(' ')}
-                style={{
-                  backgroundColor: isSubmitReady ? '#5f9f73' : '#a8c3b0',
-                  color: '#ffffff',
-                  opacity: 1,
-                }}
                 aria-disabled={isLoading || !isSubmitReady}
                 disabled={isLoading}
                 onClick={(e) => {

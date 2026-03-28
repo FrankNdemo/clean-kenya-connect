@@ -12,13 +12,13 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
-  const cardClassName = 'border border-[#d6e8e1] bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.2)]';
-  const accentTextClassName = 'text-[#178c66]';
-  const accentSoftSurfaceClassName = 'bg-[#dcf7ec]';
+  const cardClassName = 'border border-primary/10 bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.2)]';
+  const accentTextClassName = 'text-primary';
+  const accentSoftSurfaceClassName = 'bg-primary/10';
   const accentButtonClassName =
-    'h-10 w-full rounded-full bg-[#19b37e] text-white shadow-md shadow-[#19b37e]/20 hover:bg-[#149a6d]';
+    'h-10 w-full rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90';
   const inputClassName =
-    'h-10 rounded-full border-0 bg-[#dcf7ec] pl-10 text-sm text-[#146e56] shadow-none placeholder:text-[#19b37e]/70 focus-visible:ring-2 focus-visible:ring-[#19b37e]/20';
+    'h-10 rounded-full border-0 bg-primary/10 pl-10 text-sm text-foreground shadow-none placeholder:text-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
               </p>
 
               <Link to="/login" className="block">
-                <Button variant="outline" className="w-full border-[#bfe7d7] text-[#178c66] hover:bg-[#dcf7ec] hover:text-[#0f7154]">
+                <Button variant="outline" className="w-full border-primary/20 text-primary hover:bg-primary/10 hover:text-primary">
                   Back to Login
                 </Button>
               </Link>
@@ -89,7 +89,7 @@ export default function ForgotPasswordPage() {
 
         <Card className={cardClassName}>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#178c66] text-white">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
               <Recycle className="h-8 w-8" />
             </div>
             <CardTitle className={`text-2xl font-semibold ${accentTextClassName}`}>Forgot Password?</CardTitle>
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
                   Email Address
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#178c66]/65" />
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/65" />
                   <Input
                     id="email"
                     type="email"

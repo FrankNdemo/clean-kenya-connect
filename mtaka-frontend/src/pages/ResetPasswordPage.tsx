@@ -37,14 +37,14 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
-  const cardClassName = 'border border-[#d6e8e1] bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.2)]';
-  const accentTextClassName = 'text-[#178c66]';
-  const accentSoftSurfaceClassName = 'bg-[#edf4ef]';
+  const cardClassName = 'border border-primary/10 bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.2)]';
+  const accentTextClassName = 'text-primary';
+  const accentSoftSurfaceClassName = 'bg-primary/10';
   const accentButtonClassName =
-    'h-10 w-full rounded-full bg-[#19b37e] text-white shadow-md shadow-[#19b37e]/20 hover:bg-[#149a6d] disabled:bg-[#9dbba9] disabled:text-white';
-  const outlineButtonClassName = 'w-full border-[#bfe7d7] text-[#178c66] hover:bg-[#dcf7ec] hover:text-[#0f7154]';
+    'h-10 w-full rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 disabled:bg-primary/40 disabled:text-primary-foreground';
+  const outlineButtonClassName = 'w-full border-primary/20 text-primary hover:bg-primary/10 hover:text-primary';
   const inputClassName =
-    'h-10 rounded-[1rem] border border-[#d6e8e1] bg-white pl-10 pr-10 text-sm text-[#173f31] shadow-none placeholder:text-[#7d978a] focus-visible:border-[#bfe7d7] focus-visible:ring-2 focus-visible:ring-[#19b37e]/20';
+    'h-10 rounded-[1rem] border border-border bg-white pl-10 pr-10 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/20';
 
   const passwordValidation = validatePasswordRules(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
@@ -119,7 +119,7 @@ export default function ResetPasswordPage() {
   };
 
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
-    <div className={`flex items-center gap-2 text-xs ${met ? 'text-[#2f9b61]' : 'text-[#6f8d7f]'}`}>
+    <div className={`flex items-center gap-2 text-xs ${met ? 'text-primary' : 'text-muted-foreground'}`}>
       {met ? <Check className="h-3.5 w-3.5 shrink-0" /> : <X className="h-3.5 w-3.5 shrink-0" />}
       <span>{text}</span>
     </div>
@@ -129,7 +129,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#19b37e] border-t-transparent" />
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-slate-500">Validating reset link...</p>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function ResetPasswordPage() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
                 <XCircle className="h-8 w-8 text-destructive" />
               </div>
-              <CardTitle className="text-2xl font-semibold text-[#173f31]">Invalid or Expired Link</CardTitle>
+              <CardTitle className="text-2xl font-semibold text-foreground">Invalid or Expired Link</CardTitle>
               <CardDescription className="text-slate-500">
                 This password reset link is invalid or has expired. Please request a new one.
               </CardDescription>
@@ -176,7 +176,7 @@ export default function ResetPasswordPage() {
 
         <Card className={cardClassName}>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#178c66] text-white">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
               <Recycle className="h-8 w-8" />
             </div>
             <CardTitle className={`text-2xl font-semibold ${accentTextClassName}`}>Reset Password</CardTitle>
@@ -189,7 +189,7 @@ export default function ResetPasswordPage() {
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-slate-700">New Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f8d7f]" />
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/65" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -203,7 +203,7 @@ export default function ResetPasswordPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8d7f] transition-colors hover:text-[#173f31]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/65 transition-colors hover:text-primary"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -218,7 +218,7 @@ export default function ResetPasswordPage() {
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-slate-700">Confirm New Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f8d7f]" />
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/65" />
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
@@ -232,13 +232,13 @@ export default function ResetPasswordPage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6f8d7f] transition-colors hover:text-[#173f31]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/65 transition-colors hover:text-primary"
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {confirmPassword && (
-                  <p className={`text-xs ${passwordsMatch ? 'text-[#2f9b61]' : 'text-destructive'}`}>
+                  <p className={`text-xs ${passwordsMatch ? 'text-primary' : 'text-destructive'}`}>
                     {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
                   </p>
                 )}

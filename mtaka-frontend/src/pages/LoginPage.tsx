@@ -154,15 +154,15 @@ export default function LoginPage() {
           )}
 
           <div className="grid flex-1 gap-0 overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.45)] lg:grid-cols-[1.2fr_0.8fr] lg:items-stretch">
-            <section className="relative min-h-[20rem] overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-500 p-6 text-white sm:p-8 lg:min-h-[calc(100dvh-8rem)] lg:p-10">
+            <section className="relative min-h-[20rem] overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/90 p-6 text-primary-foreground sm:p-8 lg:min-h-[calc(100dvh-8rem)] lg:p-10">
               <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10" />
-              <div className="absolute -left-6 bottom-0 h-[28rem] w-[28rem] rounded-full bg-emerald-900/30" />
+              <div className="absolute -left-6 bottom-0 h-[28rem] w-[28rem] rounded-full bg-black/12" />
               <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-white/10" />
-              <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full bg-emerald-950/20 blur-2xl" />
+              <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full bg-black/15 blur-2xl" />
 
               <div className="relative flex h-full flex-col justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-emerald-700 shadow-lg">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-primary shadow-lg">
                     <Recycle className="h-6 w-6" />
                   </div>
                   <div className="pt-1">
@@ -191,7 +191,7 @@ export default function LoginPage() {
             <section className="flex items-center justify-center bg-white px-6 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-12">
               <Card className="w-full max-w-sm border-0 bg-transparent shadow-none">
                 <CardHeader className="hidden space-y-2 p-0 text-center sm:block">
-                  <CardTitle className="text-3xl font-semibold capitalize text-emerald-700">welcome</CardTitle>
+                  <CardTitle className="text-3xl font-semibold capitalize text-primary">welcome</CardTitle>
                   <CardDescription className="text-sm text-muted-foreground">
                     Login to your account to continue
                   </CardDescription>
@@ -218,7 +218,7 @@ export default function LoginPage() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           onFocus={() => setManualEntryEnabled(true)}
-                          className="h-10 rounded-full border-0 bg-emerald-100/85 px-4 text-sm shadow-none placeholder:text-emerald-500/70 focus-visible:ring-2 focus-visible:ring-emerald-500/20"
+                          className="h-10 rounded-full border-0 bg-primary/10 px-4 text-sm shadow-none placeholder:text-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20"
                           autoComplete="off"
                           autoCorrect="off"
                           autoCapitalize="none"
@@ -245,7 +245,7 @@ export default function LoginPage() {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           onFocus={() => setManualEntryEnabled(true)}
-                          className="h-10 rounded-full border-0 bg-emerald-100/85 px-4 pr-10 text-sm shadow-none placeholder:text-emerald-500/70 focus-visible:ring-2 focus-visible:ring-emerald-500/20"
+                          className="h-10 rounded-full border-0 bg-primary/10 px-4 pr-10 text-sm shadow-none placeholder:text-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20"
                           autoComplete="off"
                           autoCorrect="off"
                           autoCapitalize="none"
@@ -259,7 +259,7 @@ export default function LoginPage() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-emerald-700/70 transition-colors hover:text-emerald-800"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-primary/70 transition-colors hover:text-primary"
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -275,7 +275,7 @@ export default function LoginPage() {
                     <Button
                       type="submit"
                       size="default"
-                      className="h-10 w-full rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
+                      className="h-10 w-full rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
                       disabled={isLoading}
                     >
                       {isLoading ? 'Signing in...' : 'Login'}
@@ -284,7 +284,7 @@ export default function LoginPage() {
 
                   <p className="mt-6 text-center text-xs text-slate-500">
                     Don&apos;t have an account?{' '}
-                    <Link to="/register" className="font-semibold text-emerald-700 hover:underline">
+                    <Link to="/register" className="font-semibold text-primary hover:underline">
                       Sign up
                     </Link>
                   </p>

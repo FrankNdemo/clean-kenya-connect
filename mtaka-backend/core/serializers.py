@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
@@ -740,6 +741,13 @@ class IllegalDumpingSerializer(serializers.ModelSerializer):
             return None
 
         url = photo.url
+        public_origin = str(getattr(settings, 'API_PUBLIC_URL', '') or '').strip().rstrip('/')
+        if public_origin.endswith('/api/auth'):
+            public_origin = public_origin[:-len('/api/auth')]
+        if public_origin:
+            normalized_path = url if str(url).startswith('/') else f'/{url}'
+            return f'{public_origin}{normalized_path}'
+
         request = self.context.get('request') if hasattr(self, 'context') else None
         if request is not None:
             try:

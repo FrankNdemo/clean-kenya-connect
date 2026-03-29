@@ -1224,7 +1224,7 @@ class IllegalDumpingMediaTests(TestCase):
             self.assertEqual(create_response.status_code, 201)
             payload = create_response.json()
             self.assertIn('photo_url', payload)
-            self.assertTrue(payload['photo_url'].startswith('http://testserver/media/dumping_reports/'))
+            self.assertTrue(urlsplit(payload['photo_url']).path.startswith('/media/dumping_reports/'))
 
             media_response = self.client.get(urlsplit(payload['photo_url']).path)
             media_file = getattr(media_response, 'file_to_stream', None)
@@ -1234,6 +1234,34 @@ class IllegalDumpingMediaTests(TestCase):
             finally:
                 if hasattr(media_file, 'close'):
                     media_file.close()
+
+    @override_settings(API_PUBLIC_URL='https://mtaka-backend.onrender.com')
+    def test_dumping_report_photo_uses_public_api_origin_when_configured(self):
+        buffer = BytesIO()
+        Image.new('RGB', (1, 1), color='blue').save(buffer, format='PNG')
+        photo = SimpleUploadedFile(
+            'dumping-public.png',
+            buffer.getvalue(),
+            content_type='image/png',
+        )
+
+        with TemporaryDirectory(ignore_cleanup_errors=True) as media_root, override_settings(MEDIA_ROOT=media_root):
+            create_response = self.client.post(
+                '/api/auth/dumping-reports/',
+                data={
+                    'location': 'Kisiani Primary',
+                    'description': 'Illegal dumping with image.',
+                    'severity': 'medium',
+                    'photo': photo,
+                },
+                format='multipart',
+            )
+
+            self.assertEqual(create_response.status_code, 201)
+            payload = create_response.json()
+            self.assertTrue(
+                payload['photo_url'].startswith('https://mtaka-backend.onrender.com/media/dumping_reports/')
+            )
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], FRONTEND_URL='https://mtaka.example')

@@ -46,18 +46,23 @@ const serializeDescriptionWithMeta = (description: string, meta: DumpingMeta) =>
   return `${description}${META_SEPARATOR}${JSON.stringify(compactMeta)}`;
 };
 
-const resolvePhotoUrl = (photo?: string | null) => {
+export const resolveDumpingReportPhotoUrl = (photo?: string | null) => {
   if (!photo) return undefined;
   const raw = String(photo).trim().replaceAll("\\", "/");
   if (!raw) return undefined;
   if (raw.startsWith("data:")) return raw;
+  const backendOrigin = getApiOrigin();
 
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     try {
       const parsed = new URL(raw);
       const normalizedPath = parsed.pathname.replaceAll("\\", "/");
+      const suffix = `${parsed.search || ''}${parsed.hash || ''}`;
+      if (normalizedPath.startsWith("/media/")) {
+        return `${backendOrigin}${normalizedPath}${suffix}`;
+      }
       if (normalizedPath.includes("/dumping_reports/") && !normalizedPath.startsWith("/media/")) {
-        return `${parsed.origin}/media${normalizedPath}`;
+        return `${backendOrigin}/media${normalizedPath}${suffix}`;
       }
       return raw;
     } catch {
@@ -65,7 +70,6 @@ const resolvePhotoUrl = (photo?: string | null) => {
     }
   }
 
-  const backendOrigin = getApiOrigin();
   const normalized = raw.startsWith("/") ? raw : `/${raw}`;
   if (normalized.startsWith("/media/")) return `${backendOrigin}${normalized}`;
   if (normalized.includes("/dumping_reports/")) return `${backendOrigin}/media${normalized}`;
@@ -74,7 +78,7 @@ const resolvePhotoUrl = (photo?: string | null) => {
 
 const toFrontendReport = (row: BackendDumpingReport): DumpingReport => {
   const { description, meta } = parseDescriptionWithMeta(row.description || "");
-  const photoUrl = resolvePhotoUrl(row.photo_url || row.photo);
+  const photoUrl = resolveDumpingReportPhotoUrl(row.photo_url || row.photo);
 
   let status: DumpingReport["status"] = row.status;
   if (meta.cancelled) {

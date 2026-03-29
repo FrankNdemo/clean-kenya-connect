@@ -3,6 +3,7 @@ import { Recycle, Menu, X, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { isStandaloneAppMode } from '@/lib/appMode';
 import { getDashboardPathForUser } from '@/lib/dashboardPaths';
 
 export function Navbar() {
@@ -10,8 +11,19 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const isStandalone = isStandaloneAppMode();
+  const showWebsiteMarketingLinks = !user && !isStandalone;
 
-  const isActive = (path: string) => location.pathname === path;
+  const navigationItems = [
+    ...(showWebsiteMarketingLinks ? [{ label: 'Home', to: '/' }] : []),
+    { label: 'Events', to: '/events' },
+    ...(showWebsiteMarketingLinks ? [{ label: 'About', to: '/about' }] : []),
+  ];
+
+  const isActive = (path: string) =>
+    path === '/'
+      ? location.pathname === path
+      : location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   const handleLogout = async () => {
     await logout();
@@ -33,24 +45,17 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
-            <Link 
-              to="/" 
-              className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/events" 
-              className={`text-sm font-medium transition-colors ${isActive('/events') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Events
-            </Link>
-            <Link 
-              to="/about" 
-              className={`text-sm font-medium transition-colors ${isActive('/about') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              About
-            </Link>
+            {navigationItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`text-sm font-medium transition-colors ${
+                  isActive(item.to) ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
 
           {/* Auth Buttons */}
@@ -93,27 +98,18 @@ export function Navbar() {
         {isOpen && (
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <div className="flex flex-col gap-2">
-              <Link 
-                to="/" 
-                className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-secondary transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                Home
-              </Link>
-              <Link 
-                to="/events" 
-                className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-secondary transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                Events
-              </Link>
-              <Link 
-                to="/about" 
-                className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-secondary transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                About
-              </Link>
+              {navigationItems.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    isActive(item.to) ? 'bg-secondary text-foreground' : 'hover:bg-secondary'
+                  }`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
               <div className="pt-2 border-t border-border mt-2">
                 {user ? (
                   <>

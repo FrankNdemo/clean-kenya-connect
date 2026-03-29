@@ -1,7 +1,19 @@
-import { Recycle, Heart } from 'lucide-react';
+import { Recycle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { isStandaloneAppMode } from '@/lib/appMode';
+import { useAuth } from '@/hooks/useAuth';
 
 export function Footer() {
+  const { user } = useAuth();
+  const isStandalone = isStandaloneAppMode();
+  const showWebsiteMarketingLinks = !user && !isStandalone;
+  const quickLinks = [
+    ...(showWebsiteMarketingLinks ? [{ label: 'Home', to: '/' }] : []),
+    { label: 'Community Events', to: '/events' },
+    ...(showWebsiteMarketingLinks ? [{ label: 'About M-Taka', to: '/about' }] : []),
+    { label: 'Join Us', to: '/register' },
+  ];
+
   return (
     <footer className="bg-card border-t border-border">
       <div className="container mx-auto px-4 py-12">
@@ -24,10 +36,13 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/" className="hover:text-primary transition-colors">Home</Link></li>
-              <li><Link to="/events" className="hover:text-primary transition-colors">Community Events</Link></li>
-              <li><Link to="/about" className="hover:text-primary transition-colors">About M-Taka</Link></li>
-              <li><Link to="/register" className="hover:text-primary transition-colors">Join Us</Link></li>
+              {quickLinks.map((link) => (
+                <li key={link.to}>
+                  <Link to={link.to} className="hover:text-primary transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 

@@ -243,7 +243,7 @@ export default function MyEventsPage() {
                 onClick={retrieveExpiredEvents}
                 disabled={loadingExpiredEvents}
               >
-                {loadingExpiredEvents ? 'Retrieving...' : 'Retrieve Expired Events'}
+                {loadingExpiredEvents ? 'Retrieving...' : 'Retrieve Expired'}
               </Button>
               <Link to="/events/create">
                 <Button className="gap-2">

@@ -261,6 +261,8 @@ class RewardRedemptionFlowTests(TestCase):
         self.assertIn('reward redemption request was received', mail.outbox[0].subject.lower())
         self.assertIn('Eco Shopping Bag', mail.outbox[0].body)
         self.assertIn('will be processed', mail.outbox[0].body)
+        self.assertIn('Thank you for helping build a cleaner, greener future with M-Taka', mail.outbox[0].body)
+        self.assertIn('Warm regards,\nM-Taka Team', mail.outbox[0].body)
         mock_delivery_status.assert_called_once()
 
     def test_redeem_reward_requires_enough_points(self):

@@ -389,6 +389,9 @@ def send_reward_redemption_email(user, reward_name: str, points_cost: int) -> No
         f"We received your M-Taka reward redemption request for {safe_reward_name}.\n"
         f"Points used: {points_cost}\n\n"
         "Your reward will be processed, and our team will contact you using your registered email or phone.\n\n"
+        "Thank you for helping build a cleaner, greener future with M-Taka \U0001F49A\n\n"
+        "Warm regards,\n"
+        "M-Taka Team\n\n"
         "This is an automated no-reply email from M-Taka.\n"
     )
     html_body = (
@@ -398,6 +401,8 @@ def send_reward_redemption_email(user, reward_name: str, points_cost: int) -> No
         f"<p><strong>Points used:</strong> {points_cost}</p>"
         "<p>Your reward will be processed, and our team will contact you using your "
         "registered email or phone.</p>"
+        "<p>Thank you for helping build a cleaner, greener future with M-Taka &#128154;</p>"
+        "<p>Warm regards,<br />M-Taka Team</p>"
         "<p>This is an automated no-reply email from M-Taka.</p>"
     )
     _send_email(subject, text_body, html_body, user.email)

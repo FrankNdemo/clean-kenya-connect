@@ -511,24 +511,32 @@ def login_user(request):
     
     username_or_email = data.get('username')
     password = data.get('password')
+    normalized_password = str(password or '')
     
     if getattr(settings, 'DEBUG', False):
         logger.debug("[LOGIN DEBUG] Login attempt received.")
     
     # Avoid double password-hash checks (slow) by resolving identifier once.
     identifier = (username_or_email or '').strip()
+    if not identifier and not normalized_password:
+        return JsonResponse({'error': 'Email and password are required.'}, status=400)
+    if not identifier:
+        return JsonResponse({'error': 'Email is required.'}, status=400)
+    if not normalized_password:
+        return JsonResponse({'error': 'Password is required.'}, status=400)
+
     user = None
     if identifier:
         if '@' in identifier:
             # Email may not be unique in legacy data; pick the account whose password matches.
             candidates = User.objects.filter(email__iexact=identifier, is_active=True).order_by('-id')
             for candidate in candidates:
-                if candidate.check_password(password):
+                if candidate.check_password(normalized_password):
                     user = candidate
                     break
         else:
             # Username login remains compatible with default auth backend.
-            user = authenticate(username=identifier, password=password)
+            user = authenticate(username=identifier, password=normalized_password)
     
     if user:
         active_suspend = SuspendedUser.objects.filter(user=user, active=True).order_by('-suspended_at').first()
@@ -1087,7 +1095,12 @@ class EventViewSet(viewsets.ModelViewSet):
         ]
 
     def _event_queryset(self, include_participants=False):
-        queryset = Event.objects.select_related('creator').annotate(
+        queryset = Event.objects.select_related('creator').prefetch_related(
+            Prefetch(
+                'schedule_changes',
+                queryset=EventScheduleChange.objects.select_related('changed_by').order_by('-changed_at'),
+            )
+        ).annotate(
             participant_count_cached=Count('participants', distinct=True)
         )
 
@@ -1107,6 +1120,13 @@ class EventViewSet(viewsets.ModelViewSet):
             )
 
         return queryset
+
+    def _can_edit_event(self, user, event):
+        return bool(
+            user
+            and user.is_authenticated
+            and (event.creator_id == user.id or user.user_type == 'authority')
+        )
     
     def _expire_past_events(self):
         # Run at most once per minute to avoid expensive update scans on every request.
@@ -1147,6 +1167,12 @@ class EventViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         event = serializer.save()
         _cache_event_cover_image_data(event)
+
+    def update(self, request, *args, **kwargs):
+        event = self.get_object()
+        if not self._can_edit_event(request.user, event):
+            raise PermissionDenied('Only the event creator or county authority can edit this event')
+        return super().update(request, *args, **kwargs)
     
     @action(detail=True, methods=['post'])
     def register(self, request, pk=None):

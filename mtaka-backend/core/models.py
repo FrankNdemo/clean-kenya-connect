@@ -177,6 +177,24 @@ class Event(models.Model):
             models.Index(fields=['creator', 'status'], name='ev_creator_status_idx'),
         ]
 
+
+class EventScheduleChange(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='schedule_changes')
+    changed_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='event_schedule_changes')
+    previous_event_date = models.DateField()
+    new_event_date = models.DateField()
+    previous_start_time = models.TimeField()
+    new_start_time = models.TimeField()
+    reason = models.TextField()
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'event_schedule_changes'
+        ordering = ['-changed_at']
+        indexes = [
+            models.Index(fields=['event', 'changed_at'], name='esc_event_time_idx'),
+        ]
+
 class EventParticipant(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='participants')
     user = models.ForeignKey(User, on_delete=models.CASCADE)

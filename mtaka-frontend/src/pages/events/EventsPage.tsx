@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EventDescriptionPreview } from '@/components/events/EventDescriptionPreview';
 import { EventCoverMedia } from '@/components/events/EventCoverMedia';
+import { EventScheduleChangeNotice } from '@/components/events/EventScheduleChangeNotice';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -312,6 +313,8 @@ export default function EventsPage() {
                         {getParticipantCount(event)} / {event.maxParticipants} participants
                       </div>
                     </div>
+
+                    <EventScheduleChangeNotice change={event.latestScheduleChange} className="mb-4" />
 
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1 text-sm font-medium text-accent">

@@ -26,6 +26,7 @@ from .models import (
     Collector,
     CollectorTransaction,
     Event,
+    EventScheduleChange,
     Household,
     MpesaPayment,
     RecyclableListing,
@@ -354,6 +355,166 @@ class EventImageUploadTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertTrue(Event.objects.filter(id=event.id).exists())
 
+    def test_event_creator_can_reschedule_own_event_with_reason(self):
+        creator = self.user_model.objects.create_user(
+            username='resident-creator',
+            email='resident-creator@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009100',
+        )
+        event = Event.objects.create(
+            creator=creator,
+            event_name='Neighborhood Cleanup',
+            event_type='cleanup',
+            description='Weekend cleanup',
+            location='Kisumu',
+            event_date=date(2026, 4, 10),
+            start_time=time(9, 0),
+            max_participants=40,
+            status='approved',
+            reward_points=25,
+        )
+
+        self.client.force_authenticate(user=creator)
+        response = self.client.patch(
+            f'/api/auth/events/{event.id}/',
+            data={
+                'date': '2026-04-12',
+                'time': '10:30',
+                'scheduleChangeReason': 'Rain forecast moved the cleanup to Sunday.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        event.refresh_from_db()
+        self.assertEqual(event.event_date, date(2026, 4, 12))
+        self.assertEqual(event.start_time, time(10, 30))
+        self.assertEqual(EventScheduleChange.objects.filter(event=event, changed_by=creator).count(), 1)
+
+        payload = response.json()
+        self.assertEqual(payload['latestScheduleChange']['previousDate'], '2026-04-10')
+        self.assertEqual(payload['latestScheduleChange']['newDate'], '2026-04-12')
+        self.assertEqual(payload['latestScheduleChange']['reason'], 'Rain forecast moved the cleanup to Sunday.')
+
+    def test_event_schedule_change_requires_reason(self):
+        event = Event.objects.create(
+            creator=self.user,
+            event_name='Reason Required Event',
+            event_type='cleanup',
+            description='Reason check',
+            location='Siriba campus',
+            event_date=date(2026, 4, 5),
+            start_time=time(8, 0),
+            max_participants=20,
+            status='pending',
+            reward_points=20,
+        )
+
+        response = self.client.patch(
+            f'/api/auth/events/{event.id}/',
+            data={
+                'date': '2026-04-06',
+                'time': '08:30',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()['scheduleChangeReason'][0],
+            'A reason is required when changing the event schedule.',
+        )
+        self.assertFalse(EventScheduleChange.objects.filter(event=event).exists())
+
+    def test_authority_can_view_creator_contact_and_reschedule_event(self):
+        creator = self.user_model.objects.create_user(
+            username='cleanup-creator',
+            email='cleanup-creator@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009200',
+        )
+        event = Event.objects.create(
+            creator=creator,
+            event_name='County Cleanup Day',
+            event_type='cleanup',
+            description='County-wide cleanup event.',
+            location='Kisumu CBD',
+            event_date=date(2026, 4, 15),
+            start_time=time(9, 0),
+            max_participants=60,
+            status='pending',
+            reward_points=30,
+        )
+
+        response = self.client.patch(
+            f'/api/auth/events/{event.id}/',
+            data={
+                'date': '2026-04-16',
+                'time': '11:00',
+                'scheduleChangeReason': 'County authority moved the event to avoid a scheduling clash.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['creatorEmail'], 'cleanup-creator@example.com')
+        self.assertEqual(payload['creatorPhone'], '+254700009200')
+        self.assertEqual(payload['latestScheduleChange']['previousDate'], '2026-04-15')
+        self.assertEqual(payload['latestScheduleChange']['newDate'], '2026-04-16')
+        self.assertEqual(
+            payload['latestScheduleChange']['reason'],
+            'County authority moved the event to avoid a scheduling clash.',
+        )
+
+        schedule_change = EventScheduleChange.objects.get(event=event)
+        self.assertEqual(schedule_change.changed_by, self.user)
+
+    def test_non_creator_non_authority_cannot_edit_event(self):
+        creator = self.user_model.objects.create_user(
+            username='event-owner',
+            email='event-owner@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009300',
+        )
+        outsider = self.user_model.objects.create_user(
+            username='event-outsider',
+            email='event-outsider@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009301',
+        )
+        event = Event.objects.create(
+            creator=creator,
+            event_name='Protected Edit Event',
+            event_type='cleanup',
+            description='Only creator or authority may edit.',
+            location='Kakamega',
+            event_date=date(2026, 4, 20),
+            start_time=time(10, 0),
+            max_participants=25,
+            status='approved',
+            reward_points=15,
+        )
+
+        self.client.force_authenticate(user=outsider)
+        response = self.client.patch(
+            f'/api/auth/events/{event.id}/',
+            data={
+                'date': '2026-04-21',
+                'time': '11:00',
+                'scheduleChangeReason': 'Trying to edit another user event.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(EventScheduleChange.objects.filter(event=event, changed_by=outsider).exists())
+
     def test_registration_rejects_duplicate_email_and_phone(self):
         self.user_model.objects.create_user(
             username='existing-user',
@@ -509,6 +670,32 @@ class EventImageUploadTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['profile'], {})
         self.assertFalse(Household.objects.filter(user=user).exists())
+
+    def test_login_requires_email_and_password(self):
+        response = self.client.post(
+            '/api/auth/login/',
+            data=json.dumps({
+                'username': '',
+                'password': '',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Email and password are required.')
+
+    def test_login_requires_password_when_email_is_present(self):
+        response = self.client.post(
+            '/api/auth/login/',
+            data=json.dumps({
+                'username': 'resident@example.com',
+                'password': '',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Password is required.')
 
     def test_password_reset_validate_rejects_invalid_token(self):
         user = self.user_model.objects.create_user(

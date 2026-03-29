@@ -1,11 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { loginUser } from '@/api';
 import { AuthProvider, useAuth } from './useAuth';
 
-const { mockApiLogout, mockGetProfile } = vi.hoisted(() => ({
+const { mockApiLogout, mockGetProfile, mockLoginUser } = vi.hoisted(() => ({
   mockApiLogout: vi.fn(),
   mockGetProfile: vi.fn(),
+  mockLoginUser: vi.fn(),
 }));
 
 vi.mock('@/api', () => ({
@@ -13,7 +16,7 @@ vi.mock('@/api', () => ({
   default: {
     get: vi.fn(),
   },
-  loginUser: vi.fn(),
+  loginUser: mockLoginUser,
   registerUser: vi.fn(),
   getProfile: mockGetProfile,
   logoutUser: mockApiLogout,
@@ -31,7 +34,32 @@ function AuthProbe() {
   );
 }
 
+function LoginErrorProbe() {
+  const { login } = useAuth();
+  const [message, setMessage] = useState('');
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await login('resident@example.com', 'wrong-password');
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'unknown');
+          }
+        }}
+      >
+        Trigger Login
+      </button>
+      <span data-testid="login-error">{message}</span>
+    </div>
+  );
+}
+
 describe('AuthProvider', () => {
+  const mockedLoginUser = vi.mocked(loginUser);
+
   beforeEach(() => {
     vi.clearAllMocks();
     window.sessionStorage.clear();
@@ -84,5 +112,37 @@ describe('AuthProvider', () => {
 
     expect(mockGetProfile).toHaveBeenCalledTimes(1);
     expect(mockApiLogout).not.toHaveBeenCalled();
+  });
+
+  it('maps invalid credentials to a friendlier login message', async () => {
+    window.sessionStorage.setItem('mtaka_tab_auth_session', '1');
+    mockGetProfile.mockRejectedValue({ response: { status: 401 } });
+    mockedLoginUser.mockRejectedValue({
+      response: {
+        status: 401,
+        data: {
+          error: 'Invalid credentials',
+        },
+      },
+    });
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+        <LoginErrorProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger Login' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-error')).toHaveTextContent(
+        'Invalid input. Check your email or password and try again.'
+      );
+    });
   });
 });

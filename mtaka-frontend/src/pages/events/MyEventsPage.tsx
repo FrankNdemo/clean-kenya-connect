@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EventDescriptionPreview } from '@/components/events/EventDescriptionPreview';
 import { EventCoverMedia } from '@/components/events/EventCoverMedia';
+import { EventScheduleChangeNotice } from '@/components/events/EventScheduleChangeNotice';
+import { EventScheduleEditDialog } from '@/components/events/EventScheduleEditDialog';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +37,8 @@ import {
   XCircle,
   Eye,
   Clock,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -82,6 +85,8 @@ export default function MyEventsPage() {
   }>>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedDeleteEvent, setSelectedDeleteEvent] = useState<BackendEvent | null>(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [selectedScheduleEvent, setSelectedScheduleEvent] = useState<BackendEvent | null>(null);
   const [expiredEvents, setExpiredEvents] = useState<BackendEvent[]>([]);
   const [showExpiredEvents, setShowExpiredEvents] = useState(false);
   const [loadingExpiredEvents, setLoadingExpiredEvents] = useState(false);
@@ -155,6 +160,11 @@ export default function MyEventsPage() {
   const openDeleteDialog = (event: BackendEvent) => {
     setSelectedDeleteEvent(event);
     setDeleteDialogOpen(true);
+  };
+
+  const openScheduleDialog = (event: BackendEvent) => {
+    setSelectedScheduleEvent(event);
+    setScheduleDialogOpen(true);
   };
 
   const handleDeleteEvent = async () => {
@@ -295,6 +305,8 @@ export default function MyEventsPage() {
                         </div>
                       </div>
 
+                      <EventScheduleChangeNotice change={event.latestScheduleChange} className="mb-4" />
+
                       {event.status === 'cancelled' && event.cancellationReason && (
                         <div className="bg-destructive/10 p-3 rounded-lg mb-4">
                           <p className="text-xs text-destructive font-medium">Cancellation Reason:</p>
@@ -303,6 +315,15 @@ export default function MyEventsPage() {
                       )}
 
                       <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openScheduleDialog(event)}
+                          className="sm:flex-1"
+                        >
+                          <Pencil className="w-4 h-4 mr-1" />
+                          Edit Schedule
+                        </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -389,6 +410,8 @@ export default function MyEventsPage() {
                           {event.location}
                         </div>
                       </div>
+
+                      <EventScheduleChangeNotice change={event.latestScheduleChange} className="mb-4" />
 
                       {event.status !== 'cancelled' && event.status !== 'completed' && (
                         <Button 
@@ -592,6 +615,13 @@ export default function MyEventsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EventScheduleEditDialog
+        event={selectedScheduleEvent}
+        open={scheduleDialogOpen}
+        onOpenChange={setScheduleDialogOpen}
+        onUpdated={refreshEvents}
+      />
     </Layout>
   );
 }

@@ -14,6 +14,7 @@ import { getDashboardPathForUser } from '@/lib/dashboardPaths';
 import { toast } from 'sonner';
 
 const LOGIN_FORM_CLEAR_KEY = 'mtaka_clear_login_form';
+const INVALID_LOGIN_MESSAGE = 'Invalid input. Check your email or password and try again.';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -80,9 +81,33 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail && !trimmedPassword) {
+      setManualEntryEnabled(true);
+      emailInputRef.current?.focus();
+      toast.error('Email and password are required.');
+      return;
+    }
+
+    if (!trimmedEmail) {
+      setManualEntryEnabled(true);
+      emailInputRef.current?.focus();
+      toast.error('Email is required.');
+      return;
+    }
+
+    if (!trimmedPassword) {
+      setManualEntryEnabled(true);
+      passwordInputRef.current?.focus();
+      toast.error('Password is required.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(trimmedEmail, trimmedPassword);
       if (user) {
         toast.success(`Welcome back, ${user.name || user.email}`);
         const fromPath =
@@ -98,7 +123,7 @@ export default function LoginPage() {
         }
         navigate(getDashboardPathForUser(user), { replace: true });
       } else {
-        toast.error('Invalid email or password.');
+        toast.error(INVALID_LOGIN_MESSAGE);
       }
     } catch (error: unknown) {
       const authError = error as AuthError;

@@ -64,6 +64,7 @@ const AUTH_EXPIRED_EVENT = 'mtaka-auth-expired';
 const LOGIN_FORM_CLEAR_KEY = 'mtaka_clear_login_form';
 const TAB_AUTH_SESSION_KEY = 'mtaka_tab_auth_session';
 const TAB_CLOSE_MARKER_KEY = 'mtaka_tab_close_marker';
+const INVALID_LOGIN_MESSAGE = 'Invalid input. Check your email or password and try again.';
 
 const getPrimaryStorage = () => {
   if (typeof window === 'undefined') return null;
@@ -168,7 +169,12 @@ const getLoginErrorMessage = (error: unknown) => {
   };
 
   const backendMessage = axiosError?.response?.data?.error || axiosError?.response?.data?.detail;
-  if (backendMessage) return backendMessage;
+  if (backendMessage) {
+    if (backendMessage.trim().toLowerCase() === 'invalid credentials') {
+      return INVALID_LOGIN_MESSAGE;
+    }
+    return backendMessage;
+  }
 
   if (axiosError?.code === 'ECONNABORTED') {
     return 'Login is taking longer than usual. Please try again.';
@@ -313,8 +319,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password?: string) => {
     try {
-      const username = email; // backend allows username or email; using email as username
-      const data = await apiLogin(username, password || '');
+      const username = email.trim(); // backend allows username or email; using email as username
+      const data = await apiLogin(username, (password || '').trim());
       return applyAuthenticatedUser(data);
     } catch (err: unknown) {
       const message = getLoginErrorMessage(err);

@@ -403,6 +403,18 @@ export interface BackendEvent {
   status: "pending" | "approved" | "rejected" | "ongoing" | "completed" | "expired" | "cancelled";
   rewardPoints: number;
   cancellationReason?: string | null;
+  creatorEmail?: string | null;
+  creatorPhone?: string | null;
+  scheduleChangeCount?: number;
+  latestScheduleChange?: {
+    previousDate: string;
+    newDate: string;
+    previousTime: string;
+    newTime: string;
+    reason: string;
+    changedByName: string;
+    changedAt: string;
+  } | null;
   created_at: string;
 }
 
@@ -503,6 +515,19 @@ export const rejectEvent = async (eventId: number) => {
 export const deleteEvent = async (eventId: number) => {
   await API.delete(`events/${eventId}/`);
   invalidateGetCache(["events"]);
+};
+
+export const updateEventSchedule = async (
+  eventId: number,
+  payload: {
+    date: string;
+    time: string;
+    scheduleChangeReason: string;
+  }
+) => {
+  const response = await API.patch(`events/${eventId}/`, payload);
+  invalidateGetCache(["events"]);
+  return response.data as BackendEvent;
 };
 
 export const getEventParticipants = async (eventId: number) => {

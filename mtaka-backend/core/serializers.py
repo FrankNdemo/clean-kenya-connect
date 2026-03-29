@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 import mimetypes
@@ -481,11 +482,16 @@ class CollectionRequestUpdateSerializer(serializers.ModelSerializer):
         return collector.company_name if collector else ''
 
 class EventSerializer(serializers.ModelSerializer):
+    scheduleChangeReason = serializers.CharField(write_only=True, required=False, allow_blank=True)
     creator_name = serializers.CharField(source='creator.username', read_only=True)
+    creatorEmail = serializers.SerializerMethodField()
+    creatorPhone = serializers.SerializerMethodField()
     participantCount = serializers.SerializerMethodField()
     isJoined = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
     coverImageUrl = serializers.SerializerMethodField()
+    latestScheduleChange = serializers.SerializerMethodField()
+    scheduleChangeCount = serializers.SerializerMethodField()
     organizerId = serializers.IntegerField(source='creator.id', read_only=True)
     organizerName = serializers.CharField(source='creator.username', read_only=True)
     title = serializers.CharField(source='event_name')
@@ -502,6 +508,8 @@ class EventSerializer(serializers.ModelSerializer):
             'id',
             'creator',
             'creator_name',
+            'creatorEmail',
+            'creatorPhone',
             'organizerId',
             'organizerName',
             'event_name',
@@ -520,6 +528,8 @@ class EventSerializer(serializers.ModelSerializer):
             'participantCount',
             'isJoined',
             'participants',
+            'latestScheduleChange',
+            'scheduleChangeCount',
             'title',
             'type',
             'date',
@@ -528,6 +538,7 @@ class EventSerializer(serializers.ModelSerializer):
             'maxParticipants',
             'rewardPoints',
             'cancellationReason',
+            'scheduleChangeReason',
         ]
         read_only_fields = ['creator', 'cancellation_reason']
         extra_kwargs = {
@@ -541,7 +552,28 @@ class EventSerializer(serializers.ModelSerializer):
             'reward_points': {'required': False},
             'status': {'required': False},
         }
-    
+
+    def _latest_schedule_change(self, obj):
+        prefetched = getattr(obj, '_prefetched_objects_cache', {}).get('schedule_changes')
+        if prefetched is not None:
+            return prefetched[0] if prefetched else None
+        return obj.schedule_changes.select_related('changed_by').order_by('-changed_at').first()
+
+    def _can_view_creator_contact(self):
+        request = self.context.get('request') if hasattr(self, 'context') else None
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated and user.user_type == 'authority')
+
+    def get_creatorEmail(self, obj):
+        if not self._can_view_creator_contact():
+            return None
+        return getattr(obj.creator, 'email', '')
+
+    def get_creatorPhone(self, obj):
+        if not self._can_view_creator_contact():
+            return None
+        return getattr(obj.creator, 'phone', '')
+
     def _get_participant_count(self, obj):
         annotated_count = getattr(obj, 'participant_count_cached', None)
         if annotated_count is not None:
@@ -603,6 +635,89 @@ class EventSerializer(serializers.ModelSerializer):
             return f'data:{content_type};base64,{cover_image_data}'
 
         return None
+
+    def get_scheduleChangeCount(self, obj):
+        prefetched = getattr(obj, '_prefetched_objects_cache', {}).get('schedule_changes')
+        if prefetched is not None:
+            return len(prefetched)
+        return obj.schedule_changes.count()
+
+    def get_latestScheduleChange(self, obj):
+        latest = self._latest_schedule_change(obj)
+        if not latest:
+            return None
+
+        changed_by = getattr(latest, 'changed_by', None)
+        changed_by_name = ''
+        if changed_by is not None:
+            changed_by_name = changed_by.get_full_name().strip() or changed_by.username
+
+        return {
+            'previousDate': latest.previous_event_date.isoformat(),
+            'newDate': latest.new_event_date.isoformat(),
+            'previousTime': latest.previous_start_time.strftime('%H:%M'),
+            'newTime': latest.new_start_time.strftime('%H:%M'),
+            'reason': latest.reason,
+            'changedByName': changed_by_name,
+            'changedAt': latest.changed_at.isoformat(),
+        }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        event_date = attrs.get('event_date')
+        if event_date and event_date < timezone.localdate():
+            raise serializers.ValidationError({'event_date': 'Event date cannot be in the past.'})
+
+        if not self.instance:
+            return attrs
+
+        next_date = attrs.get('event_date', self.instance.event_date)
+        next_start_time = attrs.get('start_time', self.instance.start_time)
+        schedule_changed = (
+            next_date != self.instance.event_date
+            or next_start_time != self.instance.start_time
+        )
+
+        reason = str(attrs.get('scheduleChangeReason') or '').strip()
+        if schedule_changed and not reason:
+            raise serializers.ValidationError(
+                {'scheduleChangeReason': 'A reason is required when changing the event schedule.'}
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('scheduleChangeReason', None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        schedule_change_reason = str(validated_data.pop('scheduleChangeReason', '') or '').strip()
+        previous_event_date = instance.event_date
+        previous_start_time = instance.start_time
+
+        updated_instance = super().update(instance, validated_data)
+
+        if (
+            schedule_change_reason
+            and (
+                previous_event_date != updated_instance.event_date
+                or previous_start_time != updated_instance.start_time
+            )
+        ):
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            changed_by = getattr(request, 'user', None) or updated_instance.creator
+            EventScheduleChange.objects.create(
+                event=updated_instance,
+                changed_by=changed_by,
+                previous_event_date=previous_event_date,
+                new_event_date=updated_instance.event_date,
+                previous_start_time=previous_start_time,
+                new_start_time=updated_instance.start_time,
+                reason=schedule_change_reason,
+            )
+
+        return updated_instance
 
 class EventParticipantSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)

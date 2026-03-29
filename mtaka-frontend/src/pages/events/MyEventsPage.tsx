@@ -305,7 +305,11 @@ export default function MyEventsPage() {
                         </div>
                       </div>
 
-                      <EventScheduleChangeNotice change={event.latestScheduleChange} className="mb-4" />
+                      <EventScheduleChangeNotice
+                        change={event.latestScheduleChange}
+                        className="mb-4"
+                        showActorDetails
+                      />
 
                       {event.status === 'cancelled' && event.cancellationReason && (
                         <div className="bg-destructive/10 p-3 rounded-lg mb-4">

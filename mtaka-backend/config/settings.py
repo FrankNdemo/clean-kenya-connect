@@ -280,11 +280,25 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+DEFAULT_PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.ScryptPasswordHasher',
+]
+
 # Optional local-dev speedup. Keep disabled in production.
 if env_bool('DJANGO_FAST_DEV_AUTH', False):
     PASSWORD_HASHERS = [
         'django.contrib.auth.hashers.MD5PasswordHasher',
         'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    ]
+else:
+    # Keep legacy MD5 verification available so older accounts can still sign in
+    # and be transparently upgraded to a stronger hash on successful login.
+    PASSWORD_HASHERS = DEFAULT_PASSWORD_HASHERS + [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
     ]
 
 LANGUAGE_CODE = 'en-us'

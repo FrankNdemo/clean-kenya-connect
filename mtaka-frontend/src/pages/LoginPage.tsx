@@ -82,9 +82,9 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
+    const passwordLooksBlank = password.trim().length === 0;
 
-    if (!trimmedEmail && !trimmedPassword) {
+    if (!trimmedEmail && passwordLooksBlank) {
       setManualEntryEnabled(true);
       emailInputRef.current?.focus();
       toast.error('Email and password are required.');
@@ -98,7 +98,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (!trimmedPassword) {
+    if (passwordLooksBlank) {
       setManualEntryEnabled(true);
       passwordInputRef.current?.focus();
       toast.error('Password is required.');
@@ -107,7 +107,7 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const user = await login(trimmedEmail, trimmedPassword);
+      const user = await login(trimmedEmail, password);
       if (user) {
         toast.success(`Welcome back, ${user.name || user.email}`);
         const fromPath =

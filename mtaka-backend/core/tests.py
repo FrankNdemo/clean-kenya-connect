@@ -13,6 +13,7 @@ from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from PIL import Image
@@ -670,6 +671,44 @@ class EventImageUploadTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['profile'], {})
         self.assertFalse(Household.objects.filter(user=user).exists())
+
+    @override_settings(
+        PASSWORD_HASHERS=[
+            'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+            'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+            'django.contrib.auth.hashers.Argon2PasswordHasher',
+            'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+            'django.contrib.auth.hashers.ScryptPasswordHasher',
+            'django.contrib.auth.hashers.MD5PasswordHasher',
+        ]
+    )
+    def test_login_accepts_legacy_md5_password_hashes_and_upgrades_them(self):
+        user = self.user_model.objects.create_user(
+            username='legacy-hash-user',
+            email='legacy-hash@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001206',
+        )
+        user.password = make_password('StrongPass!1', hasher='md5')
+        user.save(update_fields=['password'])
+
+        self.assertTrue(user.password.startswith('md5$'))
+
+        response = self.client.post(
+            '/api/auth/login/',
+            data=json.dumps({
+                'username': user.email,
+                'password': 'StrongPass!1',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        user.refresh_from_db()
+        self.assertFalse(user.password.startswith('md5$'))
+        self.assertTrue(user.check_password('StrongPass!1'))
 
     def test_login_requires_email_and_password(self):
         response = self.client.post(

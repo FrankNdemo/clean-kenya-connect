@@ -320,7 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password?: string) => {
     try {
       const username = email.trim(); // backend allows username or email; using email as username
-      const data = await apiLogin(username, (password || '').trim());
+      const data = await apiLogin(username, password || '');
       return applyAuthenticatedUser(data);
     } catch (err: unknown) {
       const message = getLoginErrorMessage(err);

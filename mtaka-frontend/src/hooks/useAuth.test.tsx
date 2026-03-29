@@ -57,6 +57,21 @@ function LoginErrorProbe() {
   );
 }
 
+function LoginPasswordProbe() {
+  const { login } = useAuth();
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await login('resident@example.com', ' pass-with-space ');
+      }}
+    >
+      Trigger Spaced Login
+    </button>
+  );
+}
+
 describe('AuthProvider', () => {
   const mockedLoginUser = vi.mocked(loginUser);
 
@@ -143,6 +158,44 @@ describe('AuthProvider', () => {
       expect(screen.getByTestId('login-error')).toHaveTextContent(
         'Invalid input. Check your email or password and try again.'
       );
+    });
+  });
+
+  it('preserves password whitespace when sending login requests', async () => {
+    mockGetProfile.mockResolvedValue({ user: null, profile: {} });
+    mockedLoginUser.mockResolvedValue({
+      user: {
+        id: 7,
+        username: 'resident-one',
+        email: 'resident@example.com',
+        phone: '+254700000001',
+        user_type: 'household',
+        is_superuser: false,
+        reward_points: 15,
+      },
+      profile: {
+        address: 'Westlands, Nairobi',
+        green_credits: 15,
+      },
+      access: 'token',
+      refresh: 'refresh-token',
+    });
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+        <LoginPasswordProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger Spaced Login' }));
+
+    await waitFor(() => {
+      expect(mockedLoginUser).toHaveBeenCalledWith('resident@example.com', ' pass-with-space ');
     });
   });
 });

@@ -173,16 +173,21 @@ export default function EventsManagePage() {
                         {renderCreatorContact(event)}
                         <EventScheduleChangeNotice change={event.latestScheduleChange} className="mt-3" />
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => openScheduleDialog(event)}>
+                      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openScheduleDialog(event)}
+                          className="w-full sm:w-auto"
+                        >
                           <Pencil className="mr-1 w-4 h-4" />
                           Edit Schedule
                         </Button>
-                        <Button size="sm" onClick={() => handleApprove(event.id)}>
+                        <Button size="sm" onClick={() => handleApprove(event.id)} className="w-full sm:w-auto">
                           <CheckCircle className="mr-1 w-4 h-4" />
                           Approve
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleReject(event.id)}>
+                        <Button size="sm" variant="outline" onClick={() => handleReject(event.id)} className="w-full sm:w-auto">
                           <XCircle className="mr-1 w-4 h-4" />
                           Reject
                         </Button>
@@ -228,17 +233,26 @@ export default function EventsManagePage() {
                         {renderCreatorContact(event)}
                         <EventScheduleChangeNotice change={event.latestScheduleChange} className="mt-3" />
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => openScheduleDialog(event)}>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openScheduleDialog(event)}
+                          className="w-full"
+                        >
                           <Pencil className="mr-1 w-4 h-4" />
                           Edit Schedule
                         </Button>
                         {event.status === 'approved' && !isJoined(event) ? (
-                          <Button size="sm" variant="outline" onClick={() => handleJoin(event.id)}>
+                          <Button size="sm" variant="outline" onClick={() => handleJoin(event.id)} className="w-full">
                             Join Event
                           </Button>
                         ) : null}
-                        {isJoined(event) ? <Badge variant="secondary">Joined</Badge> : null}
+                        {isJoined(event) ? (
+                          <Badge variant="secondary" className="flex h-9 w-full items-center justify-center">
+                            Joined
+                          </Badge>
+                        ) : null}
                       </div>
                     </div>
                   </div>

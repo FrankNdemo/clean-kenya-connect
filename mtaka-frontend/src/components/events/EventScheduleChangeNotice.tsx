@@ -3,6 +3,7 @@ import { type BackendEvent } from '@/api';
 type Props = {
   change?: BackendEvent['latestScheduleChange'];
   className?: string;
+  showActorDetails?: boolean;
 };
 
 const formatEventDate = (value: string) => {
@@ -17,7 +18,11 @@ const formatEventDate = (value: string) => {
 
 const formatScheduleLabel = (date: string, time: string) => `${formatEventDate(date)} at ${time}`;
 
-export function EventScheduleChangeNotice({ change, className = '' }: Props) {
+export function EventScheduleChangeNotice({
+  change,
+  className = '',
+  showActorDetails = false,
+}: Props) {
   if (!change) return null;
 
   return (
@@ -28,7 +33,7 @@ export function EventScheduleChangeNotice({ change, className = '' }: Props) {
         {formatScheduleLabel(change.newDate, change.newTime)}.
       </p>
       <p className="mt-1 text-xs text-muted-foreground">Reason: {change.reason}</p>
-      {(change.changedByName || change.changedAt) && (
+      {showActorDetails && (change.changedByName || change.changedAt) && (
         <p className="mt-1 text-xs text-muted-foreground">
           Updated by {change.changedByName || 'M-Taka'} on{' '}
           {new Date(change.changedAt).toLocaleDateString()}.

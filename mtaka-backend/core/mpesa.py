@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import logging
 from datetime import datetime
@@ -28,11 +29,16 @@ def _clean_mpesa_setting(value: object) -> str:
 def _mpesa_config_snapshot() -> dict[str, str]:
     env = _clean_mpesa_setting(getattr(settings, 'MPESA_ENV', 'sandbox')).lower() or 'sandbox'
     shortcode = _clean_mpesa_setting(getattr(settings, 'MPESA_BUSINESS_SHORTCODE', ''))
-    passkey_present = 'yes' if _clean_mpesa_setting(getattr(settings, 'MPESA_PASSKEY', '')) else 'no'
+    passkey = _clean_mpesa_setting(getattr(settings, 'MPESA_PASSKEY', ''))
+    passkey_present = 'yes' if passkey else 'no'
+    passkey_length = str(len(passkey))
+    passkey_fingerprint = hashlib.sha256(passkey.encode('utf-8')).hexdigest()[:12] if passkey else 'none'
     return {
         'env': env,
         'shortcode': shortcode or '(missing)',
         'passkey_present': passkey_present,
+        'passkey_length': passkey_length,
+        'passkey_fingerprint': passkey_fingerprint,
     }
 
 
@@ -141,7 +147,9 @@ def _http_json(
                     'Wrong STK credentials. Check MPESA_BUSINESS_SHORTCODE, '
                     'MPESA_PASSKEY, and MPESA_ENV on the deployed backend. '
                     f"Server env={snapshot['env']}, shortcode={snapshot['shortcode']}, "
-                    f"passkey_present={snapshot['passkey_present']}."
+                    f"passkey_present={snapshot['passkey_present']}, "
+                    f"passkey_length={snapshot['passkey_length']}, "
+                    f"passkey_fingerprint={snapshot['passkey_fingerprint']}."
                 )
         return normalized_message or 'M-Pesa request failed.'
 

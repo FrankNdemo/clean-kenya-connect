@@ -28,6 +28,7 @@ from .models import (
     CollectorTransaction,
     Event,
     EventScheduleChange,
+    GreenCredit,
     Household,
     MpesaPayment,
     RecyclableListing,
@@ -196,6 +197,116 @@ class AuthFlowTests(TestCase):
 
         self.assertEqual(refresh_response.status_code, 200)
         self.assertIn('access', refresh_response.json())
+
+
+@override_settings(
+    ALLOWED_HOSTS=['testserver'],
+    DEBUG=True,
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    DEFAULT_FROM_EMAIL='M-Taka No-Reply <no-reply@example.com>',
+)
+class RewardRedemptionFlowTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user_model = get_user_model()
+        if hasattr(mail, 'outbox'):
+            mail.outbox.clear()
+
+        self.household_user = self.user_model.objects.create_user(
+            username='rewards-resident',
+            email='rewards-resident@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700011001',
+        )
+        self.household = Household.objects.create(
+            user=self.household_user,
+            full_name='Rewards Resident',
+            address='Westlands, Nairobi',
+            green_credits=300,
+        )
+
+    def test_household_can_redeem_reward_and_receives_acknowledgement_email(self):
+        self.client.force_authenticate(user=self.household_user)
+
+        response = self.client.post(
+            '/api/auth/green-credits/redeem/',
+            data={
+                'reward_name': 'Eco Shopping Bag',
+                'points_cost': 100,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['detail'], 'Redeem request received. Check your email.')
+        self.assertTrue(payload['emailSent'])
+        self.assertEqual(payload['remainingCredits'], 200)
+
+        self.household.refresh_from_db()
+        self.assertEqual(self.household.green_credits, 200)
+
+        redemption = GreenCredit.objects.get(
+            household=self.household,
+            transaction_type='redeemed',
+        )
+        self.assertEqual(redemption.credits_amount, 100)
+        self.assertEqual(redemption.description, 'Reward redemption requested: Eco Shopping Bag')
+        self.assertEqual(payload['transaction']['id'], redemption.id)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['rewards-resident@example.com'])
+        self.assertIn('reward redemption request was received', mail.outbox[0].subject.lower())
+        self.assertIn('Eco Shopping Bag', mail.outbox[0].body)
+        self.assertIn('will be processed', mail.outbox[0].body)
+
+    def test_redeem_reward_requires_enough_points(self):
+        self.client.force_authenticate(user=self.household_user)
+
+        response = self.client.post(
+            '/api/auth/green-credits/redeem/',
+            data={
+                'reward_name': 'Solar Phone Charger',
+                'points_cost': 1000,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['points_cost'], 'Not enough points to redeem this reward.')
+        self.household.refresh_from_db()
+        self.assertEqual(self.household.green_credits, 300)
+        self.assertFalse(GreenCredit.objects.filter(household=self.household, transaction_type='redeemed').exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_non_household_users_cannot_redeem_rewards(self):
+        collector_user = self.user_model.objects.create_user(
+            username='collector-rewards',
+            email='collector-rewards@example.com',
+            password='StrongPass!1',
+            user_type='collector',
+            phone='+254700011002',
+        )
+        Collector.objects.create(
+            user=collector_user,
+            company_name='Rewards Collector Ltd',
+            service_areas='Westlands, Nairobi',
+        )
+        self.client.force_authenticate(user=collector_user)
+
+        response = self.client.post(
+            '/api/auth/green-credits/redeem/',
+            data={
+                'reward_name': 'Eco Shopping Bag',
+                'points_cost': 100,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['detail'], 'Only resident accounts can redeem rewards.')
+        self.assertEqual(len(mail.outbox), 0)
 
 
 @override_settings(

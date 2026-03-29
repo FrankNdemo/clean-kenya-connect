@@ -34,6 +34,7 @@ from .auth_email import (
     dispatch_email,
     get_email_delivery_status,
     send_password_reset_email,
+    send_reward_redemption_email,
     send_welcome_email,
 )
 from .mpesa import MpesaIntegrationError, initiate_stk_push, mpesa_is_configured
@@ -1856,6 +1857,66 @@ class GreenCreditViewSet(viewsets.ReadOnlyModelViewSet):
             household = Household.objects.get(user=user)
             return GreenCredit.objects.filter(household=household).select_related('household')
         return GreenCredit.objects.none()
+
+    @action(detail=False, methods=['post'], url_path='redeem')
+    def redeem(self, request):
+        user = request.user
+        if user.user_type != 'household':
+            raise PermissionDenied('Only resident accounts can redeem rewards.')
+
+        serializer = RewardRedemptionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reward_name = serializer.validated_data['reward_name']
+        points_cost = serializer.validated_data['points_cost']
+
+        with transaction.atomic():
+            household = Household.objects.select_for_update().filter(user=user).first()
+            if not household:
+                raise ValidationError({'detail': 'Resident profile not found.'})
+
+            if household.green_credits < points_cost:
+                raise ValidationError({'points_cost': 'Not enough points to redeem this reward.'})
+
+            household.green_credits -= points_cost
+            household.save(update_fields=['green_credits'])
+            redemption = GreenCredit.objects.create(
+                household=household,
+                transaction_type='redeemed',
+                credits_amount=points_cost,
+                description=f'Reward redemption requested: {reward_name}',
+            )
+
+        email_sent = False
+        if user.email:
+            try:
+                dispatch_email(
+                    send_reward_redemption_email,
+                    user,
+                    reward_name,
+                    points_cost,
+                    description=f'reward redemption email for user_id={user.id}',
+                )
+                email_sent = True
+            except Exception:
+                logger.exception(
+                    'Failed to send reward redemption email for user_id=%s reward=%s',
+                    user.id,
+                    reward_name,
+                )
+
+        detail = 'Redeem request received. Check your email.'
+        if not email_sent:
+            detail = 'Redeem request received. Your reward will be processed and you will be contacted soon.'
+
+        return Response(
+            {
+                'detail': detail,
+                'emailSent': email_sent,
+                'remainingCredits': household.green_credits,
+                'transaction': GreenCreditSerializer(redemption).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class ComplaintViewSet(viewsets.ModelViewSet):

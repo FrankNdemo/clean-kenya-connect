@@ -378,3 +378,26 @@ def send_password_reset_email(user, reset_link: str) -> None:
         "<p>This is an automated no-reply email from M-Taka.</p>"
     )
     _send_email(subject, text_body, html_body, user.email)
+
+
+def send_reward_redemption_email(user, reward_name: str, points_cost: int) -> None:
+    display_name = user.get_full_name() or user.username or "there"
+    safe_reward_name = str(reward_name or "your selected reward").strip() or "your selected reward"
+    subject = "Your M-Taka reward redemption request was received"
+    text_body = (
+        f"Hello {display_name},\n\n"
+        f"We received your M-Taka reward redemption request for {safe_reward_name}.\n"
+        f"Points used: {points_cost}\n\n"
+        "Your reward will be processed, and our team will contact you using your registered email or phone.\n\n"
+        "This is an automated no-reply email from M-Taka.\n"
+    )
+    html_body = (
+        f"<p>Hello {display_name},</p>"
+        f"<p>We received your <strong>M-Taka</strong> reward redemption request for "
+        f"<strong>{safe_reward_name}</strong>.</p>"
+        f"<p><strong>Points used:</strong> {points_cost}</p>"
+        "<p>Your reward will be processed, and our team will contact you using your "
+        "registered email or phone.</p>"
+        "<p>This is an automated no-reply email from M-Taka.</p>"
+    )
+    _send_email(subject, text_body, html_body, user.email)

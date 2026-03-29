@@ -380,6 +380,7 @@ export const logoutUser = async () => {
     "recycler-transactions",
     "collector-transactions",
     "dumping-reports",
+    "green-credits",
   ]);
   return response.data;
 };
@@ -674,6 +675,17 @@ export interface BackendComplaint {
   created_at: string;
 }
 
+export interface BackendGreenCredit {
+  id: number;
+  household: number;
+  household_name?: string;
+  transaction_type: "earned" | "redeemed";
+  credits_amount: number;
+  description: string;
+  reference_id?: number | null;
+  created_at: string;
+}
+
 export const listWasteTypes = async (): Promise<BackendWasteType[]> => {
   return cachedGet("waste-types/", { ttlMs: 60_000 });
 };
@@ -807,6 +819,24 @@ export const updateSuspendedUserApi = async (
 
 export const listComplaintsApi = async (): Promise<BackendComplaint[]> => {
   return cachedGet("complaints/");
+};
+
+export const listGreenCreditsApi = async (): Promise<BackendGreenCredit[]> => {
+  return cachedGet("green-credits/");
+};
+
+export const redeemRewardApi = async (payload: {
+  reward_name: string;
+  points_cost: number;
+}) => {
+  const response = await API.post("green-credits/redeem/", payload);
+  invalidateGetCache(["green-credits", "profile", "users"]);
+  return response.data as {
+    detail: string;
+    emailSent: boolean;
+    remainingCredits: number;
+    transaction: BackendGreenCredit;
+  };
 };
 
 export const updateComplaintApi = async (

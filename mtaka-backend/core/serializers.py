@@ -768,6 +768,17 @@ class GreenCreditSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class RewardRedemptionRequestSerializer(serializers.Serializer):
+    reward_name = serializers.CharField(max_length=120)
+    points_cost = serializers.IntegerField(min_value=1)
+
+    def validate_reward_name(self, value):
+        cleaned = str(value or '').strip()
+        if not cleaned:
+            raise serializers.ValidationError('Reward name is required.')
+        return cleaned
+
+
 class ComplaintSerializer(serializers.ModelSerializer):
     reporter_name = serializers.CharField(source='reporter.username', read_only=True)
     reporter_email = serializers.CharField(source='reporter.email', read_only=True)

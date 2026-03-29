@@ -1886,6 +1886,9 @@ class GreenCreditViewSet(viewsets.ReadOnlyModelViewSet):
                 description=f'Reward redemption requested: {reward_name}',
             )
 
+        delivery_status = get_email_delivery_status()
+        provider = str(delivery_status.get('provider') or '').strip().lower()
+        can_expect_inbox_delivery = bool(delivery_status.get('configured')) and provider not in {'console', 'locmem'}
         email_sent = False
         if user.email:
             try:
@@ -1896,7 +1899,7 @@ class GreenCreditViewSet(viewsets.ReadOnlyModelViewSet):
                     points_cost,
                     description=f'reward redemption email for user_id={user.id}',
                 )
-                email_sent = True
+                email_sent = can_expect_inbox_delivery
             except Exception:
                 logger.exception(
                     'Failed to send reward redemption email for user_id=%s reward=%s',

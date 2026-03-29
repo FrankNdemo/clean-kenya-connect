@@ -226,7 +226,8 @@ class RewardRedemptionFlowTests(TestCase):
             green_credits=300,
         )
 
-    def test_household_can_redeem_reward_and_receives_acknowledgement_email(self):
+    @patch('core.views.get_email_delivery_status', return_value={'configured': True, 'provider': 'brevo'})
+    def test_household_can_redeem_reward_and_receives_acknowledgement_email(self, mock_delivery_status):
         self.client.force_authenticate(user=self.household_user)
 
         response = self.client.post(
@@ -260,6 +261,7 @@ class RewardRedemptionFlowTests(TestCase):
         self.assertIn('reward redemption request was received', mail.outbox[0].subject.lower())
         self.assertIn('Eco Shopping Bag', mail.outbox[0].body)
         self.assertIn('will be processed', mail.outbox[0].body)
+        mock_delivery_status.assert_called_once()
 
     def test_redeem_reward_requires_enough_points(self):
         self.client.force_authenticate(user=self.household_user)

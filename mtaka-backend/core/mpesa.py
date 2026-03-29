@@ -21,12 +21,27 @@ class MpesaIntegrationError(Exception):
         self.payload = payload or {}
 
 
+def _clean_mpesa_setting(value: object) -> str:
+    return str(value or '').strip().strip('"').strip("'")
+
+
+def _mpesa_config_snapshot() -> dict[str, str]:
+    env = _clean_mpesa_setting(getattr(settings, 'MPESA_ENV', 'sandbox')).lower() or 'sandbox'
+    shortcode = _clean_mpesa_setting(getattr(settings, 'MPESA_BUSINESS_SHORTCODE', ''))
+    passkey_present = 'yes' if _clean_mpesa_setting(getattr(settings, 'MPESA_PASSKEY', '')) else 'no'
+    return {
+        'env': env,
+        'shortcode': shortcode or '(missing)',
+        'passkey_present': passkey_present,
+    }
+
+
 def mpesa_is_configured() -> bool:
     required = [
-        getattr(settings, 'MPESA_CONSUMER_KEY', '').strip(),
-        getattr(settings, 'MPESA_CONSUMER_SECRET', '').strip(),
-        getattr(settings, 'MPESA_BUSINESS_SHORTCODE', '').strip(),
-        getattr(settings, 'MPESA_PASSKEY', '').strip(),
+        _clean_mpesa_setting(getattr(settings, 'MPESA_CONSUMER_KEY', '')),
+        _clean_mpesa_setting(getattr(settings, 'MPESA_CONSUMER_SECRET', '')),
+        _clean_mpesa_setting(getattr(settings, 'MPESA_BUSINESS_SHORTCODE', '')),
+        _clean_mpesa_setting(getattr(settings, 'MPESA_PASSKEY', '')),
     ]
     return all(required)
 
@@ -72,7 +87,7 @@ def normalize_mpesa_amount(value: Decimal | int | float | str) -> int:
 
 
 def _mpesa_base_url() -> str:
-    env = getattr(settings, 'MPESA_ENV', 'sandbox').strip().lower()
+    env = _clean_mpesa_setting(getattr(settings, 'MPESA_ENV', 'sandbox')).lower() or 'sandbox'
     if env == 'production':
         return 'https://api.safaricom.co.ke'
     return 'https://sandbox.safaricom.co.ke'
@@ -83,7 +98,9 @@ def _nairobi_timestamp() -> str:
 
 
 def _stk_password(timestamp: str) -> str:
-    raw = f"{settings.MPESA_BUSINESS_SHORTCODE}{settings.MPESA_PASSKEY}{timestamp}"
+    shortcode = _clean_mpesa_setting(getattr(settings, 'MPESA_BUSINESS_SHORTCODE', ''))
+    passkey = _clean_mpesa_setting(getattr(settings, 'MPESA_PASSKEY', ''))
+    raw = f"{shortcode}{passkey}{timestamp}"
     return base64.b64encode(raw.encode('utf-8')).decode('utf-8')
 
 
@@ -112,14 +129,19 @@ def _http_json(
         normalized_message = str(message or '').strip()
         if 'wrong credentials' in normalized_message.lower():
             if '/oauth/v1/generate' in url:
+                snapshot = _mpesa_config_snapshot()
                 return (
                     'Wrong Daraja app credentials. Check MPESA_CONSUMER_KEY, '
-                    'MPESA_CONSUMER_SECRET, and MPESA_ENV on the deployed backend.'
+                    'MPESA_CONSUMER_SECRET, and MPESA_ENV on the deployed backend. '
+                    f"Server env={snapshot['env']}."
                 )
             if '/mpesa/stkpush/v1/processrequest' in url:
+                snapshot = _mpesa_config_snapshot()
                 return (
                     'Wrong STK credentials. Check MPESA_BUSINESS_SHORTCODE, '
-                    'MPESA_PASSKEY, and MPESA_ENV on the deployed backend.'
+                    'MPESA_PASSKEY, and MPESA_ENV on the deployed backend. '
+                    f"Server env={snapshot['env']}, shortcode={snapshot['shortcode']}, "
+                    f"passkey_present={snapshot['passkey_present']}."
                 )
         return normalized_message or 'M-Pesa request failed.'
 
@@ -167,7 +189,9 @@ def get_mpesa_access_token() -> str:
     if cached:
         return str(cached)
 
-    credentials = f"{settings.MPESA_CONSUMER_KEY}:{settings.MPESA_CONSUMER_SECRET}"
+    consumer_key = _clean_mpesa_setting(getattr(settings, 'MPESA_CONSUMER_KEY', ''))
+    consumer_secret = _clean_mpesa_setting(getattr(settings, 'MPESA_CONSUMER_SECRET', ''))
+    credentials = f"{consumer_key}:{consumer_secret}"
     authorization = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
     response = _http_json(
         url=f'{_mpesa_base_url()}/oauth/v1/generate?grant_type=client_credentials',
@@ -199,15 +223,19 @@ def initiate_stk_push(
     normalized_amount = normalize_mpesa_amount(amount)
     timestamp = _nairobi_timestamp()
     token = get_mpesa_access_token()
+    shortcode = _clean_mpesa_setting(getattr(settings, 'MPESA_BUSINESS_SHORTCODE', ''))
+    transaction_type = _clean_mpesa_setting(
+        getattr(settings, 'MPESA_TRANSACTION_TYPE', 'CustomerPayBillOnline')
+    ) or 'CustomerPayBillOnline'
 
     payload = {
-        'BusinessShortCode': settings.MPESA_BUSINESS_SHORTCODE,
+        'BusinessShortCode': shortcode,
         'Password': _stk_password(timestamp),
         'Timestamp': timestamp,
-        'TransactionType': getattr(settings, 'MPESA_TRANSACTION_TYPE', 'CustomerPayBillOnline'),
+        'TransactionType': transaction_type,
         'Amount': normalized_amount,
         'PartyA': normalized_phone,
-        'PartyB': settings.MPESA_BUSINESS_SHORTCODE,
+        'PartyB': shortcode,
         'PhoneNumber': normalized_phone,
         'CallBackURL': callback_url,
         'AccountReference': str(account_reference or 'MTAKA')[:20],

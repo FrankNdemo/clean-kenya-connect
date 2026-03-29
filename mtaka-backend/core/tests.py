@@ -1,3 +1,4 @@
+import base64
 import json
 import re
 from io import BytesIO
@@ -17,6 +18,7 @@ from rest_framework.test import APIClient
 from PIL import Image
 
 from .county import location_matches_county, resolve_county_from_location
+from .mpesa import get_mpesa_access_token, initiate_stk_push, mpesa_is_configured
 from .models import (
     Authority,
     CollectionRequest,
@@ -60,6 +62,63 @@ class SuperuserBootstrapTests(TestCase):
 
         authority = Authority.objects.get(user=user)
         self.assertEqual(authority.staff_name, 'ndemo frank')
+
+
+@override_settings(
+    MPESA_ENV='"sandbox"',
+    MPESA_CONSUMER_KEY='"test-key"',
+    MPESA_CONSUMER_SECRET="'test-secret'",
+    MPESA_BUSINESS_SHORTCODE='"174379"',
+    MPESA_PASSKEY="'test-passkey'",
+    MPESA_TRANSACTION_TYPE='"CustomerPayBillOnline"',
+)
+class MpesaConfigurationNormalizationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    @patch('core.mpesa._http_json')
+    def test_access_token_request_strips_wrapped_credentials(self, mock_http_json):
+        mock_http_json.return_value = {'access_token': 'token-123'}
+
+        token = get_mpesa_access_token()
+
+        self.assertEqual(token, 'token-123')
+        self.assertTrue(mpesa_is_configured())
+        self.assertEqual(mock_http_json.call_args.kwargs['url'], 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials')
+        self.assertEqual(
+            mock_http_json.call_args.kwargs['headers']['Authorization'],
+            f"Basic {base64.b64encode(b'test-key:test-secret').decode('utf-8')}",
+        )
+
+    @patch('core.mpesa._http_json')
+    @patch('core.mpesa.get_mpesa_access_token', return_value='token-123')
+    @patch('core.mpesa._nairobi_timestamp', return_value='20260329010101')
+    def test_stk_push_strips_wrapped_shortcode_and_passkey(
+        self,
+        mock_timestamp,
+        mock_get_token,
+        mock_http_json,
+    ):
+        mock_http_json.return_value = {'ResponseCode': '0'}
+
+        result = initiate_stk_push(
+            phone_number='0712345678',
+            amount='850',
+            callback_url='https://example.com/callback',
+            account_reference='MTAKA',
+            transaction_desc='Waste pickup',
+        )
+
+        self.assertEqual(result['response_payload']['ResponseCode'], '0')
+        payload = mock_http_json.call_args.kwargs['payload']
+        self.assertEqual(mock_http_json.call_args.kwargs['url'], 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest')
+        self.assertEqual(payload['BusinessShortCode'], '174379')
+        self.assertEqual(payload['PartyB'], '174379')
+        self.assertEqual(payload['TransactionType'], 'CustomerPayBillOnline')
+        self.assertEqual(
+            payload['Password'],
+            base64.b64encode(b'174379test-passkey20260329010101').decode('utf-8'),
+        )
 
 
 @override_settings(

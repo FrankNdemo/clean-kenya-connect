@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,10 +30,24 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationType = useNavigationType();
   const isStandaloneApp = isStandaloneAppMode();
   const formRef = useRef<HTMLFormElement | null>(null);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const hasProtectedRedirect =
+      typeof location.state === 'object' &&
+      location.state !== null &&
+      'from' in location.state;
+
+    // On the website, direct entry to /login should land on the home page first.
+    // Internal navigation to the login page still uses PUSH and remains allowed.
+    if (!isStandaloneApp && navigationType === 'POP' && location.key === 'default' && !hasProtectedRedirect) {
+      navigate('/', { replace: true });
+    }
+  }, [isStandaloneApp, location.key, location.state, navigate, navigationType]);
 
   const clearLoginForm = useCallback(() => {
     setEmail('');

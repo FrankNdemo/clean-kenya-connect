@@ -262,6 +262,45 @@ export default function DumpingReportsPage() {
               <div className="space-y-4">
                 {filteredReports.map((report) => {
                   const phone = getReporterPhone(report);
+                  let contextualActionButton = null;
+
+                  if (report.status === 'reported') {
+                    contextualActionButton = (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="w-full justify-center sm:w-auto"
+                        onClick={() => handleUpdateStatus(report.id, 'investigating')}
+                      >
+                        Investigate
+                      </Button>
+                    );
+                  } else if (report.status === 'investigating') {
+                    contextualActionButton = (
+                      <Button
+                        size="sm"
+                        className="w-full justify-center sm:w-auto"
+                        onClick={() => {
+                          setResolveDialog({ open: true, reportId: report.id });
+                          setResolutionMessage('');
+                        }}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />Resolve
+                      </Button>
+                    );
+                  } else if (report.status === 'cancelled') {
+                    contextualActionButton = (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="w-full justify-center sm:w-auto"
+                        onClick={() => handleDeleteCancelled(report.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />Delete
+                      </Button>
+                    );
+                  }
+
                   return (
                     <div key={report.id} className="p-4 rounded-lg border border-border bg-card">
                       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -286,28 +325,24 @@ export default function DumpingReportsPage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button size="sm" variant="outline" onClick={() => setViewDialog({ open: true, report })}>
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full justify-center sm:w-auto"
+                            onClick={() => setViewDialog({ open: true, report })}
+                          >
                             <Eye className="w-4 h-4 mr-1" />Details
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDownloadReport(report)}>
+                          {contextualActionButton}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={`w-full justify-center sm:w-auto ${contextualActionButton ? 'col-span-2' : ''}`}
+                            onClick={() => handleDownloadReport(report)}
+                          >
                             <Download className="w-4 h-4 mr-1" />Download
                           </Button>
-                          {report.status === 'reported' && (
-                            <Button size="sm" variant="secondary" onClick={() => handleUpdateStatus(report.id, 'investigating')}>
-                              Investigate
-                            </Button>
-                          )}
-                          {report.status === 'investigating' && (
-                            <Button size="sm" onClick={() => { setResolveDialog({ open: true, reportId: report.id }); setResolutionMessage(''); }}>
-                              <CheckCircle className="w-4 h-4 mr-1" />Resolve
-                            </Button>
-                          )}
-                          {report.status === 'cancelled' && (
-                            <Button size="sm" variant="destructive" onClick={() => handleDeleteCancelled(report.id)}>
-                              <Trash2 className="w-4 h-4 mr-1" />Delete
-                            </Button>
-                          )}
                         </div>
                       </div>
                     </div>

@@ -1,5 +1,7 @@
 import re
 
+from .route_planner import lookup_location_details
+
 
 def normalize_text(value):
     normalized = str(value or '').strip().lower()
@@ -123,6 +125,11 @@ COUNTY_ALIASES = {
     'embu': 'Embu',
     'nyeri': 'Nyeri',
     'kisii': 'Kisii',
+    'bondo': 'Siaya',
+    'bondo town': 'Siaya',
+    'siaya town': 'Siaya',
+    'nyansiongo': 'Nyamira',
+    'borabu': 'Nyamira',
 }
 
 
@@ -174,7 +181,40 @@ def normalize_county_label(value):
     return to_title_case(normalized)
 
 
-def resolve_county_candidate(value=None):
+def _resolve_county_from_geocoder(value=None):
+    details = lookup_location_details(str(value or '').strip())
+    if not details:
+        return ''
+
+    address = details.get('address') if isinstance(details, dict) else {}
+    geocoder_candidates = []
+    if isinstance(address, dict):
+        geocoder_candidates.extend(
+            [
+                address.get('county'),
+                address.get('state'),
+                address.get('state_district'),
+                address.get('region'),
+            ]
+        )
+
+    label = str(details.get('label') or '').strip()
+    if label:
+        geocoder_candidates.extend([part.strip() for part in label.split(',') if part and part.strip()])
+
+    for candidate in geocoder_candidates:
+        resolved = resolve_county_candidate(candidate, allow_geocoder=False)
+        if resolved:
+            return resolved
+
+        normalized = normalize_county_label(candidate)
+        if normalized in KENYA_COUNTIES:
+            return normalized
+
+    return ''
+
+
+def resolve_county_candidate(value=None, *, allow_geocoder=True):
     normalized = normalize_county_key(value)
     if not normalized:
         return ''
@@ -221,6 +261,9 @@ def resolve_county_candidate(value=None):
     )
     if county_match:
         return county_match
+
+    if allow_geocoder:
+        return _resolve_county_from_geocoder(value)
 
     return ''
 

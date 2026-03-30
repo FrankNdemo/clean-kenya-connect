@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import { getCountyFromLocation, locationMatchesCounty } from '@/lib/county';
-import { WasteRequest, User } from '@/lib/store';
-import { createWasteRequestDb, fetchCollectorsFromDb } from '@/lib/collectionRequestsApi';
+import { getCountyFromLocation } from '@/lib/county';
+import { WasteRequest } from '@/lib/store';
+import {
+  createWasteRequestDb,
+  fetchCollectorMatchesDb,
+  type CollectorMatch,
+} from '@/lib/collectionRequestsApi';
 import { resolveLocationCounty } from '@/api';
 import { 
   ArrowLeft, 
@@ -35,6 +39,16 @@ const wasteTypes: { value: WasteRequest['wasteType']; label: string; icon: typeo
   { value: 'general', label: 'General', icon: Trash2, description: 'Non-recyclable items' },
 ];
 
+const formatDistanceLabel = (distanceKm?: number | null) => {
+  if (distanceKm === null || distanceKm === undefined || !Number.isFinite(distanceKm)) {
+    return 'Distance unavailable';
+  }
+  if (distanceKm < 1) {
+    return `${Math.max(1, Math.round(distanceKm * 1000))} m away`;
+  }
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km away`;
+};
+
 export default function SchedulePickupPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -47,32 +61,47 @@ export default function SchedulePickupPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showCollectors, setShowCollectors] = useState(false);
-  const [availableCollectors, setAvailableCollectors] = useState<User[]>([]);
-  const [selectedCollector, setSelectedCollector] = useState<User | null>(null);
+  const [availableCollectors, setAvailableCollectors] = useState<CollectorMatch[]>([]);
+  const [selectedCollector, setSelectedCollector] = useState<CollectorMatch | null>(null);
   const [loadingCollectors, setLoadingCollectors] = useState(false);
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [pickupCoordsSource, setPickupCoordsSource] = useState<'live' | 'estimated' | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [detectedCounty, setDetectedCounty] = useState('');
   const residentCounty = getCountyFromLocation(formData.location || user?.county || user?.location || '');
+
+  useEffect(() => {
+    const location = formData.location.trim();
+    if (!location) {
+      setDetectedCounty('');
+      return;
+    }
+
+    let active = true;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const resolved = await resolveLocationCounty(location);
+        if (!active) return;
+        setDetectedCounty(resolved.county || getCountyFromLocation(location));
+      } catch {
+        if (!active) return;
+        setDetectedCounty(getCountyFromLocation(location));
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [formData.location]);
 
   const handleLocationChange = (location: string) => {
     setFormData({ ...formData, location });
     setSelectedCollector(null);
     setShowCollectors(false);
     setAvailableCollectors([]);
-    setDetectedCounty('');
-  };
-
-  const resolveResidentCounty = async () => {
-    const location = formData.location || user?.county || user?.location || '';
-    if (!location) return '';
-
-    try {
-      const resolved = await resolveLocationCounty(location);
-      return resolved.county || residentCounty;
-    } catch {
-      return residentCounty;
-    }
+    setPickupCoords(null);
+    setPickupCoordsSource(null);
   };
 
   const handleShowCollectors = async () => {
@@ -91,25 +120,33 @@ export default function SchedulePickupPage() {
 
     try {
       setLoadingCollectors(true);
-      const resolvedCounty = await resolveResidentCounty();
-      if (!resolvedCounty) {
-        toast.error('We could not determine your county from this location. Please enter a more specific area or include the county name.');
-        return;
+      const matchResponse = await fetchCollectorMatchesDb(
+        {
+          location: formData.location,
+          coordinates: pickupCoords || undefined,
+        },
+        true
+      );
+      setDetectedCounty(matchResponse.resolvedCounty || residentCounty);
+      if (!pickupCoords && matchResponse.pickupPoint) {
+        setPickupCoords({
+          lat: matchResponse.pickupPoint.lat,
+          lng: matchResponse.pickupPoint.lng,
+        });
+        setPickupCoordsSource('estimated');
       }
-      setDetectedCounty(resolvedCounty);
-      const allCollectors = await fetchCollectorsFromDb();
-      const sameCountyCollectors = allCollectors.filter((collector) => {
-        const collectorLocation = collector.county || collector.location;
-        return locationMatchesCounty(collectorLocation, resolvedCounty);
-      });
-      setAvailableCollectors(sameCountyCollectors);
+      setAvailableCollectors(matchResponse.matches);
       setSelectedCollector(null);
       setShowCollectors(true);
-      if (sameCountyCollectors.length === 0) {
-        toast.error(`No collectors are currently listed in ${resolvedCounty} County.`);
+      if (matchResponse.matches.length === 0) {
+        toast.error(
+          matchResponse.resolvedCounty
+            ? `No nearby collectors were found for ${matchResponse.resolvedCounty} County.`
+            : 'No nearby collectors were found for that location.'
+        );
       }
     } catch (error) {
-      toast.error('Failed to load collectors from database');
+      toast.error('Failed to load nearby collectors');
     } finally {
       setLoadingCollectors(false);
     }
@@ -127,6 +164,7 @@ export default function SchedulePickupPage() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
+        setPickupCoordsSource('live');
         setIsLocating(false);
         toast.success('Live pickup coordinates captured');
       },
@@ -158,6 +196,7 @@ export default function SchedulePickupPage() {
         );
       });
       setPickupCoords(coords);
+      setPickupCoordsSource('live');
       return coords;
     } catch {
       toast.error('Please enable location access to schedule pickup with route tracking');
@@ -189,19 +228,8 @@ export default function SchedulePickupPage() {
     setIsLoading(true);
 
     try {
-      const resolvedCounty = detectedCounty || (await resolveResidentCounty());
-      if (!resolvedCounty) {
-        toast.error('Please enter a clear location so we can match you with the right county.');
-        setIsLoading(false);
-        return;
-      }
-
-      setDetectedCounty(resolvedCounty);
-
-      if (!locationMatchesCounty(selectedCollector.county || selectedCollector.location, resolvedCounty)) {
-        toast.error(`Please choose a collector that serves ${resolvedCounty} County.`);
-        setIsLoading(false);
-        return;
+      if (!detectedCounty && residentCounty) {
+        setDetectedCounty(residentCounty);
       }
 
       const coordinates = await ensurePickupCoordinates();
@@ -338,10 +366,15 @@ export default function SchedulePickupPage() {
                       disabled={isLocating}
                     >
                       <LocateFixed className="w-4 h-4" />
-                      {isLocating ? 'Locating...' : (pickupCoords ? 'Refresh Live Coordinates' : 'Use Live Coordinates')}
+                      {isLocating
+                        ? 'Locating...'
+                        : pickupCoordsSource === 'live'
+                          ? 'Refresh Live Coordinates'
+                          : 'Use Live Coordinates'}
                     </Button>
                     {pickupCoords && (
                       <span className="text-xs text-muted-foreground">
+                        {pickupCoordsSource === 'estimated' ? 'Estimated point' : 'Live point'}:{" "}
                         {pickupCoords.lat.toFixed(6)}, {pickupCoords.lng.toFixed(6)}
                       </span>
                     )}
@@ -379,24 +412,26 @@ export default function SchedulePickupPage() {
                     disabled={loadingCollectors}
                   >
                     <UserIcon className="w-4 h-4" />
-                    {loadingCollectors ? 'Loading Collectors...' : 'Find Available Collectors'}
+                    {loadingCollectors ? 'Loading Collectors...' : 'Find Nearby Collectors'}
                   </Button>
                 ) : (
                   <div className="space-y-3">
-                    <Label>Select a Collector</Label>
+                    <div className="space-y-1">
+                      <Label>Select a Collector</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Nearest collectors are shown first to help reduce travel distance and cost.
+                      </p>
+                    </div>
                     {availableCollectors.length === 0 ? (
                       <div className="p-4 rounded-lg bg-muted text-center text-muted-foreground">
                         {(detectedCounty || residentCounty)
-                          ? `No collectors are currently listed in ${detectedCounty || residentCounty} County. Try a different area or enter a more specific location.`
-                          : 'No collectors available in your area. Try a different location.'}
+                          ? `No nearby collectors were found for ${detectedCounty || residentCounty} County. Try a more specific location or refresh your live coordinates.`
+                          : 'No nearby collectors were found for this location. Try a more specific area.'}
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {availableCollectors.map((collector) => {
-                          const collectorCounty = collector.county || getCountyFromLocation(collector.location) || 'Unknown county';
-                          const isNearby = collector.location.toLowerCase().includes(
-                            formData.location.split(',')[0].trim().toLowerCase()
-                          );
+                          const collectorCounty = collector.county || 'Unknown county';
                           return (
                             <button
                               key={collector.id}
@@ -415,18 +450,40 @@ export default function SchedulePickupPage() {
                                   </div>
                                   <div>
                                     <div className="font-semibold">{collector.name}</div>
-                                    <div className="text-sm text-muted-foreground flex items-center gap-2">
-                                      <MapPin className="w-3 h-3" />
-                                      {collector.location}
-                                      {isNearby && (
-                                        <span className="px-2 py-0.5 text-xs rounded-full bg-success/20 text-success">
-                                          Nearby
-                                        </span>
-                                      )}
+                                    <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-2">
+                                      <span className="inline-flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        {collector.location || collector.matchedArea || 'Service area not set'}
+                                      </span>
+                                      <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                                        {formatDistanceLabel(collector.distanceKm)}
+                                      </span>
+                                      <span
+                                        className={`px-2 py-0.5 text-xs rounded-full ${
+                                          collector.servesRequestedCounty
+                                            ? 'bg-success/15 text-success'
+                                            : 'bg-secondary text-muted-foreground'
+                                        }`}
+                                      >
+                                        {collector.servesRequestedCounty
+                                          ? `Serves ${(detectedCounty || residentCounty || collectorCounty)} County`
+                                          : 'Nearby county option'}
+                                      </span>
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-1">
                                       County: {collectorCounty}
                                     </div>
+                                    {collector.matchedArea && collector.matchedArea !== collector.location && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        Closest service area: {collector.matchedArea}
+                                      </div>
+                                    )}
+                                    {collector.phone && (
+                                      <div className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1">
+                                        <Phone className="w-3 h-3" />
+                                        {collector.phone}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                 {selectedCollector?.id === collector.id && (

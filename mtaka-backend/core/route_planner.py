@@ -27,6 +27,8 @@ _FALLBACK_COORDS = {
     "mombasa": {"lat": -4.043477, "lng": 39.668206},
     "nakuru": {"lat": -0.303099, "lng": 36.080026},
     "eldoret": {"lat": 0.514277, "lng": 35.269779},
+    "siaya": {"lat": 0.061085, "lng": 34.288083},
+    "nyamira": {"lat": -0.56694, "lng": 34.93412},
     "thika": {"lat": -1.03326, "lng": 37.06933},
     "machakos": {"lat": -1.5167, "lng": 37.2667},
     "kiambu": {"lat": -1.1713, "lng": 36.8356},
@@ -118,7 +120,7 @@ def _fetch_json(url: str, headers: dict[str, str] | None = None, timeout: int = 
 
 
 @lru_cache(maxsize=1024)
-def geocode_location(location: str) -> dict[str, Any] | None:
+def lookup_location_details(location: str) -> dict[str, Any] | None:
     clean = _clean_text(location)
     if not clean:
         return None
@@ -132,6 +134,7 @@ def geocode_location(location: str) -> dict[str, Any] | None:
             "label": clean,
             "source": "coordinates",
             "fallback_used": False,
+            "address": {},
         }
 
     params = urlencode(
@@ -153,7 +156,11 @@ def geocode_location(location: str) -> dict[str, Any] | None:
             },
         )
     except RoutePlannerError:
-        return _fallback_point(clean)
+        fallback = _fallback_point(clean)
+        if fallback is None:
+            return None
+        fallback["address"] = {}
+        return fallback
 
     if isinstance(data, list) and data:
         first = data[0]
@@ -161,16 +168,30 @@ def geocode_location(location: str) -> dict[str, Any] | None:
             lat = float(first["lat"])
             lng = float(first["lon"])
         except (KeyError, TypeError, ValueError):
-            return _fallback_point(clean)
+            fallback = _fallback_point(clean)
+            if fallback is None:
+                return None
+            fallback["address"] = {}
+            return fallback
         return {
             "lat": lat,
             "lng": lng,
             "label": first.get("display_name") or clean,
             "source": "geocoded",
             "fallback_used": False,
+            "address": first.get("address") if isinstance(first.get("address"), dict) else {},
         }
 
-    return _fallback_point(clean)
+    fallback = _fallback_point(clean)
+    if fallback is None:
+        return None
+    fallback["address"] = {}
+    return fallback
+
+
+@lru_cache(maxsize=1024)
+def geocode_location(location: str) -> dict[str, Any] | None:
+    return lookup_location_details(location)
 
 
 def resolve_point(
@@ -229,6 +250,10 @@ def _haversine_km(a: dict[str, Any], b: dict[str, Any]) -> float:
     d_lon = lon2 - lon1
     x = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lon / 2) ** 2
     return radius_km * 2 * math.atan2(math.sqrt(x), math.sqrt(1 - x))
+
+
+def calculate_distance_km(a: dict[str, Any], b: dict[str, Any]) -> float:
+    return _haversine_km(a, b)
 
 
 def _build_coords(points: list[dict[str, Any]]) -> str:

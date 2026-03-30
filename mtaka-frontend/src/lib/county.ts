@@ -117,6 +117,11 @@ const COUNTY_ALIASES: Record<string, string> = {
   'embu': 'Embu',
   'nyeri': 'Nyeri',
   'kisii': 'Kisii',
+  'bondo': 'Siaya',
+  'bondo town': 'Siaya',
+  'siaya town': 'Siaya',
+  'nyansiongo': 'Nyamira',
+  'borabu': 'Nyamira',
 };
 
 const COUNTY_LOOKUP = new Map<string, string>(

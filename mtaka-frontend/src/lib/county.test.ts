@@ -11,6 +11,9 @@ describe('county resolver', () => {
     expect(getCountyFromLocation('Nairobi City County')).toBe('Nairobi');
     expect(getCountyFromLocation('Voi, Taita Taveta')).toBe('Taita-Taveta');
     expect(getCountyFromLocation('Muranga Town')).toBe("Murang'a");
+    expect(getCountyFromLocation('Bondo')).toBe('Siaya');
+    expect(getCountyFromLocation('Nyansiongo')).toBe('Nyamira');
+    expect(getCountyFromLocation('Borabu')).toBe('Nyamira');
     expect(getCountyFromLocation('Mombasa Road')).toBe('');
     expect(KENYA_COUNTIES).toHaveLength(47);
   });
@@ -20,6 +23,8 @@ describe('county resolver', () => {
     expect(locationMatchesCounty('Karen, Westlands, Nairobi', 'Nairobi')).toBe(true);
     expect(locationMatchesCounty('Karen, Westlands, Nairobi', 'Kisumu')).toBe(false);
     expect(locationMatchesCounty('Voi, Taita Taveta', 'Taita-Taveta')).toBe(true);
+    expect(locationMatchesCounty('Bondo', 'Siaya')).toBe(true);
+    expect(locationMatchesCounty('Nyansiongo', 'Nyamira')).toBe(true);
     expect(locationMatchesCounty('Mombasa Road', 'Mombasa')).toBe(false);
   });
 });

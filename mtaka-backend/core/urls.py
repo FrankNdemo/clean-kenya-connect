@@ -29,6 +29,7 @@ urlpatterns = [
     path('mpesa/callback/', views.mpesa_stk_callback, name='mpesa_stk_callback'),
     path('profile/', views.get_user_profile, name='profile'),
     path('location/resolve/', views.resolve_location_county, name='location_resolve'),
+    path('collectors/matches/', views.list_collector_matches, name='collector_matches'),
     path('token/refresh/', views.refresh_token_cookie, name='token_refresh'),
     path('logout/', views.logout_user, name='logout'),
     path('csrf/', views.get_csrf_token, name='get_csrf'),

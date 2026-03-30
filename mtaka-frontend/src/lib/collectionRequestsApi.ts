@@ -1,5 +1,6 @@
 import {
   createCollectorTransactionApi,
+  listCollectorMatchesApi,
   createCollectionUpdateApi,
   createCollectionRequest,
   getMpesaPaymentApi,
@@ -16,8 +17,10 @@ import {
   waitForMpesaPaymentSettlementApi,
   type BackendCollectionUpdate,
   type BackendCollectorTransaction,
+  type BackendCollectorMatchesResponse,
   type BackendCollectorRouteStop,
   type BackendCollectorRouteSummary,
+  type BackendCollectorMatch,
   type BackendCollectionRequest,
   type BackendMpesaPayment,
 } from "@/api";
@@ -212,6 +215,31 @@ export interface CollectorRouteSummary {
   route: CollectorRouteStop[];
 }
 
+export interface CollectorMatch {
+  id: string;
+  collectorId: string;
+  name: string;
+  phone: string;
+  location: string;
+  county: string;
+  servesRequestedCounty: boolean;
+  matchedArea?: string;
+  distanceKm?: number | null;
+  pointSource?: string;
+}
+
+export interface CollectorMatchesResponse {
+  location: string;
+  resolvedCounty: string;
+  pickupPoint?: {
+    lat: number;
+    lng: number;
+    label: string;
+    source: string;
+  } | null;
+  matches: CollectorMatch[];
+}
+
 const toNumber = (value: number | string) => Number(value);
 
 const toFrontendRouteStop = (item: BackendCollectorRouteStop): CollectorRouteStop => {
@@ -270,6 +298,35 @@ const toFrontendRouteSummary = (item: BackendCollectorRouteSummary): CollectorRo
   generatedAt: item.generated_at,
   notes: item.notes || [],
   route: (item.route || []).map(toFrontendRouteStop),
+});
+
+const toFrontendCollectorMatch = (item: BackendCollectorMatch): CollectorMatch => ({
+  id: String(item.id),
+  collectorId: String(item.collector_id),
+  name: item.name,
+  phone: item.phone || "",
+  location: item.location || "",
+  county: item.county || getCountyFromLocation(item.location || ""),
+  servesRequestedCounty: Boolean(item.serves_requested_county),
+  matchedArea: item.matched_area || undefined,
+  distanceKm: item.distance_km ?? null,
+  pointSource: item.point_source || undefined,
+});
+
+const toFrontendCollectorMatches = (
+  item: BackendCollectorMatchesResponse
+): CollectorMatchesResponse => ({
+  location: item.location || "",
+  resolvedCounty: item.resolved_county || "",
+  pickupPoint: item.pickup_point
+    ? {
+        lat: toNumber(item.pickup_point.lat),
+        lng: toNumber(item.pickup_point.lng),
+        label: item.pickup_point.label || "",
+        source: item.pickup_point.source || "",
+      }
+    : null,
+  matches: (item.matches || []).map(toFrontendCollectorMatch),
 });
 
 const ensureWasteTypeCache = async () => {
@@ -438,6 +495,24 @@ export const fetchCollectorsFromDb = async (): Promise<User[]> => {
         createdAt: "",
       } as User;
     });
+};
+
+export const fetchCollectorMatchesDb = async (
+  payload: {
+    location: string;
+    coordinates?: { lat: number; lng: number };
+  },
+  force = false
+): Promise<CollectorMatchesResponse> => {
+  const response = await listCollectorMatchesApi(
+    {
+      location: payload.location,
+      location_lat: toBackendCoordinate(payload.coordinates?.lat),
+      location_long: toBackendCoordinate(payload.coordinates?.lng),
+    },
+    { force }
+  );
+  return toFrontendCollectorMatches(response);
 };
 
 export const fetchCollectionUpdatesDb = async (

@@ -26,9 +26,9 @@ import hashlib
 import logging
 import json
 from .models import *
-from .county import location_matches_county, resolve_county_from_location
+from .county import location_matches_county, resolve_county_from_location, split_location_parts
 from .serializers import *
-from .route_planner import build_collector_route_summary
+from .route_planner import build_collector_route_summary, calculate_distance_km, resolve_point
 from .auth_email import (
     build_password_reset_link,
     dispatch_email,
@@ -70,6 +70,16 @@ def _parse_decimal_field(value, *, field_name, default=None, min_value=None):
         raise ValidationError({field_name: f'Value must be at least {min_value}.'})
 
     return parsed
+
+
+def _parse_optional_float(value, *, field_name):
+    if value in (None, '', 'null'):
+        return None
+
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        raise ValidationError({field_name: 'Enter a valid number.'})
 
 
 def _extract_mpesa_callback(payload):
@@ -936,6 +946,141 @@ def resolve_location_county(request):
     )
 
 
+def _resolve_collector_service_area_matches(service_areas):
+    raw_service_areas = str(service_areas or '').strip()
+    if not raw_service_areas:
+        return []
+
+    collector_county = resolve_county_from_location(raw_service_areas)
+    candidates = split_location_parts(raw_service_areas) or [raw_service_areas]
+    matches = []
+    seen_labels = set()
+
+    for candidate in candidates:
+        area_label = str(candidate or '').strip()
+        if not area_label:
+            continue
+        normalized_label = area_label.lower()
+        if normalized_label in seen_labels:
+            continue
+        seen_labels.add(normalized_label)
+
+        fallback_label = resolve_county_from_location(area_label) or collector_county or area_label
+        point = resolve_point(label=area_label, fallback_label=fallback_label)
+        if point is None:
+            continue
+
+        matches.append(
+            {
+                'area_label': area_label,
+                'point': point,
+            }
+        )
+
+    if matches:
+        return matches
+
+    if collector_county:
+        point = resolve_point(label=collector_county, fallback_label=collector_county)
+        if point is not None:
+            return [{'area_label': collector_county, 'point': point}]
+
+    return []
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_collector_matches(request):
+    location = str(request.query_params.get('location') or '').strip()
+    location_lat = _parse_optional_float(request.query_params.get('location_lat'), field_name='location_lat')
+    location_long = _parse_optional_float(request.query_params.get('location_long'), field_name='location_long')
+
+    if not location and (location_lat is None or location_long is None):
+        raise ValidationError(
+            {'location': 'Provide a location or live coordinates so we can find the nearest collectors.'}
+        )
+
+    resolved_county = resolve_county_from_location(location)
+    pickup_point = resolve_point(
+        label=location,
+        lat=location_lat,
+        lng=location_long,
+        fallback_label=resolved_county or location or 'Nairobi, Kenya',
+    )
+
+    collectors = Collector.objects.select_related('user').filter(user__is_active=True)
+    matches = []
+
+    for collector in collectors:
+        collector_user = collector.user
+        collector_name = (
+            str(collector.company_name or '').strip()
+            or collector_user.get_full_name().strip()
+            or collector_user.username
+            or collector_user.email
+        )
+        collector_location = str(collector.service_areas or '').strip()
+        collector_county = resolve_county_from_location(collector_location)
+        service_area_matches = _resolve_collector_service_area_matches(collector_location)
+        serves_requested_county = bool(
+            resolved_county and location_matches_county(collector_location, resolved_county)
+        )
+
+        best_match = None
+        distance_km = None
+        if pickup_point is not None and service_area_matches:
+            best_match = min(
+                service_area_matches,
+                key=lambda item: calculate_distance_km(pickup_point, item['point']),
+            )
+            distance_km = round(calculate_distance_km(pickup_point, best_match['point']), 2)
+        elif service_area_matches:
+            best_match = service_area_matches[0]
+
+        matches.append(
+            {
+                'id': collector_user.id,
+                'collector_id': collector.id,
+                'name': collector_name,
+                'phone': collector_user.phone or '',
+                'location': collector_location,
+                'county': collector_county,
+                'serves_requested_county': serves_requested_county,
+                'matched_area': best_match['area_label'] if best_match else '',
+                'distance_km': distance_km,
+                'point_source': best_match['point'].get('source', '') if best_match else '',
+            }
+        )
+
+    matches.sort(
+        key=lambda item: (
+            item['distance_km'] is None,
+            item['distance_km'] if item['distance_km'] is not None else float('inf'),
+            not item['serves_requested_county'],
+            item['name'].lower(),
+        )
+    )
+
+    return Response(
+        {
+            'location': location,
+            'resolved_county': resolved_county,
+            'pickup_point': (
+                {
+                    'lat': round(float(pickup_point['lat']), 8),
+                    'lng': round(float(pickup_point['lng']), 8),
+                    'label': pickup_point.get('label', ''),
+                    'source': pickup_point.get('source', ''),
+                }
+                if pickup_point is not None
+                else None
+            ),
+            'matches': matches,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_csrf_token(request):
@@ -1006,18 +1151,6 @@ class CollectionRequestViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         household = Household.objects.get(user=self.request.user)
         collector = self._resolve_collector_from_request()
-        resident_location = str(
-            serializer.validated_data.get('address')
-            or household.address
-            or ''
-        ).strip()
-        resident_county = resolve_county_from_location(resident_location)
-        if collector and resident_county and not location_matches_county(collector.service_areas or '', resident_county):
-            collector_county = resolve_county_from_location(collector.service_areas or '')
-            available_label = collector_county or 'another'
-            raise ValidationError({
-                'collector': f'Select a collector that serves {resident_county} County. The selected collector serves {available_label} County.',
-            })
         collection = serializer.save(household=household, collector=collector)
 
         # Keep household profile coordinates in sync with the latest scheduled pickup.

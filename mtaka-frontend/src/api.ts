@@ -652,6 +652,31 @@ export interface BackendUser {
   county?: string;
 }
 
+export interface BackendCollectorMatch {
+  id: number;
+  collector_id: number;
+  name: string;
+  phone: string;
+  location: string;
+  county: string;
+  serves_requested_county: boolean;
+  matched_area?: string;
+  distance_km?: number | null;
+  point_source?: string;
+}
+
+export interface BackendCollectorMatchesResponse {
+  location: string;
+  resolved_county: string;
+  pickup_point?: {
+    lat: number | string;
+    lng: number | string;
+    label: string;
+    source: string;
+  } | null;
+  matches: BackendCollectorMatch[];
+}
+
 export interface BackendSuspendedUser {
   id: number;
   user: number;
@@ -792,6 +817,21 @@ export const resolveLocationCounty = async (location: string) => {
     county: string;
     resolved: boolean;
   };
+};
+
+export const listCollectorMatchesApi = async (
+  params: {
+    location: string;
+    location_lat?: number;
+    location_long?: number;
+  },
+  options?: { force?: boolean }
+): Promise<BackendCollectorMatchesResponse> => {
+  return cachedGet("collectors/matches/", {
+    params,
+    force: options?.force,
+    ttlMs: 15_000,
+  });
 };
 
 export const listSuspendedUsersApi = async (): Promise<BackendSuspendedUser[]> => {

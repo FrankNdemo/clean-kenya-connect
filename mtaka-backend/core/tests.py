@@ -975,6 +975,19 @@ class EventImageUploadTests(TestCase):
 
 
 class CountyResolutionTests(TestCase):
+    class MockGeocodeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def read(self):
+            return json.dumps(self.payload).encode('utf-8')
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
     def test_common_locations_map_to_the_expected_county(self):
         self.assertEqual(resolve_county_from_location('Kisiani'), 'Kisumu')
         self.assertEqual(resolve_county_from_location('Maseno, Kisumu County'), 'Kisumu')
@@ -983,11 +996,17 @@ class CountyResolutionTests(TestCase):
         self.assertEqual(resolve_county_from_location('Nairobi City County'), 'Nairobi')
         self.assertEqual(resolve_county_from_location('Voi, Taita Taveta'), 'Taita-Taveta')
         self.assertEqual(resolve_county_from_location('Muranga Town'), "Murang'a")
+        self.assertEqual(resolve_county_from_location('Bondo'), 'Siaya')
+        self.assertEqual(resolve_county_from_location('Nyansiongo'), 'Nyamira')
+        self.assertEqual(resolve_county_from_location('Borabu'), 'Nyamira')
         self.assertTrue(location_matches_county('Kisiani', 'Kisumu'))
         self.assertTrue(location_matches_county('Maseno, Kisumu County', 'Kisumu'))
         self.assertFalse(location_matches_county('Kisiani', 'Nairobi'))
         self.assertTrue(location_matches_county('Voi, Taita Taveta', 'Taita-Taveta'))
         self.assertTrue(location_matches_county('Muranga Town', "Murang'a"))
+        self.assertTrue(location_matches_county('Bondo', 'Siaya'))
+        self.assertTrue(location_matches_county('Nyansiongo', 'Nyamira'))
+        self.assertTrue(location_matches_county('Borabu', 'Nyamira'))
 
     def test_location_resolution_endpoint_returns_the_expected_county(self):
         client = APIClient()
@@ -995,6 +1014,28 @@ class CountyResolutionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['county'], 'Kisumu')
+
+    def test_geocoder_fallback_resolves_unknown_location_to_county(self):
+        from .route_planner import lookup_location_details
+
+        lookup_location_details.cache_clear()
+        payload = [
+            {
+                'lat': '-0.3901',
+                'lon': '34.1932',
+                'display_name': 'Sindo, Suba South, Homa Bay County, Kenya',
+                'address': {
+                    'town': 'Sindo',
+                    'county': 'Homa Bay County',
+                    'country': 'Kenya',
+                },
+            }
+        ]
+
+        with patch('core.route_planner.urlopen', return_value=self.MockGeocodeResponse(payload)):
+            self.assertEqual(resolve_county_from_location('Sindo'), 'Homa Bay')
+
+        lookup_location_details.cache_clear()
 
 
 @override_settings(
@@ -1161,7 +1202,7 @@ class CollectionRequestCountyMatchingTests(TestCase):
         self.assertEqual(payload['collector_name'], 'Kisumu Green Collectors')
         self.assertEqual(payload['address'], 'Kisiani')
 
-    def test_schedule_rejects_collector_from_a_different_county(self):
+    def test_schedule_accepts_collector_from_a_different_county_when_selected(self):
         response = self.client.post(
             '/api/auth/collections/',
             data={
@@ -1176,8 +1217,97 @@ class CollectionRequestCountyMatchingTests(TestCase):
             format='json',
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('collector', response.json())
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['collector_name'], 'Nairobi Clean Team')
+
+    def test_collector_matches_endpoint_returns_nearest_collectors_across_counties(self):
+        siaya_collector_user = self.user_model.objects.create_user(
+            username='collector-siaya',
+            email='collector-siaya@example.com',
+            password='StrongPass!1',
+            user_type='collector',
+            phone='+254700000303',
+        )
+        Collector.objects.create(
+            user=siaya_collector_user,
+            company_name='Siaya Eco Collectors',
+            service_areas='Bondo',
+        )
+
+        def fake_resolve_point(*, label=None, lat=None, lng=None, fallback_label='Nairobi, Kenya'):
+            if lat is not None and lng is not None:
+                return {
+                    'lat': float(lat),
+                    'lng': float(lng),
+                    'label': label or 'Live location',
+                    'source': 'live_location',
+                }
+
+            normalized = str(label or fallback_label or '').strip().lower()
+            mapping = {
+                'bondo': {'lat': 0.0611, 'lng': 34.2881, 'label': 'Bondo', 'source': 'fallback'},
+                'kisumu': {'lat': -0.0917, 'lng': 34.7680, 'label': 'Kisumu', 'source': 'fallback'},
+                'karen': {'lat': -1.3200, 'lng': 36.7100, 'label': 'Karen', 'source': 'fallback'},
+            }
+            for key, point in mapping.items():
+                if key in normalized:
+                    return point
+            return None
+
+        with patch('core.views.resolve_point', side_effect=fake_resolve_point):
+            response = self.client.get(
+                '/api/auth/collectors/matches/',
+                {
+                    'location': 'Bondo',
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['resolved_county'], 'Siaya')
+        self.assertEqual(payload['matches'][0]['name'], 'Siaya Eco Collectors')
+        self.assertTrue(payload['matches'][0]['serves_requested_county'])
+        self.assertIsNotNone(payload['matches'][0]['distance_km'])
+        self.assertGreater(payload['matches'][1]['distance_km'], payload['matches'][0]['distance_km'])
+
+    def test_collector_matches_endpoint_returns_kisumu_collector_for_kisumu_pickup(self):
+        def fake_resolve_point(*, label=None, lat=None, lng=None, fallback_label='Nairobi, Kenya'):
+            if lat is not None and lng is not None:
+                return {
+                    'lat': float(lat),
+                    'lng': float(lng),
+                    'label': label or 'Live location',
+                    'source': 'live_location',
+                }
+
+            normalized = str(label or fallback_label or '').strip().lower()
+            mapping = {
+                'kisumu': {'lat': -0.0917, 'lng': 34.7680, 'label': 'Kisumu', 'source': 'fallback'},
+                'maseno': {'lat': -0.0100, 'lng': 34.6000, 'label': 'Maseno', 'source': 'fallback'},
+                'chulaimbo': {'lat': -0.0600, 'lng': 34.6400, 'label': 'Chulaimbo', 'source': 'fallback'},
+                'karen': {'lat': -1.3200, 'lng': 36.7100, 'label': 'Karen', 'source': 'fallback'},
+                'westlands': {'lat': -1.2635, 'lng': 36.8020, 'label': 'Westlands', 'source': 'fallback'},
+                'nairobi': {'lat': -1.2864, 'lng': 36.8172, 'label': 'Nairobi', 'source': 'fallback'},
+            }
+            for key, point in mapping.items():
+                if key in normalized:
+                    return point
+            return None
+
+        with patch('core.views.resolve_point', side_effect=fake_resolve_point):
+            response = self.client.get(
+                '/api/auth/collectors/matches/',
+                {
+                    'location': 'Kisumu County',
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['resolved_county'], 'Kisumu')
+        self.assertGreaterEqual(len(payload['matches']), 2)
+        self.assertEqual(payload['matches'][0]['name'], 'Kisumu Green Collectors')
+        self.assertTrue(payload['matches'][0]['serves_requested_county'])
 
 
 @override_settings(

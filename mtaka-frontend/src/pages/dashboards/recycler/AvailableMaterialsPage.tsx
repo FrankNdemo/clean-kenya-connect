@@ -38,7 +38,8 @@ import {
   DollarSign,
   Send,
   RefreshCcw,
-  XCircle
+  XCircle,
+  Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -124,6 +125,10 @@ export default function AvailableMaterialsPage() {
   const [isCompletingPickup, setIsCompletingPickup] = useState(false);
   const [liveStartCoords, setLiveStartCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [completedSearchTerm, setCompletedSearchTerm] = useState('');
+  const [completedDateFrom, setCompletedDateFrom] = useState('');
+  const [completedDateTo, setCompletedDateTo] = useState('');
+  const [showCompletedSearch, setShowCompletedSearch] = useState(false);
 
   const refreshData = useCallback(async () => {
     if (!user) return;
@@ -208,6 +213,21 @@ export default function AvailableMaterialsPage() {
   
   // Get my rejected offers
   const rejectedOffers = myOffers.filter(o => o.status === 'rejected');
+  const today = new Date().toISOString().split('T')[0];
+  const getCompletedPickupDate = (listing: RecyclableListing) => (listing.updatedAt || listing.createdAt || '').split('T')[0];
+  const completedToday = completedPickups.filter((listing) => getCompletedPickupDate(listing) === today);
+  const filteredCompletedPickups = showCompletedSearch
+    ? completedPickups.filter((listing) => {
+        const completedDate = getCompletedPickupDate(listing);
+        const searchTarget = `${listing.residentName} ${listing.materialType} ${listing.residentLocation}`.toLowerCase();
+        const searchMatch = completedSearchTerm
+          ? searchTarget.includes(completedSearchTerm.toLowerCase())
+          : true;
+        const fromMatch = completedDateFrom ? completedDate >= completedDateFrom : true;
+        const toMatch = completedDateTo ? completedDate <= completedDateTo : true;
+        return searchMatch && fromMatch && toMatch;
+      })
+    : completedToday;
 
   // Calculate total price from price per kg
   const calculateTotalPrice = (pricePerKg: number, weight: number) => {
@@ -780,36 +800,96 @@ export default function AvailableMaterialsPage() {
         {completedPickups.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-success" />
-                Completed ({completedPickups.length})
-              </CardTitle>
+              <div className="space-y-3">
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                  {showCompletedSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'} ({filteredCompletedPickups.length})
+                </CardTitle>
+                <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="inline-flex w-max items-center gap-2">
+                    <Button
+                      className="shrink-0 whitespace-nowrap"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCompletedSearch(!showCompletedSearch)}
+                    >
+                      <Search className="w-4 h-4 mr-1" />
+                      {showCompletedSearch ? 'Hide Search' : 'Search by Date'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              {showCompletedSearch && (
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">Resident / Material</Label>
+                    <Input
+                      placeholder="Search resident or material..."
+                      value={completedSearchTerm}
+                      onChange={(e) => setCompletedSearchTerm(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">From</Label>
+                    <Input type="date" value={completedDateFrom} onChange={(e) => setCompletedDateFrom(e.target.value)} className="w-full" />
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">To</Label>
+                    <Input type="date" value={completedDateTo} onChange={(e) => setCompletedDateTo(e.target.value)} className="w-full" />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full self-end sm:w-auto"
+                    onClick={() => {
+                      setCompletedSearchTerm('');
+                      setCompletedDateFrom('');
+                      setCompletedDateTo('');
+                      setShowCompletedSearch(false);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {completedPickups.slice(0, 5).map((listing) => {
-                  const materialInfo = getMaterialInfo(listing.materialType);
-                  return (
-                    <div
-                      key={listing.id}
-                      className="flex flex-col gap-3 rounded-lg bg-secondary/50 p-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{materialInfo.label.split(' ')[0]}</span>
-                        <div>
-                          <p className="font-medium">{listing.residentName}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {listing.actualWeight || listing.estimatedWeight} kg
+              {filteredCompletedPickups.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground">
+                  {showCompletedSearch ? 'No completed pickups found with the selected filters' : 'No pickups completed today'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {filteredCompletedPickups.map((listing) => {
+                    const materialInfo = getMaterialInfo(listing.materialType);
+                    return (
+                      <div
+                        key={listing.id}
+                        className="flex flex-col gap-3 rounded-lg bg-secondary/50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{materialInfo.label.split(' ')[0]}</span>
+                          <div>
+                            <p className="font-medium">{listing.residentName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {listing.actualWeight || listing.estimatedWeight} kg
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-medium text-success">
+                            KES {listing.offeredPrice}
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(listing.updatedAt || listing.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      <span className="font-medium text-success">
-                        KES {listing.offeredPrice}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

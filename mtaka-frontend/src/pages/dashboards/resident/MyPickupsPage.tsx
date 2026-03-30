@@ -32,7 +32,8 @@ import {
   MessageSquare,
   AlertTriangle,
   Send,
-  Phone
+  Phone,
+  Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -64,6 +65,10 @@ export default function MyPickupsPage() {
     notes: '',
   });
   const [replyMessage, setReplyMessage] = useState('');
+  const [completedSearchTerm, setCompletedSearchTerm] = useState('');
+  const [completedDateFrom, setCompletedDateFrom] = useState('');
+  const [completedDateTo, setCompletedDateTo] = useState('');
+  const [showCompletedSearch, setShowCompletedSearch] = useState(false);
 
   const groupUpdatesByRequest = (updates: CollectorUpdate[]) =>
     updates.reduce<Record<string, CollectorUpdate[]>>((grouped, update) => {
@@ -113,6 +118,21 @@ export default function MyPickupsPage() {
   const cancelledRequests = requests.filter(r => 
     r.status === 'cancelled' || r.status === 'declined'
   );
+  const today = new Date().toISOString().split('T')[0];
+  const getCompletedRequestDate = (request: WasteRequest) => (request.updatedAt || request.createdAt || '').split('T')[0];
+  const completedToday = completedRequests.filter((request) => getCompletedRequestDate(request) === today);
+  const filteredCompletedRequests = showCompletedSearch
+    ? completedRequests.filter((request) => {
+        const completedDate = getCompletedRequestDate(request);
+        const searchTarget = `${request.wasteType} ${request.location} ${request.collectorName || ''}`.toLowerCase();
+        const searchMatch = completedSearchTerm
+          ? searchTarget.includes(completedSearchTerm.toLowerCase())
+          : true;
+        const fromMatch = completedDateFrom ? completedDate >= completedDateFrom : true;
+        const toMatch = completedDateTo ? completedDate <= completedDateTo : true;
+        return searchMatch && fromMatch && toMatch;
+      })
+    : completedToday;
 
   const handleEdit = (request: WasteRequest) => {
     setEditForm({
@@ -419,17 +439,72 @@ export default function MyPickupsPage() {
         {completedRequests.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-success" />
-                Completed ({completedRequests.length})
-              </CardTitle>
+              <div className="space-y-3">
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                  {showCompletedSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'} ({filteredCompletedRequests.length})
+                </CardTitle>
+                <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="inline-flex w-max items-center gap-2">
+                    <Button
+                      className="shrink-0 whitespace-nowrap"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCompletedSearch(!showCompletedSearch)}
+                    >
+                      <Search className="w-4 h-4 mr-1" />
+                      {showCompletedSearch ? 'Hide Search' : 'Search by Date'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              {showCompletedSearch && (
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">Search</Label>
+                    <Input
+                      placeholder="Waste type, collector, or location..."
+                      value={completedSearchTerm}
+                      onChange={(e) => setCompletedSearchTerm(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">From</Label>
+                    <Input type="date" value={completedDateFrom} onChange={(e) => setCompletedDateFrom(e.target.value)} className="w-full" />
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">To</Label>
+                    <Input type="date" value={completedDateTo} onChange={(e) => setCompletedDateTo(e.target.value)} className="w-full" />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full self-end sm:w-auto"
+                    onClick={() => {
+                      setCompletedSearchTerm('');
+                      setCompletedDateFrom('');
+                      setCompletedDateTo('');
+                      setShowCompletedSearch(false);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {completedRequests.slice(0, 5).map((request) => (
-                  <RequestCard key={request.id} request={request} showActions={true} />
-                ))}
-              </div>
+              {filteredCompletedRequests.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground">
+                  {showCompletedSearch ? 'No completed pickups found with the selected filters' : 'No pickups completed today'}
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {filteredCompletedRequests.map((request) => (
+                    <RequestCard key={request.id} request={request} showActions={true} />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

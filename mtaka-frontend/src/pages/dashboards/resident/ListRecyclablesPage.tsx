@@ -22,7 +22,7 @@ import {
   rejectPriceOfferDb,
   updateRecyclableListingDb,
 } from '@/lib/recyclablesDb';
-import { Recycle, Plus, Package, Clock, CheckCircle, Calendar, Trash2, Edit, Eye, DollarSign, MessageSquare, LocateFixed } from 'lucide-react';
+import { Recycle, Plus, Package, Clock, CheckCircle, Calendar, Trash2, Edit, Eye, DollarSign, MessageSquare, LocateFixed, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -63,6 +63,10 @@ export default function ListRecyclablesPage() {
   const [offersByListing, setOffersByListing] = useState<Record<string, PriceOffer[]>>({});
   const [residentCoords, setResidentCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [completedSearchTerm, setCompletedSearchTerm] = useState('');
+  const [completedDateFrom, setCompletedDateFrom] = useState('');
+  const [completedDateTo, setCompletedDateTo] = useState('');
+  const [showCompletedSearch, setShowCompletedSearch] = useState(false);
 
   const refreshListings = useCallback(async () => {
     if (!user) return;
@@ -284,6 +288,21 @@ export default function ListRecyclablesPage() {
   );
   const completedListings = listings.filter(l => l.status === 'completed');
   const cancelledListings = listings.filter(l => l.status === 'cancelled');
+  const today = new Date().toISOString().split('T')[0];
+  const getCompletedListingDate = (listing: RecyclableListing) => (listing.updatedAt || listing.createdAt || '').split('T')[0];
+  const completedToday = completedListings.filter((listing) => getCompletedListingDate(listing) === today);
+  const filteredCompletedListings = showCompletedSearch
+    ? completedListings.filter((listing) => {
+        const completedDate = getCompletedListingDate(listing);
+        const searchTarget = `${listing.materialType} ${listing.description} ${listing.residentLocation}`.toLowerCase();
+        const searchMatch = completedSearchTerm
+          ? searchTarget.includes(completedSearchTerm.toLowerCase())
+          : true;
+        const fromMatch = completedDateFrom ? completedDate >= completedDateFrom : true;
+        const toMatch = completedDateTo ? completedDate <= completedDateTo : true;
+        return searchMatch && fromMatch && toMatch;
+      })
+    : completedToday;
 
   return (
     <DashboardLayout>
@@ -545,41 +564,96 @@ export default function ListRecyclablesPage() {
         {completedListings.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-success" />
-                Completed ({completedListings.length})
-              </CardTitle>
+              <div className="space-y-3">
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                  {showCompletedSearch ? 'Completed Listings (Filtered)' : 'Completed Today'} ({filteredCompletedListings.length})
+                </CardTitle>
+                <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="inline-flex w-max items-center gap-2">
+                    <Button
+                      className="shrink-0 whitespace-nowrap"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCompletedSearch(!showCompletedSearch)}
+                    >
+                      <Search className="w-4 h-4 mr-1" />
+                      {showCompletedSearch ? 'Hide Search' : 'Search by Date'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              {showCompletedSearch && (
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">Material / Description</Label>
+                    <Input
+                      placeholder="Search material or notes..."
+                      value={completedSearchTerm}
+                      onChange={(e) => setCompletedSearchTerm(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">From</Label>
+                    <Input type="date" value={completedDateFrom} onChange={(e) => setCompletedDateFrom(e.target.value)} className="w-full" />
+                  </div>
+                  <div className="space-y-1 min-w-0">
+                    <Label className="text-xs">To</Label>
+                    <Input type="date" value={completedDateTo} onChange={(e) => setCompletedDateTo(e.target.value)} className="w-full" />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full self-end sm:w-auto"
+                    onClick={() => {
+                      setCompletedSearchTerm('');
+                      setCompletedDateFrom('');
+                      setCompletedDateTo('');
+                      setShowCompletedSearch(false);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {completedListings.slice(0, 5).map((listing) => (
-                  <div
-                    key={listing.id}
-                    className="flex cursor-pointer flex-col gap-2 rounded-lg bg-secondary/50 p-3 hover:bg-secondary/70 sm:flex-row sm:items-center sm:justify-between"
-                    onClick={() => setViewDialog({ open: true, listing })}
-                  >
-                    <div>
-                      <span className="font-medium">{getMaterialLabel(listing.materialType)}</span>
-                      <span className="text-sm text-muted-foreground ml-2">
-                        {listing.actualWeight || listing.estimatedWeight} kg
-                      </span>
-                      {listing.actualWeight && listing.actualWeight !== listing.estimatedWeight && (
-                        <span className="text-xs text-info ml-2">
-                          (Est: {listing.estimatedWeight} kg)
+              {filteredCompletedListings.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground">
+                  {showCompletedSearch ? 'No completed listings found with the selected filters' : 'No listings completed today'}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {filteredCompletedListings.map((listing) => (
+                    <div
+                      key={listing.id}
+                      className="flex cursor-pointer flex-col gap-2 rounded-lg bg-secondary/50 p-3 hover:bg-secondary/70 sm:flex-row sm:items-center sm:justify-between"
+                      onClick={() => setViewDialog({ open: true, listing })}
+                    >
+                      <div>
+                        <span className="font-medium">{getMaterialLabel(listing.materialType)}</span>
+                        <span className="text-sm text-muted-foreground ml-2">
+                          {listing.actualWeight || listing.estimatedWeight} kg
                         </span>
-                      )}
+                        {listing.actualWeight && listing.actualWeight !== listing.estimatedWeight && (
+                          <span className="text-xs text-info ml-2">
+                            (Est: {listing.estimatedWeight} kg)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-success">
+                          KES {listing.offeredPrice}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(listing.updatedAt || listing.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-sm font-medium text-success">
-                        KES {listing.offeredPrice}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(listing.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

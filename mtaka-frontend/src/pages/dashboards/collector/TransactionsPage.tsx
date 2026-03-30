@@ -20,7 +20,7 @@ import {
   waitForCollectorMpesaPaymentDb,
   type CollectorTransaction,
 } from '@/lib/collectionRequestsApi';
-import { Download, FileText, Plus } from 'lucide-react';
+import { Download, FileText, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CollectorTransactionsPage() {
@@ -43,6 +43,10 @@ export default function CollectorTransactionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [searchResident, setSearchResident] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -60,6 +64,10 @@ export default function CollectorTransactionsPage() {
       setNewTransactionOpen(true);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [searchResident, dateFrom, dateTo, showSearch]);
 
   const refreshData = async (force = false) => {
     try {
@@ -90,10 +98,24 @@ export default function CollectorTransactionsPage() {
   const transactedRequestIds = new Set(transactions.map((item) => item.collectionRequestId));
   const eligibleRequests = requests.filter((item) => item.status === 'accepted' && !transactedRequestIds.has(item.id));
 
-  const filteredTransactions = useMemo(
-    () => [...transactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [transactions]
-  );
+  const filteredTransactions = useMemo(() => {
+    let result = [...transactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (showSearch) {
+      if (searchResident) {
+        const normalized = searchResident.toLowerCase();
+        result = result.filter((item) =>
+          `${item.residentName} ${item.location}`.toLowerCase().includes(normalized)
+        );
+      }
+      if (dateFrom) {
+        result = result.filter((item) => item.createdAt.split('T')[0] >= dateFrom);
+      }
+      if (dateTo) {
+        result = result.filter((item) => item.createdAt.split('T')[0] <= dateTo);
+      }
+    }
+    return result;
+  }, [transactions, searchResident, dateFrom, dateTo, showSearch]);
   const visibleTransactions = useMemo(
     () => filteredTransactions.slice(0, visibleCount),
     [filteredTransactions, visibleCount]
@@ -275,17 +297,43 @@ export default function CollectorTransactionsPage() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Recent Transactions
-              </CardTitle>
-              {filteredTransactions.length > 0 && (
-                <Button variant="outline" size="sm" onClick={handleExport}>
-                  <Download className="w-4 h-4 mr-1" />Export
-                </Button>
-              )}
+            <div className="space-y-3">
+              <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="inline-flex w-max items-center gap-2">
+                  <CardTitle className="mr-2 flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Recent Transactions
+                  </CardTitle>
+                  <Button className="shrink-0 whitespace-nowrap" variant="outline" size="sm" onClick={() => setShowSearch(!showSearch)}>
+                    <Search className="w-4 h-4 mr-1" />{showSearch ? 'Hide' : 'Search'}
+                  </Button>
+                  {filteredTransactions.length > 0 && (
+                    <Button className="shrink-0 whitespace-nowrap" variant="outline" size="sm" onClick={handleExport}>
+                      <Download className="w-4 h-4 mr-1" />Export
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
+            {showSearch && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs">Resident / Location</Label>
+                  <Input placeholder="Search resident or location..." value={searchResident} onChange={(e) => setSearchResident(e.target.value)} className="w-full" />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs">From</Label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs">To</Label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
+                </div>
+                <Button variant="ghost" size="sm" className="w-full self-end sm:w-auto" onClick={() => { setSearchResident(''); setDateFrom(''); setDateTo(''); }}>
+                  Clear
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -295,7 +343,9 @@ export default function CollectorTransactionsPage() {
                 ))}
               </div>
             ) : filteredTransactions.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No transactions yet</p>
+              <p className="text-muted-foreground text-center py-8">
+                {showSearch ? 'No transactions found with the selected filters' : 'No transactions yet'}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
-import { FileText, TrendingUp, Truck, Scale, Download } from 'lucide-react';
+import { FileText, TrendingUp, Truck, Scale, Download, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchCollectorTransactionsDb, type CollectorTransaction } from '@/lib/collectionRequestsApi';
 import { toast } from 'sonner';
@@ -54,6 +56,10 @@ export default function ReportsPage() {
   const [transactions, setTransactions] = useState<CollectorTransaction[]>([]);
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   const [chartDateRange, setChartDateRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [searchResident, setSearchResident] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -111,9 +117,27 @@ export default function ReportsPage() {
   const totalWeightCollected = periodTransactions.reduce((sum, item) => sum + item.totalWeight, 0);
   const maxCollections = Math.max(...chartData.map((item) => item.completed), 1);
 
-  const recentReports = [...periodTransactions]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 50);
+  const sortedPeriodTransactions = useMemo(
+    () => [...periodTransactions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [periodTransactions]
+  );
+
+  const filteredRecentCollections = useMemo(() => {
+    let result = sortedPeriodTransactions;
+    if (showSearch) {
+      if (searchResident) {
+        const normalized = searchResident.toLowerCase();
+        result = result.filter((item) => `${item.residentName} ${item.location}`.toLowerCase().includes(normalized));
+      }
+      if (dateFrom) {
+        result = result.filter((item) => item.createdAt.split('T')[0] >= dateFrom);
+      }
+      if (dateTo) {
+        result = result.filter((item) => item.createdAt.split('T')[0] <= dateTo);
+      }
+    }
+    return showSearch ? result : result.slice(0, 50);
+  }, [sortedPeriodTransactions, searchResident, dateFrom, dateTo, showSearch]);
 
   const handleDateRangeChange = useCallback((from: Date, to: Date) => {
     setChartDateRange({ from, to });
@@ -122,7 +146,7 @@ export default function ReportsPage() {
   const handleDownload = () => {
     const csvContent = [
       'Date,Resident,Location,Weight (kg),Amount (KES),Payment Method',
-      ...recentReports.map((item) =>
+      ...filteredRecentCollections.map((item) =>
         `${new Date(item.createdAt).toLocaleDateString()},${item.residentName},${item.location},${item.totalWeight},${item.totalPrice},${item.paymentMethod === 'mpesa' ? 'M-Pesa' : 'Cash'}`
       ),
     ].join('\n');
@@ -227,23 +251,49 @@ export default function ReportsPage() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                My Recent Collections
-              </CardTitle>
-              {recentReports.length > 0 && (
-                <Button variant="outline" size="sm" onClick={handleDownload}>
-                  <Download className="w-4 h-4 mr-1" />Export
-                </Button>
-              )}
+            <div className="space-y-3">
+              <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="inline-flex w-max items-center gap-2">
+                  <CardTitle className="mr-2 flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    My Recent Collections
+                  </CardTitle>
+                  <Button className="shrink-0 whitespace-nowrap" variant="outline" size="sm" onClick={() => setShowSearch(!showSearch)}>
+                    <Search className="w-4 h-4 mr-1" />{showSearch ? 'Hide' : 'Search'}
+                  </Button>
+                  {filteredRecentCollections.length > 0 && (
+                    <Button className="shrink-0 whitespace-nowrap" variant="outline" size="sm" onClick={handleDownload}>
+                      <Download className="w-4 h-4 mr-1" />Export
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
+            {showSearch && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs">Resident / Location</Label>
+                  <Input placeholder="Search resident or location..." value={searchResident} onChange={(e) => setSearchResident(e.target.value)} className="w-full" />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs">From</Label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="text-xs">To</Label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
+                </div>
+                <Button variant="ghost" size="sm" className="w-full self-end sm:w-auto" onClick={() => { setSearchResident(''); setDateFrom(''); setDateTo(''); }}>
+                  Clear
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
-            {recentReports.length === 0 ? (
+            {filteredRecentCollections.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No collection transactions found</p>
+                <p>{showSearch ? 'No collections found with the selected filters' : 'No collection transactions found'}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -259,7 +309,7 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentReports.map((item) => (
+                    {filteredRecentCollections.map((item) => (
                       <tr key={item.id} className="border-b border-border/50">
                         <td className="py-3 px-2 text-sm">{new Date(item.createdAt).toLocaleDateString()}</td>
                         <td className="py-3 px-2 text-sm">{item.residentName}</td>

@@ -258,7 +258,7 @@ export default function MyEventsPage() {
           <section className="mb-12">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" />
-              Events I Created ({createdEvents.length})
+              Events I Created
             </h2>
             
             {createdEvents.length === 0 ? (
@@ -373,7 +373,7 @@ export default function MyEventsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Users className="w-5 h-5 text-success" />
-              Events I Joined ({joinedEvents.length})
+              Events I Joined
             </h2>
             
             {joinedEvents.length === 0 ? (
@@ -439,7 +439,7 @@ export default function MyEventsPage() {
             <section className="mt-12">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-warning" />
-                Expired Events I Created ({expiredEvents.length})
+                Expired Events I Created
               </h2>
               {expiredEvents.length === 0 ? (
                 <div className="bg-card rounded-xl border border-border p-8 text-center">

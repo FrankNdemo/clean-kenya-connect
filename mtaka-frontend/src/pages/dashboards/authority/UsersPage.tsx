@@ -276,7 +276,7 @@ export default function UsersPage() {
           {pendingComplaints.length > 0 && (
             <Button variant={showComplaints ? 'default' : 'outline'} size="sm" onClick={() => setShowComplaints(!showComplaints)} className="w-full gap-2 sm:w-auto">
               <MessageSquare className="w-4 h-4" />
-              Complaints ({pendingComplaints.length})
+              Complaints
             </Button>
           )}
         </div>
@@ -368,7 +368,7 @@ export default function UsersPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Users ({filteredUsers.length})
+              Users
             </CardTitle>
           </CardHeader>
           <CardContent>

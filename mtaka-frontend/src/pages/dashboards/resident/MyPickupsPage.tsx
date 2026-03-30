@@ -413,7 +413,7 @@ export default function MyPickupsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5" />
-              Active Requests ({activeRequests.length})
+              Active Requests
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -442,7 +442,7 @@ export default function MyPickupsPage() {
               <div className="space-y-3">
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-success" />
-                  {showCompletedSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'} ({filteredCompletedRequests.length})
+                  {showCompletedSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'}
                 </CardTitle>
                 <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <div className="inline-flex w-max items-center gap-2">
@@ -515,7 +515,7 @@ export default function MyPickupsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <XCircle className="w-5 h-5 text-muted-foreground" />
-                Cancelled/Declined ({cancelledRequests.length})
+                Cancelled/Declined
               </CardTitle>
             </CardHeader>
             <CardContent>

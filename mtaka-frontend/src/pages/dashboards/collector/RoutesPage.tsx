@@ -435,7 +435,7 @@ export default function RoutesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5" />
-              Collection Route ({assignedRequests.length} pickups)
+              Collection Route
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -221,7 +221,7 @@ export default function RequestsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" />
-              Available Requests ({pendingRequests.length})
+              Available Requests
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -265,7 +265,7 @@ export default function RequestsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5" />
-              My Assigned Pickups ({assignedRequests.length})
+              My Assigned Pickups
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -335,7 +335,7 @@ export default function RequestsPage() {
             <div className="space-y-3">
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-success" />
-                {showSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'} ({filteredCompleted.length})
+                {showSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'}
               </CardTitle>
               <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="inline-flex w-max items-center gap-2">

@@ -517,7 +517,7 @@ export default function AvailableMaterialsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-primary">
                 <CheckCircle className="w-5 h-5" />
-                Ready to Schedule ({acceptedOfferListings.length})
+                Ready to Schedule
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -803,7 +803,7 @@ export default function AvailableMaterialsPage() {
               <div className="space-y-3">
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-success" />
-                  {showCompletedSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'} ({filteredCompletedPickups.length})
+                  {showCompletedSearch ? 'Completed Pickups (Filtered)' : 'Completed Today'}
                 </CardTitle>
                 <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <div className="inline-flex w-max items-center gap-2">

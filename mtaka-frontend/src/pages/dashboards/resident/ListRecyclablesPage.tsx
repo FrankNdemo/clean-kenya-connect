@@ -422,7 +422,7 @@ export default function ListRecyclablesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" />
-              Active Listings ({activeListings.length})
+              Active Listings
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -567,7 +567,7 @@ export default function ListRecyclablesPage() {
               <div className="space-y-3">
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-success" />
-                  {showCompletedSearch ? 'Completed Listings (Filtered)' : 'Completed Today'} ({filteredCompletedListings.length})
+                  {showCompletedSearch ? 'Completed Listings (Filtered)' : 'Completed Today'}
                 </CardTitle>
                 <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <div className="inline-flex w-max items-center gap-2">
@@ -664,7 +664,7 @@ export default function ListRecyclablesPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Trash2 className="w-5 h-5 text-muted-foreground" />
-                Cancelled ({cancelledListings.length})
+                Cancelled
               </CardTitle>
             </CardHeader>
             <CardContent>

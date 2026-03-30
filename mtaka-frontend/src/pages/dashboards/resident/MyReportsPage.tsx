@@ -234,7 +234,7 @@ export default function MyReportsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="w-5 h-5" />
-              Active Reports ({activeReports.length})
+              Active Reports
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -259,7 +259,7 @@ export default function MyReportsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-success" />
-                Resolved ({resolvedReports.length})
+                Resolved
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -278,7 +278,7 @@ export default function MyReportsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <XCircle className="w-5 h-5 text-muted-foreground" />
-                Cancelled ({cancelledReports.length})
+                Cancelled
               </CardTitle>
             </CardHeader>
             <CardContent>

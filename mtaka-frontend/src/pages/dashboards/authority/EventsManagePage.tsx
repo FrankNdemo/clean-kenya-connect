@@ -181,7 +181,7 @@ export default function EventsManagePage() {
                           className="w-full sm:w-auto"
                         >
                           <Pencil className="mr-1 w-4 h-4" />
-                          Edit Schedule
+                          Edit
                         </Button>
                         <Button size="sm" onClick={() => handleApprove(event.id)} className="w-full sm:w-auto">
                           <CheckCircle className="mr-1 w-4 h-4" />
@@ -241,7 +241,7 @@ export default function EventsManagePage() {
                           className="w-full"
                         >
                           <Pencil className="mr-1 w-4 h-4" />
-                          Edit Schedule
+                          Edit
                         </Button>
                         {event.status === 'approved' && !isJoined(event) ? (
                           <Button size="sm" variant="outline" onClick={() => handleJoin(event.id)} className="w-full">

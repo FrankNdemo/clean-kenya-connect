@@ -326,7 +326,7 @@ export default function MyEventsPage() {
                           className="sm:flex-1"
                         >
                           <Pencil className="w-4 h-4 mr-1" />
-                          Edit Schedule
+                          Edit
                         </Button>
                         <Button 
                           size="sm" 
@@ -335,7 +335,7 @@ export default function MyEventsPage() {
                           className="sm:flex-1"
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          View Participants
+                          Participants
                         </Button>
                         
                         {event.status !== 'cancelled' && event.status !== 'completed' && (

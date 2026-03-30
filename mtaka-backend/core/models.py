@@ -226,6 +226,8 @@ class IllegalDumping(models.Model):
     location_long = models.DecimalField(max_digits=11, decimal_places=8, null=True)
     description = models.TextField()
     photo = models.ImageField(upload_to='dumping_reports/', null=True, blank=True)
+    photo_data = models.TextField(blank=True, default='')
+    photo_content_type = models.CharField(max_length=100, blank=True, default='')
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='reported')
     is_anonymous = models.BooleanField(default=False)

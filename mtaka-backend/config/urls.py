@@ -24,6 +24,11 @@ urlpatterns = [
         serve,
         {'document_root': settings.BASE_DIR / 'dist' / '.well-known'},
     ),
+    path(
+        'media/dumping-reports/<int:report_id>/photo/',
+        core_views.dumping_report_photo,
+        name='dumping_report_photo',
+    ),
     re_path(
         r'^media/(?P<path>(dumping_reports|event_covers)/.*)$',
         media_serve,

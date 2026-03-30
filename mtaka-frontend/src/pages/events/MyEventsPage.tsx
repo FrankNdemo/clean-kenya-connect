@@ -69,6 +69,7 @@ const getIsJoined = (event: BackendEvent, userId: number) => {
 export default function MyEventsPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<BackendEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   
   // Cancel/Leave Dialog State
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -93,18 +94,25 @@ export default function MyEventsPage() {
   const [expiredDetailsOpen, setExpiredDetailsOpen] = useState(false);
   const [selectedExpiredEvent, setSelectedExpiredEvent] = useState<BackendEvent | null>(null);
 
-  const refreshEvents = useCallback(async () => {
+  const refreshEvents = useCallback(async (showLoader = false) => {
     if (!user) return;
+    if (showLoader) {
+      setIsLoadingEvents(true);
+    }
     try {
       const myEvents = await listMyEvents();
       setEvents(myEvents);
     } catch (error) {
       toast.error('Failed to load your events');
+    } finally {
+      if (showLoader) {
+        setIsLoadingEvents(false);
+      }
     }
   }, [user]);
 
   useEffect(() => {
-    refreshEvents();
+    void refreshEvents(true);
   }, [refreshEvents]);
 
   const openCancelDialog = (event: BackendEvent, organizer: boolean) => {
@@ -261,7 +269,11 @@ export default function MyEventsPage() {
               Events I Created
             </h2>
             
-            {createdEvents.length === 0 ? (
+            {isLoadingEvents ? (
+              <div className="bg-card rounded-xl border border-border p-8 text-center">
+                <p className="text-muted-foreground">Loading your events...</p>
+              </div>
+            ) : createdEvents.length === 0 ? (
               <div className="bg-card rounded-xl border border-border p-8 text-center">
                 <p className="text-muted-foreground mb-4">You haven't created any events yet</p>
                 <Link to="/events/create">
@@ -376,7 +388,11 @@ export default function MyEventsPage() {
               Events I Joined
             </h2>
             
-            {joinedEvents.length === 0 ? (
+            {isLoadingEvents ? (
+              <div className="bg-card rounded-xl border border-border p-8 text-center">
+                <p className="text-muted-foreground">Loading your joined events...</p>
+              </div>
+            ) : joinedEvents.length === 0 ? (
               <div className="bg-card rounded-xl border border-border p-8 text-center">
                 <p className="text-muted-foreground mb-4">You haven't joined any events yet</p>
                 <Link to="/events">

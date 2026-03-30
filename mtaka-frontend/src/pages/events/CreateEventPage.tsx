@@ -165,6 +165,7 @@ export default function CreateEventPage() {
                     src={coverPreviewSrc}
                     alt={formData.title ? `${formData.title} cover preview` : 'Event cover preview'}
                     className="h-52 rounded-2xl border border-border"
+                    deferLoad={false}
                   />
                   {coverImage && (
                     <p className="text-xs text-muted-foreground">

@@ -548,7 +548,7 @@ class EventSerializer(serializers.ModelSerializer):
             'event_date': {'required': False},
             'start_time': {'required': False},
             'end_time': {'required': False, 'allow_null': True},
-            'cover_image': {'required': False, 'allow_null': True},
+            'cover_image': {'required': False, 'allow_null': True, 'write_only': True},
             'max_participants': {'required': False, 'allow_null': True},
             'reward_points': {'required': False},
             'status': {'required': False},
@@ -615,16 +615,20 @@ class EventSerializer(serializers.ModelSerializer):
         cover_image = getattr(obj, 'cover_image', None)
         if cover_image and getattr(cover_image, 'name', ''):
             try:
-                storage = getattr(cover_image, 'storage', None)
-                if storage is None or storage.exists(cover_image.name):
-                    url = cover_image.url
-                    request = self.context.get('request') if hasattr(self, 'context') else None
-                    if request is not None:
-                        try:
-                            return request.build_absolute_uri(url)
-                        except Exception:
-                            return url
-                    return url
+                skip_storage_check = bool(self.context.get('skip_cover_storage_check'))
+                if not skip_storage_check:
+                    storage = getattr(cover_image, 'storage', None)
+                    if storage is not None and not storage.exists(cover_image.name):
+                        raise FileNotFoundError(cover_image.name)
+
+                url = cover_image.url
+                request = self.context.get('request') if hasattr(self, 'context') else None
+                if request is not None:
+                    try:
+                        return request.build_absolute_uri(url)
+                    except Exception:
+                        return url
+                return url
             except Exception:
                 pass
 
@@ -735,30 +739,50 @@ class IllegalDumpingSerializer(serializers.ModelSerializer):
     reporter_phone = serializers.CharField(source='reporter.phone', read_only=True)
     photo_url = serializers.SerializerMethodField()
 
-    def get_photo_url(self, obj):
-        photo = getattr(obj, 'photo', None)
-        if not photo:
-            return None
-
-        url = photo.url
+    def _build_photo_response_url(self, obj):
+        path = f'/media/dumping-reports/{obj.pk}/photo/'
         public_origin = str(getattr(settings, 'API_PUBLIC_URL', '') or '').strip().rstrip('/')
         if public_origin.endswith('/api/auth'):
             public_origin = public_origin[:-len('/api/auth')]
         if public_origin:
-            normalized_path = url if str(url).startswith('/') else f'/{url}'
-            return f'{public_origin}{normalized_path}'
+            return f'{public_origin}{path}'
 
         request = self.context.get('request') if hasattr(self, 'context') else None
         if request is not None:
             try:
-                return request.build_absolute_uri(url)
+                return request.build_absolute_uri(path)
             except Exception:
-                return url
-        return url
+                return path
+        return path
+
+    def get_photo_url(self, obj):
+        photo = getattr(obj, 'photo', None)
+        if photo and getattr(photo, 'name', ''):
+            return self._build_photo_response_url(obj)
+
+        photo_data = getattr(obj, 'photo_data', '')
+        if photo_data:
+            return self._build_photo_response_url(obj)
+        return None
     
     class Meta:
         model = IllegalDumping
-        fields = '__all__'
+        fields = (
+            'id',
+            'reporter',
+            'reporter_name',
+            'reporter_phone',
+            'location',
+            'location_lat',
+            'location_long',
+            'description',
+            'photo',
+            'photo_url',
+            'severity',
+            'status',
+            'is_anonymous',
+            'reported_at',
+        )
 
 class GreenCreditSerializer(serializers.ModelSerializer):
     household_name = serializers.CharField(source='household.full_name', read_only=True)

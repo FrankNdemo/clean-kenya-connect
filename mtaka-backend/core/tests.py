@@ -30,6 +30,7 @@ from .models import (
     EventScheduleChange,
     GreenCredit,
     Household,
+    IllegalDumping,
     MpesaPayment,
     RecyclableListing,
     RecyclerTransaction,
@@ -381,7 +382,7 @@ class EventImageUploadTests(TestCase):
                     media_file.close()
 
             event = Event.objects.get(event_name='Community Cleanup Day')
-            with patch.object(event.cover_image.storage, 'exists', return_value=False):
+            with patch.object(event.cover_image.storage, 'url', side_effect=Exception('missing media')):
                 refreshed_response = self.client.get('/api/auth/events/')
             self.assertEqual(refreshed_response.status_code, 200)
             refreshed_payload = next(item for item in refreshed_response.json() if item['id'] == event.id)
@@ -1339,7 +1340,10 @@ class IllegalDumpingMediaTests(TestCase):
             self.assertEqual(create_response.status_code, 201)
             payload = create_response.json()
             self.assertIn('photo_url', payload)
-            self.assertTrue(urlsplit(payload['photo_url']).path.startswith('/media/dumping_reports/'))
+            self.assertEqual(
+                urlsplit(payload['photo_url']).path,
+                f"/media/dumping-reports/{payload['id']}/photo/",
+            )
 
             media_response = self.client.get(urlsplit(payload['photo_url']).path)
             media_file = getattr(media_response, 'file_to_stream', None)
@@ -1349,6 +1353,40 @@ class IllegalDumpingMediaTests(TestCase):
             finally:
                 if hasattr(media_file, 'close'):
                     media_file.close()
+
+    def test_dumping_report_photo_falls_back_to_cached_data_when_media_file_is_missing(self):
+        buffer = BytesIO()
+        Image.new('RGB', (1, 1), color='green').save(buffer, format='PNG')
+        photo = SimpleUploadedFile(
+            'dumping-missing.png',
+            buffer.getvalue(),
+            content_type='image/png',
+        )
+
+        with TemporaryDirectory(ignore_cleanup_errors=True) as media_root, override_settings(MEDIA_ROOT=media_root):
+            create_response = self.client.post(
+                '/api/auth/dumping-reports/',
+                data={
+                    'location': 'Kisumu, Kenya',
+                    'description': 'Dumping site with disappearing media file.',
+                    'severity': 'medium',
+                    'photo': photo,
+                },
+                format='multipart',
+            )
+
+            self.assertEqual(create_response.status_code, 201)
+            payload = create_response.json()
+
+            report = IllegalDumping.objects.get(pk=payload['id'])
+            self.assertTrue(report.photo_data)
+
+            report.photo.delete(save=False)
+
+            media_response = self.client.get(urlsplit(payload['photo_url']).path)
+            self.assertEqual(media_response.status_code, 200)
+            self.assertEqual(media_response['Content-Type'], 'image/png')
+            self.assertTrue(media_response.content)
 
     @override_settings(API_PUBLIC_URL='https://mtaka-backend.onrender.com')
     def test_dumping_report_photo_uses_public_api_origin_when_configured(self):
@@ -1375,7 +1413,7 @@ class IllegalDumpingMediaTests(TestCase):
             self.assertEqual(create_response.status_code, 201)
             payload = create_response.json()
             self.assertTrue(
-                payload['photo_url'].startswith('https://mtaka-backend.onrender.com/media/dumping_reports/')
+                payload['photo_url'].startswith('https://mtaka-backend.onrender.com/media/dumping-reports/')
             )
 
 

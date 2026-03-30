@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.tokens import default_token_generator
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.db.models import Q
 from django.db.models import Count, Exists, OuterRef, Prefetch
 from django.db import transaction
@@ -457,6 +457,93 @@ def _cache_event_cover_image_data(event):
     event.cover_image_data = base64.b64encode(raw_bytes).decode('ascii')
     event.cover_image_content_type = content_type
     event.save(update_fields=['cover_image_data', 'cover_image_content_type'])
+
+
+def _cache_dumping_report_photo_data(report):
+    photo = getattr(report, 'photo', None)
+    if not photo or not getattr(photo, 'name', ''):
+        update_fields = []
+        if getattr(report, 'photo_data', ''):
+            report.photo_data = ''
+            update_fields.append('photo_data')
+        if getattr(report, 'photo_content_type', ''):
+            report.photo_content_type = ''
+            update_fields.append('photo_content_type')
+        if update_fields:
+            report.save(update_fields=update_fields)
+        return
+
+    raw_bytes = b''
+    try:
+        photo.open('rb')
+        raw_bytes = photo.read()
+    except Exception:
+        logger.exception(
+            'Failed to read illegal dumping photo for report_id=%s',
+            getattr(report, 'id', None),
+        )
+        return
+    finally:
+        try:
+            photo.close()
+        except Exception:
+            pass
+
+    if not raw_bytes:
+        return
+
+    content_type = mimetypes.guess_type(photo.name)[0] or 'application/octet-stream'
+    report.photo_data = base64.b64encode(raw_bytes).decode('ascii')
+    report.photo_content_type = content_type
+    report.save(update_fields=['photo_data', 'photo_content_type'])
+
+
+def dumping_report_photo(request, report_id):
+    report = IllegalDumping.objects.only(
+        'id',
+        'photo',
+        'photo_data',
+        'photo_content_type',
+    ).filter(pk=report_id).first()
+    if not report:
+        raise Http404('Dumping report photo not found.')
+
+    photo = getattr(report, 'photo', None)
+    if photo and getattr(photo, 'name', ''):
+        try:
+            storage = getattr(photo, 'storage', None)
+            if storage is None or storage.exists(photo.name):
+                photo.open('rb')
+                content_type = getattr(report, 'photo_content_type', '') or mimetypes.guess_type(
+                    photo.name
+                )[0] or 'application/octet-stream'
+                response = FileResponse(photo, content_type=content_type)
+                response['Cache-Control'] = 'public, max-age=86400'
+                return response
+        except Exception:
+            logger.exception(
+                'Failed to serve illegal dumping photo file for report_id=%s',
+                getattr(report, 'id', None),
+            )
+
+    photo_data = getattr(report, 'photo_data', '')
+    if photo_data:
+        try:
+            raw_bytes = base64.b64decode(photo_data)
+        except Exception:
+            logger.exception(
+                'Failed to decode cached illegal dumping photo for report_id=%s',
+                getattr(report, 'id', None),
+            )
+        else:
+            content_type = getattr(report, 'photo_content_type', '') or mimetypes.guess_type(
+                getattr(photo, 'name', '')
+            )[0] or 'application/octet-stream'
+            response = HttpResponse(raw_bytes, content_type=content_type)
+            response['Cache-Control'] = 'public, max-age=86400'
+            return response
+
+    raise Http404('Dumping report photo not found.')
 
 
 # Authentication Views - Plain Django views (not @api_view) with @csrf_exempt
@@ -1096,14 +1183,31 @@ class EventViewSet(viewsets.ModelViewSet):
         ]
 
     def _event_queryset(self, include_participants=False):
+        schedule_changes_queryset = EventScheduleChange.objects.select_related('changed_by').only(
+            'id',
+            'event_id',
+            'previous_event_date',
+            'new_event_date',
+            'previous_start_time',
+            'new_start_time',
+            'reason',
+            'changed_at',
+            'changed_by__username',
+            'changed_by__first_name',
+            'changed_by__last_name',
+        ).order_by('-changed_at')
+
         queryset = Event.objects.select_related('creator').prefetch_related(
             Prefetch(
                 'schedule_changes',
-                queryset=EventScheduleChange.objects.select_related('changed_by').order_by('-changed_at'),
+                queryset=schedule_changes_queryset,
             )
         ).annotate(
-            participant_count_cached=Count('participants', distinct=True)
+            participant_count_cached=Count('participants')
         )
+
+        if self.action in ['list', 'my_events', 'my_expired_created']:
+            queryset = queryset.defer('cover_image_data', 'cover_image_content_type')
 
         if self.request.user.is_authenticated:
             queryset = queryset.annotate(
@@ -1157,6 +1261,7 @@ class EventViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['include_participants'] = self.action in ['retrieve']
+        context['skip_cover_storage_check'] = self.action in ['list', 'my_events', 'my_expired_created']
         return context
 
     def perform_create(self, serializer):
@@ -1280,8 +1385,8 @@ class EventViewSet(viewsets.ModelViewSet):
         self._expire_past_events()
         user = request.user
         queryset = self._event_queryset().filter(
-            Q(creator=user) | Q(participants__user=user)
-        ).distinct()
+            Q(creator=user) | Q(is_joined_cached=True)
+        )
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -1823,13 +1928,15 @@ class IllegalDumpingViewSet(viewsets.ModelViewSet):
         else:
             is_anonymous = bool(raw_is_anonymous)
         if is_anonymous:
-            serializer.save(reporter=None, is_anonymous=True)
+            report = serializer.save(reporter=None, is_anonymous=True)
         else:
-            serializer.save(reporter=self.request.user)
+            report = serializer.save(reporter=self.request.user)
+        _cache_dumping_report_photo_data(report)
 
     def perform_update(self, serializer):
         previous_status = serializer.instance.status
         report = serializer.save()
+        _cache_dumping_report_photo_data(report)
         if previous_status == 'resolved' or report.status != 'resolved' or not report.reporter_id:
             return
         already_rewarded = GreenCredit.objects.filter(

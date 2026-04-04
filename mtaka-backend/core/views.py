@@ -42,6 +42,13 @@ from .mpesa import MpesaIntegrationError, initiate_stk_push, mpesa_is_configured
 logger = logging.getLogger(__name__)
 
 
+def _get_collector_match_max_distance_km():
+    try:
+        return float(getattr(settings, 'COLLECTOR_MATCH_MAX_DISTANCE_KM', 20.0))
+    except (TypeError, ValueError):
+        return 20.0
+
+
 def _build_mpesa_callback_url(request):
     configured_url = str(getattr(settings, 'MPESA_CALLBACK_URL', '') or '').strip()
     if configured_url:
@@ -1001,6 +1008,7 @@ def list_collector_matches(request):
         )
 
     resolved_county = resolve_county_from_location(location)
+    max_distance_km = _get_collector_match_max_distance_km()
     pickup_point = resolve_point(
         label=location,
         lat=location_lat,
@@ -1037,6 +1045,12 @@ def list_collector_matches(request):
         elif service_area_matches:
             best_match = service_area_matches[0]
 
+        is_economical_match = serves_requested_county or (
+            distance_km is not None and distance_km <= max_distance_km
+        )
+        if not is_economical_match:
+            continue
+
         matches.append(
             {
                 'id': collector_user.id,
@@ -1054,9 +1068,9 @@ def list_collector_matches(request):
 
     matches.sort(
         key=lambda item: (
+            not item['serves_requested_county'],
             item['distance_km'] is None,
             item['distance_km'] if item['distance_km'] is not None else float('inf'),
-            not item['serves_requested_county'],
             item['name'].lower(),
         )
     )

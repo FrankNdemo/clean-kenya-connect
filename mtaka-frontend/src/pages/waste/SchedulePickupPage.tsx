@@ -419,14 +419,14 @@ export default function SchedulePickupPage() {
                     <div className="space-y-1">
                       <Label>Select a Collector</Label>
                       <p className="text-xs text-muted-foreground">
-                        Nearest collectors are shown first to help reduce travel distance and cost.
+                        Collectors serving your county are prioritized, and neighboring county options only appear when they are within about 20 km.
                       </p>
                     </div>
                     {availableCollectors.length === 0 ? (
                       <div className="p-4 rounded-lg bg-muted text-center text-muted-foreground">
                         {(detectedCounty || residentCounty)
-                          ? `No nearby collectors were found for ${detectedCounty || residentCounty} County. Try a more specific location or refresh your live coordinates.`
-                          : 'No nearby collectors were found for this location. Try a more specific area.'}
+                          ? `No collectors were found in ${detectedCounty || residentCounty} County or within 20 km of your pickup point. Try a more specific location or refresh your live coordinates.`
+                          : 'No collectors were found within 20 km of this location. Try a more specific area or share live coordinates.'}
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-64 overflow-y-auto">

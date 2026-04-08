@@ -6,6 +6,7 @@ import { ArrowLeft, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, Re
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { UserRole } from '@/lib/store';
+import { cn } from '@/lib/utils';
 import axios from 'axios';
 
 const roles: { value: UserRole; label: string; description: string; surface: string; text: string }[] = [
@@ -87,12 +88,11 @@ export default function RegisterPage() {
   const hasRequiredBusinessDetails =
     !isBusinessRole || (formData.companyName.trim().length > 0 && formData.licenseNumber.trim().length > 0);
   const isSubmitReady = hasRequiredIdentityDetails && hasRequiredBusinessDetails && passwordValidation.isValid && passwordsMatch;
-  const pageColumnStyle = { width: '100%', maxWidth: '430px' } as const;
   const formColumnStyle = { width: '100%', maxWidth: '360px' } as const;
   const dividerBarClass = 'h-[8px] w-[78px] rounded-[2px] border border-primary/30 bg-primary/20';
   const titleBadgeClass = 'inline-flex items-center justify-center rounded-[10px] bg-primary/10 px-8 py-2';
   const roleCardBaseClass =
-    'mx-auto block w-full max-w-[344px] overflow-hidden border-[1.5px] px-9 py-6 text-center shadow-none transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
+    'mx-auto block w-full overflow-hidden border-[1.5px] px-6 py-5 text-center shadow-none transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 sm:px-7';
   const roleCardContentClass = 'mx-auto flex max-w-[13.75rem] flex-col items-center justify-center gap-2';
   const roleLabelClass = 'text-[15px] font-semibold leading-none tracking-tight';
   const roleDescriptionClass = 'text-[10px] leading-[1.2] opacity-95';
@@ -101,6 +101,12 @@ export default function RegisterPage() {
   const inputIconClass = 'h-4 w-4 text-primary/55';
   const inputWithIconStyle = { paddingLeft: '3rem' } as const;
   const inputWithDualIconsStyle = { paddingLeft: '3rem', paddingRight: '2.75rem' } as const;
+  const registerCardClassName = cn(
+    'mx-auto flex w-full flex-col items-center rounded-[2rem] border border-primary/5 bg-white px-5 py-6 shadow-[0_28px_70px_-36px_rgba(15,23,42,0.4)] sm:px-7 sm:py-8',
+    isChoosingRole
+      ? 'max-w-[22.5rem] sm:max-w-[24rem] lg:max-w-[40rem] lg:px-8'
+      : 'max-w-[22.5rem] sm:max-w-[24rem] lg:max-w-[25rem] lg:px-8'
+  );
 
   const getErrorMessage = (error: unknown) => {
     if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
@@ -232,8 +238,8 @@ export default function RegisterPage() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-white px-4 py-6 sm:py-10">
-      <main className="mx-auto flex w-full flex-col items-center" style={pageColumnStyle}>
+    <div className="min-h-[100dvh] bg-background px-3 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8">
+      <main className={registerCardClassName}>
         <div className="flex w-full flex-col items-center text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[16px] bg-primary text-primary-foreground">
             <Recycle className="h-7 w-7" />
@@ -264,7 +270,7 @@ export default function RegisterPage() {
         </div>
 
         {isChoosingRole ? (
-          <section className="mt-7 w-full text-center">
+          <section className="mt-6 w-full text-center">
             <div className="flex items-center justify-center gap-3">
               <span className={dividerBarClass} />
               <span className="shrink-0 text-[13px] font-semibold text-primary">
@@ -273,7 +279,7 @@ export default function RegisterPage() {
               <span className={dividerBarClass} />
             </div>
 
-            <div className="mt-6 space-y-5">
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
               {roles.map((role) => (
                 <button
                   key={role.value}

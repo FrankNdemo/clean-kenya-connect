@@ -180,26 +180,26 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="relative min-h-[100dvh] overflow-hidden bg-white">
-        <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col gap-5 px-4 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-8">
+      <div className="relative min-h-[100dvh] overflow-hidden bg-background">
+        <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col items-center justify-center gap-4 px-3 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:items-stretch lg:px-8 lg:py-10">
           {!isStandaloneApp && (
             <Link
               to="/"
-              className="inline-flex w-fit items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+              className="inline-flex w-fit self-start items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Home
             </Link>
           )}
 
-          <div className="grid flex-1 gap-0 overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.45)] lg:grid-cols-[1.2fr_0.8fr] lg:items-stretch">
-            <section className="relative min-h-[20rem] overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/90 p-6 text-primary-foreground sm:p-8 lg:min-h-[calc(100dvh-8rem)] lg:p-10">
+          <div className="mx-auto grid w-full max-w-[22.5rem] gap-0 overflow-hidden rounded-[2rem] bg-white shadow-[0_28px_70px_-32px_rgba(15,23,42,0.45)] sm:max-w-[24rem] lg:max-w-[50rem] lg:grid-cols-[0.95fr_0.82fr] lg:items-stretch xl:max-w-[54rem]">
+            <section className="relative min-h-[18rem] overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/90 p-5 text-primary-foreground sm:p-8 lg:min-h-[32rem] lg:p-8 xl:min-h-[34rem]">
               <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10" />
               <div className="absolute -left-6 bottom-0 h-[28rem] w-[28rem] rounded-full bg-black/12" />
               <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-white/10" />
               <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full bg-black/15 blur-2xl" />
 
-              <div className="relative flex h-full flex-col justify-between">
+              <div className="relative flex h-full flex-col justify-between gap-10">
                 <div className="flex items-start gap-3">
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-primary shadow-lg">
                     <Recycle className="h-6 w-6" />
@@ -227,8 +227,8 @@ export default function LoginPage() {
               </div>
             </section>
 
-            <section className="flex items-center justify-center bg-white px-6 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-12">
-              <Card className="w-full max-w-sm border-0 bg-transparent shadow-none">
+            <section className="flex items-center justify-center bg-white px-5 py-6 sm:px-8 sm:py-8 lg:px-8 lg:py-10">
+              <Card className="w-full max-w-sm border-0 bg-transparent shadow-none lg:max-w-[19.5rem]">
                 <CardHeader className="hidden space-y-2 p-0 text-center sm:block">
                   <CardTitle className="text-3xl font-semibold capitalize text-primary">welcome</CardTitle>
                   <CardDescription className="text-sm text-muted-foreground">

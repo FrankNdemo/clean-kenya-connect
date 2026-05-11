@@ -86,16 +86,6 @@ export default function CollectorTransactionsPage() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading transactions...</p>
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
   const transactedRequestIds = new Set(transactions.map((item) => item.collectionRequestId));
   const eligibleRequests = requests.filter((item) => item.status === 'accepted' && !transactedRequestIds.has(item.id));
 
@@ -141,6 +131,16 @@ export default function CollectorTransactionsPage() {
     setPendingCollectorTransaction(null);
     setSelectedRequestId('');
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Loading transactions...</p>
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   const handleCreateTransaction = async () => {
     if (!selectedRequestId) {

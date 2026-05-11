@@ -8,6 +8,15 @@ import { Recycle, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { requestPasswordReset } from '@/api';
 
+type RequestError = {
+  message?: string;
+  response?: {
+    data?: {
+      detail?: string;
+    };
+  };
+};
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -27,10 +36,11 @@ export default function ForgotPasswordPage() {
       await requestPasswordReset(email.trim());
       setIsEmailSent(true);
       toast.success('If that email is registered, a reset link has been sent.');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const requestError = error as RequestError;
       const message =
-        error?.response?.data?.detail ||
-        error?.message ||
+        requestError?.response?.data?.detail ||
+        requestError?.message ||
         'Unable to send the reset email right now.';
       toast.error(message);
     } finally {

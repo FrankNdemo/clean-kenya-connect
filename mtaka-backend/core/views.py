@@ -34,6 +34,7 @@ from .auth_email import (
     dispatch_email,
     get_email_delivery_status,
     send_password_reset_email,
+    send_payment_confirmation_email,
     send_reward_redemption_email,
     send_welcome_email,
 )
@@ -164,6 +165,23 @@ def _award_recyclable_listing_completion_credits(listing, weight_value):
     )
 
 
+def _send_payment_confirmation_email_once(payment, user, **email_context):
+    if not getattr(user, 'email', ''):
+        return
+    cache_key = f'mpesa-payment-email-sent:{payment.id}:{payment.mpesa_receipt_number or "success"}'
+    if not cache.add(cache_key, True, timeout=60 * 60 * 24 * 7):
+        return
+    try:
+        dispatch_email(
+            send_payment_confirmation_email,
+            user,
+            description=f'M-Pesa payment confirmation email for payment_id={payment.id}',
+            **email_context,
+        )
+    except Exception:
+        logger.exception('Failed to send payment confirmation email for payment_id=%s', payment.id)
+
+
 def _finalize_mpesa_payment(payment):
     if payment.status != 'success':
         return payment
@@ -211,6 +229,28 @@ def _finalize_mpesa_payment(payment):
 
         if collection_request.status != 'completed':
             _mark_collection_request_completed(collection_request, payment.completion_notes)
+
+        resident_user = getattr(getattr(collection_request, 'household', None), 'user', None)
+        collector_for_email = (
+            collection_request.collector
+            or getattr(collector_transaction, 'collector', None)
+            or Collector.objects.filter(user=payment.initiated_by).first()
+        )
+        collector_name = (
+            str(getattr(collector_for_email, 'company_name', '') or '').strip()
+            or str(getattr(getattr(collector_for_email, 'user', None), 'username', '') or '').strip()
+            or 'your collector'
+        )
+        if resident_user:
+            _send_payment_confirmation_email_once(
+                payment,
+                resident_user,
+                amount=payment.amount,
+                receipt_number=payment.mpesa_receipt_number,
+                service_label='Waste collection pickup',
+                counterparty_label=collector_name,
+                detail_label=f'Collection request #{collection_request.id}',
+            )
 
         return payment
 
@@ -274,6 +314,21 @@ def _finalize_mpesa_payment(payment):
 
         if created_transaction:
             _award_recyclable_listing_completion_credits(listing, weight_value)
+
+        recycler_name = (
+            str(getattr(listing, 'recycler_name', '') or '').strip()
+            or str(getattr(getattr(recycler_transaction, 'recycler', None), 'username', '') or '').strip()
+            or 'the recycler'
+        )
+        _send_payment_confirmation_email_once(
+            payment,
+            listing.resident,
+            amount=payment.amount,
+            receipt_number=payment.mpesa_receipt_number,
+            service_label='Recyclables pickup payment',
+            counterparty_label=recycler_name,
+            detail_label=f'{listing.get_material_type_display()} recyclable listing #{listing.id}',
+        )
 
         return payment
 

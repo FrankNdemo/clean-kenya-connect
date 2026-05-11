@@ -1977,6 +1977,13 @@ class MpesaPickupFlowTests(TestCase):
         self.assertEqual(transaction.mpesa_code, 'TJH123ABC9')
         self.assertEqual(transaction.total_weight, Decimal('50.00'))
         self.assertEqual(transaction.total_price, Decimal('900.00'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.household_user.email])
+        self.assertEqual(mail.outbox[0].subject, 'Your M-Taka payment has been confirmed')
+        self.assertIn('Waste collection pickup', mail.outbox[0].body)
+        self.assertIn('KES 900', mail.outbox[0].body)
+        self.assertIn('TJH123ABC9', mail.outbox[0].body)
+        self.assertIn('Collector Flow Ltd', mail.outbox[0].body)
 
     def test_recycler_callback_success_creates_transaction_and_completes_listing(self):
         payment = MpesaPayment.objects.create(
@@ -2019,6 +2026,13 @@ class MpesaPickupFlowTests(TestCase):
         self.assertEqual(transaction.payment_method, 'mpesa')
         self.assertEqual(transaction.mpesa_code, 'TJH555XYZ1')
         self.assertEqual(transaction.price, Decimal('625.00'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.household_user.email])
+        self.assertEqual(mail.outbox[0].subject, 'Your M-Taka payment has been confirmed')
+        self.assertIn('Recyclables pickup payment', mail.outbox[0].body)
+        self.assertIn('KES 625', mail.outbox[0].body)
+        self.assertIn('TJH555XYZ1', mail.outbox[0].body)
+        self.assertIn('Recycler Flow Ltd', mail.outbox[0].body)
 
     def test_successful_payment_notes_can_be_saved_after_payment(self):
         self.client.force_authenticate(user=self.collector_user)

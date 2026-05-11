@@ -51,10 +51,20 @@ type DeleteDialogState = {
   user: BackendUser | null;
 };
 
+type UserActionError = {
+  message?: string;
+  response?: {
+    data?: {
+      detail?: string;
+      password?: string[];
+    };
+  };
+};
+
 const validatePasswordRules = (password: string) => {
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
-  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
 
   return {
     hasMinLength,
@@ -201,12 +211,13 @@ export default function SuperuserUsersPage() {
       });
       closePasswordDialog();
       toast.success('Password updated successfully.');
-    } catch (error: any) {
-      const payload = error?.response?.data || {};
+    } catch (error: unknown) {
+      const userActionError = error as UserActionError;
+      const payload = userActionError?.response?.data || {};
       const message =
         payload?.password?.[0] ||
         payload?.detail ||
-        error?.message ||
+        userActionError?.message ||
         'Failed to update the password.';
       toast.error(message);
     } finally {
@@ -236,8 +247,9 @@ export default function SuperuserUsersPage() {
       setUsers((current) => current.filter((item) => String(item.id) !== String(target.id)));
       closeDeleteDialog();
       toast.success('User deleted successfully.');
-    } catch (error: any) {
-      const message = error?.response?.data?.detail || error?.message || 'Failed to delete the user.';
+    } catch (error: unknown) {
+      const userActionError = error as UserActionError;
+      const message = userActionError?.response?.data?.detail || userActionError?.message || 'Failed to delete the user.';
       toast.error(message);
     } finally {
       setIsSaving(false);

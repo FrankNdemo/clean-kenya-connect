@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '@/lib/store';
+import { User, type UserRole } from '@/lib/store';
 import API, {
+  type BackendUser,
   completePasswordReset as apiCompletePasswordReset,
   loginUser as apiLogin,
   registerUser as apiRegister,
@@ -38,7 +39,27 @@ type ProfileResponse = {
     first_name?: string;
     last_name?: string;
   };
-  profile?: Record<string, unknown>;
+  profile?: {
+    address?: string;
+    service_areas?: string;
+    location?: string;
+    county?: string;
+    green_credits?: number;
+  };
+};
+
+type AuthResponse = Required<Pick<ProfileResponse, 'user'>> & Pick<ProfileResponse, 'profile'>;
+
+type ApiErrorLike = {
+  message?: string;
+  response?: {
+    status?: number;
+    data?: {
+      error?: string;
+      detail?: string;
+      password?: string[];
+    };
+  };
 };
 
 export interface AuthError extends Error {
@@ -192,7 +213,9 @@ const getLoginErrorMessage = (error: unknown) => {
   return axiosError?.message || 'Unable to sign in right now. Please try again.';
 };
 
-const mapBackendUserToFrontend = (data: any): User => {
+const mapBackendRole = (role?: string): UserRole => (role === 'household' ? 'resident' : (role as UserRole));
+
+const mapBackendUserToFrontend = (data: AuthResponse): User => {
   const fullName = `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim();
   const locationFromProfile =
     data?.profile?.address ||
@@ -208,7 +231,7 @@ const mapBackendUserToFrontend = (data: any): User => {
     name: fullName || data.user.username || '',
     email: data.user.email,
     phone: data.user.phone || '',
-    role: (data.user.user_type === 'household' ? 'resident' : (data.user.user_type as any)) as any,
+    role: mapBackendRole(data.user.user_type),
     isSuperuser: Boolean(data.user.is_superuser),
     location: locationFromProfile,
     county: countyFromBackend || '',
@@ -221,10 +244,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const applyAuthenticatedUser = (data: any) => {
+  const applyAuthenticatedUser = (data: ProfileResponse) => {
     if (!data?.user) return null;
 
-    const nextUser = mapBackendUserToFrontend(data);
+    const nextUser = mapBackendUserToFrontend(data as AuthResponse);
     setUser(nextUser);
     setActiveTabSession();
     clearTabCloseMarker();
@@ -297,8 +320,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearTabCloseMarker();
           storeCachedUser(u);
         }
-      } catch (err: any) {
-        const status = err?.response?.status;
+      } catch (err: unknown) {
+        const status = (err as ApiErrorLike)?.response?.status;
         if (status === 401 || status === 403) {
           setUser(null);
           clearActiveTabSession();
@@ -417,8 +440,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const res = await API.get('users/');
-      const users = res.data as any[];
+      const res = await API.get<BackendUser[]>('users/');
+      const users = res.data;
       const found = users.find(u => String(u.id) === String(userId));
       if (found) {
         const fullName = `${found.first_name || ''} ${found.last_name || ''}`.trim();
@@ -427,7 +450,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: fullName || found.username || '',
           email: found.email,
           phone: found.phone || '',
-          role: (found.user_type === 'household' ? 'resident' : (found.user_type as any)) as any,
+          role: mapBackendRole(found.user_type),
           isSuperuser: Boolean(found.is_superuser),
           location: found.location || '',
           county: found.county || '',

@@ -10,10 +10,20 @@ import { validatePasswordResetToken } from '@/api';
 import { useAuth } from '@/hooks/useAuth';
 import { getDashboardPathForUser } from '@/lib/dashboardPaths';
 
+type ResetError = {
+  message?: string;
+  response?: {
+    data?: {
+      detail?: string | string[];
+      password?: string[];
+    };
+  };
+};
+
 const validatePasswordRules = (password: string) => {
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
-  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
 
   return {
     hasMinLength,
@@ -107,12 +117,13 @@ export default function ResetPasswordPage() {
 
       toast.success('Password reset successful. You are now signed in.');
       navigate(getDashboardPathForUser(user), { replace: true });
-    } catch (error: any) {
-      const detailPayload = error?.response?.data?.detail;
+    } catch (error: unknown) {
+      const resetError = error as ResetError;
+      const detailPayload = resetError?.response?.data?.detail;
       const detail = Array.isArray(detailPayload) ? detailPayload[0] : detailPayload;
-      const passwordPayload = error?.response?.data?.password;
+      const passwordPayload = resetError?.response?.data?.password;
       const passwordError = Array.isArray(passwordPayload) ? passwordPayload[0] : passwordPayload;
-      toast.error(detail || passwordError || error?.message || 'Failed to reset password. The link may have expired.');
+      toast.error(detail || passwordError || resetError?.message || 'Failed to reset password. The link may have expired.');
     } finally {
       setIsLoading(false);
     }

@@ -73,8 +73,6 @@ export default function ReportsPage() {
     })();
   }, [user]);
 
-  if (!user) return null;
-
   const now = new Date();
   const effectiveRange = chartDateRange || {
     from: new Date(now.getFullYear(), now.getMonth(), 1),
@@ -159,6 +157,8 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
     toast.success('Report downloaded');
   };
+
+  if (!user) return null;
 
   return (
     <DashboardLayout>

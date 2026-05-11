@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosHeaders, type AxiosError, type InternalAxiosRequestConfig } from "axios";
 
 const AUTH_CACHE_KEY = "mtaka_auth_user_cache";
 const ACCESS_TOKEN_KEY = "mtaka_access_token";
@@ -232,14 +232,16 @@ const cachedGet = async <T>(
 let isRefreshingToken = false;
 let refreshPromise: Promise<void> | null = null;
 
+type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+
 API.interceptors.request.use((config) => {
   const accessToken = readStoredToken(ACCESS_TOKEN_KEY);
   if (accessToken) {
-    const headers = (config.headers ?? {}) as Record<string, unknown> & { Authorization?: string };
-    if (!headers.Authorization) {
-      headers.Authorization = `Bearer ${accessToken}`;
+    const headers = AxiosHeaders.from(config.headers);
+    if (!headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
     }
-    config.headers = headers as any;
+    config.headers = headers;
   }
   return config;
 });
@@ -257,8 +259,8 @@ API.interceptors.response.use(
     }
     return response;
   },
-  async (error) => {
-    const originalRequest = error?.config as any;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
     const status = error?.response?.status;
     const url = String(originalRequest?.url || "");
 

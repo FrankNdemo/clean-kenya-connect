@@ -1,6 +1,8 @@
 import json
 import logging
+from decimal import Decimal, InvalidOperation
 from email.utils import parseaddr
+from html import escape
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
@@ -301,9 +303,9 @@ def build_password_reset_link(request, uid: str, token: str) -> str:
     return f"{base_url}/#/reset-password?{query_string}"
 
 
-def dispatch_email(send_func, *args, description: str = "email") -> None:
+def dispatch_email(send_func, *args, description: str = "email", **kwargs) -> None:
     try:
-        send_func(*args)
+        send_func(*args, **kwargs)
     except Exception:
         logger.exception("%s delivery failed.", description)
         raise
@@ -340,6 +342,16 @@ def _send_email(subject: str, text_body: str, html_body: str, recipient: str) ->
     message.send(fail_silently=False)
 
 
+def _format_money(value) -> str:
+    try:
+        amount = Decimal(str(value or "0")).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        amount = Decimal("0.00")
+    if amount == amount.to_integral_value():
+        return str(int(amount))
+    return f"{amount:.2f}"
+
+
 def send_welcome_email(user) -> None:
     display_name = user.get_full_name() or user.username or "there"
     subject = "Welcome to M-Taka"
@@ -358,6 +370,116 @@ def send_welcome_email(user) -> None:
         "<p>This is an automated no-reply email from M-Taka.</p>"
     )
     _send_email(subject, text_body, html_body, user.email)
+
+
+def send_payment_confirmation_email(
+    user,
+    *,
+    amount,
+    receipt_number: str,
+    service_label: str,
+    counterparty_label: str,
+    detail_label: str = "",
+) -> None:
+    recipient = str(getattr(user, "email", "") or "").strip()
+    if not recipient:
+        return
+
+    display_name = user.get_full_name() or user.username or "there"
+    amount_label = f"KES {_format_money(amount)}"
+    receipt_label = str(receipt_number or "Pending receipt").strip() or "Pending receipt"
+    service_label = str(service_label or "M-Taka payment").strip() or "M-Taka payment"
+    counterparty_label = str(counterparty_label or "M-Taka").strip() or "M-Taka"
+    detail_label = str(detail_label or "").strip()
+
+    subject = "Your M-Taka payment has been confirmed"
+    text_lines = [
+        f"Hello {display_name},",
+        "",
+        "Your M-Taka payment has been successfully recorded.",
+        "",
+        f"Service: {service_label}",
+        f"Amount: {amount_label}",
+        f"Receipt: {receipt_label}",
+        f"With: {counterparty_label}",
+    ]
+    if detail_label:
+        text_lines.append(f"Details: {detail_label}")
+    text_lines.extend(
+        [
+            "",
+            "Thank you for using M-Taka to keep your waste services simple and traceable.",
+            "",
+            "Warm regards,",
+            "M-Taka Team",
+            "",
+            "This is an automated no-reply email from M-Taka.",
+        ]
+    )
+    text_body = "\n".join(text_lines)
+
+    safe_display_name = escape(display_name)
+    safe_service_label = escape(service_label)
+    safe_amount_label = escape(amount_label)
+    safe_receipt_label = escape(receipt_label)
+    safe_counterparty_label = escape(counterparty_label)
+    safe_detail_label = escape(detail_label)
+    detail_row = ""
+    if safe_detail_label:
+        detail_row = (
+            "<tr>"
+            '<td style="padding:10px 0;color:#667085;">Details</td>'
+            f'<td style="padding:10px 0;text-align:right;color:#101828;">{safe_detail_label}</td>'
+            "</tr>"
+        )
+
+    html_body = (
+        '<div style="margin:0;padding:0;background:#f6f7f9;font-family:Arial,sans-serif;color:#101828;">'
+        '<div style="max-width:560px;margin:0 auto;padding:28px 16px;">'
+        '<div style="background:#ffffff;border:1px solid #e4e7ec;border-radius:8px;overflow:hidden;">'
+        '<div style="padding:22px 24px;border-bottom:1px solid #e4e7ec;">'
+        '<div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:#13795b;text-transform:uppercase;">M-Taka</div>'
+        '<h1 style="margin:10px 0 0;font-size:22px;line-height:1.3;color:#101828;">Payment confirmed</h1>'
+        "</div>"
+        '<div style="padding:24px;">'
+        f'<p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Hello {safe_display_name},</p>'
+        '<p style="margin:0 0 18px;font-size:15px;line-height:1.6;">'
+        "Your M-Taka payment has been successfully recorded."
+        "</p>"
+        '<table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;">'
+        "<tr>"
+        '<td style="padding:10px 0;color:#667085;">Service</td>'
+        f'<td style="padding:10px 0;text-align:right;color:#101828;font-weight:600;">{safe_service_label}</td>'
+        "</tr>"
+        '<tr style="border-top:1px solid #eaecf0;">'
+        '<td style="padding:10px 0;color:#667085;">Amount</td>'
+        f'<td style="padding:10px 0;text-align:right;color:#101828;font-weight:600;">{safe_amount_label}</td>'
+        "</tr>"
+        '<tr style="border-top:1px solid #eaecf0;">'
+        '<td style="padding:10px 0;color:#667085;">Receipt</td>'
+        f'<td style="padding:10px 0;text-align:right;color:#101828;">{safe_receipt_label}</td>'
+        "</tr>"
+        '<tr style="border-top:1px solid #eaecf0;">'
+        '<td style="padding:10px 0;color:#667085;">With</td>'
+        f'<td style="padding:10px 0;text-align:right;color:#101828;">{safe_counterparty_label}</td>'
+        "</tr>"
+        f"{detail_row}"
+        "</table>"
+        '<p style="margin:22px 0 0;font-size:14px;line-height:1.6;color:#475467;">'
+        "Thank you for using M-Taka to keep your waste services simple and traceable."
+        "</p>"
+        '<p style="margin:18px 0 0;font-size:14px;line-height:1.6;color:#475467;">'
+        "Warm regards,<br />M-Taka Team"
+        "</p>"
+        "</div>"
+        '<div style="padding:16px 24px;background:#f9fafb;color:#667085;font-size:12px;line-height:1.5;">'
+        "This is an automated no-reply email from M-Taka."
+        "</div>"
+        "</div>"
+        "</div>"
+        "</div>"
+    )
+    _send_email(subject, text_body, html_body, recipient)
 
 
 def send_password_reset_email(user, reset_link: str) -> None:

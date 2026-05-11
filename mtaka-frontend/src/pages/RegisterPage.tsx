@@ -46,7 +46,7 @@ const fieldClass =
 const validatePassword = (password: string) => {
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
-  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};'"'"':"\\|,.<>\/?]/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
 
   return {
     hasMinLength,

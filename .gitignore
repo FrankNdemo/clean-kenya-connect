@@ -2,6 +2,13 @@
 __pycache__/
 *.py[cod]
 
+# Crash dumps and stray local Git files
+*.stackdump
+/FETCH_HEAD
+
+# Local database snapshots
+*.sqlite3
+
 # Virtual environments
 venv/
 mtaka-backend/venv/

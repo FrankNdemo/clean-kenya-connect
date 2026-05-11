@@ -68,8 +68,6 @@ export default function AnalyticsPage() {
     })();
   }, [user]);
 
-  if (!user) return null;
-
   const now = new Date();
   const effectiveRange = chartDateRange || {
     from: new Date(now.getFullYear(), now.getMonth(), 1),
@@ -134,6 +132,8 @@ export default function AnalyticsPage() {
   const handleDateRangeChange = useCallback((from: Date, to: Date) => {
     setChartDateRange({ from, to });
   }, []);
+
+  if (!user) return null;
 
   return (
     <DashboardLayout>

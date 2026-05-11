@@ -4,7 +4,7 @@ import path from "path";
 export default defineConfig(({ mode }) => ({
   base: "./",
   server: {
-    host: "0.0.0.0",
+    host: "localhost",
     port: 5173,
     proxy: {
       "/api": {

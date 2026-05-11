@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { createDumpingReportDb } from '@/lib/dumpingReportsDb';
+import { getGeolocationErrorMessage, getLiveCoordinates } from '@/lib/geolocation';
 import { ArrowLeft, MapPin, Camera, AlertTriangle, Upload, X, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,26 +31,16 @@ export default function ReportDumpingPage() {
     lng: 36.8219 + (Math.random() * 0.1 - 0.05),
   };
 
-  const handleGetLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
-          setGpsCoords(coords);
-          setUseGPS(true);
-          toast.success('Location captured successfully!');
-        },
-        () => {
-          // Fallback to simulated coords
-          setGpsCoords(defaultCoords);
-          setUseGPS(true);
-          toast.info('Using approximate location (GPS unavailable)');
-        }
-      );
-    } else {
+  const handleGetLocation = async () => {
+    try {
+      const coords = await getLiveCoordinates();
+      setGpsCoords(coords);
+      setUseGPS(true);
+      toast.success('Location captured successfully!');
+    } catch (error) {
       setGpsCoords(defaultCoords);
       setUseGPS(true);
-      toast.info('Using approximate location');
+      toast.info(`${getGeolocationErrorMessage(error)} Using approximate location instead.`);
     }
   };
 

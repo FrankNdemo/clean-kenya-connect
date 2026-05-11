@@ -1689,7 +1689,9 @@ class RecyclableListingViewSet(viewsets.ModelViewSet):
         if not mpesa_is_configured():
             return Response({'detail': 'M-Pesa is not configured on the server yet.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        phone_number = request.data.get('phone_number') or listing.resident_phone or listing.resident.phone
+        phone_number = request.data.get('phone_number') or request.user.phone
+        if not str(phone_number or '').strip():
+            raise ValidationError({'phone_number': 'Recycler M-Pesa number is required.'})
         actual_weight = _parse_decimal_field(
             request.data.get('actual_weight'),
             field_name='actual_weight',

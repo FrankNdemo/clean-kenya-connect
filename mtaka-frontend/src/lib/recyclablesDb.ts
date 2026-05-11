@@ -163,6 +163,7 @@ export const updateRecyclableListingDb = async (
   updates: Partial<RecyclableListing>
 ) => {
   const row = await updateRecyclableListingApi(id, {
+    resident_phone: updates.residentPhone,
     material_type: updates.materialType,
     estimated_weight: updates.estimatedWeight,
     description: updates.description,

@@ -1066,6 +1066,7 @@ export const createRecyclableListingApi = async (payload: {
 export const updateRecyclableListingApi = async (
   id: number | string,
   payload: Partial<{
+    resident_phone: string;
     material_type: BackendRecyclableListing["material_type"];
     estimated_weight: number;
     description: string;

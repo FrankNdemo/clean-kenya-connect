@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { getCountyFromLocation } from '@/lib/county';
+import { getGeolocationErrorMessage, getLiveCoordinates } from '@/lib/geolocation';
 import { WasteRequest } from '@/lib/store';
 import {
   createWasteRequestDb,
@@ -152,54 +153,30 @@ export default function SchedulePickupPage() {
     }
   };
 
-  const handleUseLiveLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported on this device');
-      return;
-    }
+  const handleUseLiveLocation = async () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setPickupCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setPickupCoordsSource('live');
-        setIsLocating(false);
-        toast.success('Live pickup coordinates captured');
-      },
-      () => {
-        setIsLocating(false);
-        toast.error('Unable to fetch your live location');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const coords = await getLiveCoordinates();
+      setPickupCoords(coords);
+      setPickupCoordsSource('live');
+      toast.success('Live pickup coordinates captured');
+    } catch (error) {
+      toast.error(getGeolocationErrorMessage(error));
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const ensurePickupCoordinates = async () => {
     if (pickupCoords) return pickupCoords;
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported on this device');
-      return null;
-    }
     setIsLocating(true);
     try {
-      const coords = await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (position) =>
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            }),
-          reject,
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      });
+      const coords = await getLiveCoordinates();
       setPickupCoords(coords);
       setPickupCoordsSource('live');
       return coords;
-    } catch {
-      toast.error('Please enable location access to schedule pickup with route tracking');
+    } catch (error) {
+      toast.error(getGeolocationErrorMessage(error));
       return null;
     } finally {
       setIsLocating(false);
@@ -234,8 +211,7 @@ export default function SchedulePickupPage() {
 
       const coordinates = await ensurePickupCoordinates();
       if (!coordinates) {
-        setIsLoading(false);
-        return;
+        toast.info('Live coordinates unavailable. Scheduling with the entered location instead.');
       }
 
       await createWasteRequestDb({
@@ -243,7 +219,7 @@ export default function SchedulePickupPage() {
         date: formData.date,
         time: formData.time,
         location: formData.location,
-        coordinates,
+        coordinates: coordinates || undefined,
         notes: formData.notes,
         collectorId: selectedCollector.id,
       });

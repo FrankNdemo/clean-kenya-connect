@@ -22,6 +22,7 @@ import {
   rejectPriceOfferDb,
   updateRecyclableListingDb,
 } from '@/lib/recyclablesDb';
+import { getGeolocationErrorMessage, getLiveCoordinates } from '@/lib/geolocation';
 import { Recycle, Plus, Package, Clock, CheckCircle, Calendar, Trash2, Edit, Eye, DollarSign, MessageSquare, LocateFixed, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -91,52 +92,28 @@ export default function ListRecyclablesPage() {
 
   if (!user) return null;
 
-  const handleUseLiveLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported on this device');
-      return;
-    }
+  const handleUseLiveLocation = async () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setResidentCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setIsLocating(false);
-        toast.success('Live recyclable pickup coordinates captured');
-      },
-      () => {
-        setIsLocating(false);
-        toast.error('Unable to fetch your live location');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const coords = await getLiveCoordinates();
+      setResidentCoords(coords);
+      toast.success('Live recyclable pickup coordinates captured');
+    } catch (error) {
+      toast.error(getGeolocationErrorMessage(error));
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const ensureResidentCoordinates = async () => {
     if (residentCoords) return residentCoords;
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported on this device');
-      return null;
-    }
     setIsLocating(true);
     try {
-      const coords = await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (position) =>
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            }),
-          reject,
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      });
+      const coords = await getLiveCoordinates();
       setResidentCoords(coords);
       return coords;
-    } catch {
-      toast.error('Please enable location access to list recyclables with route tracking');
+    } catch (error) {
+      toast.error(getGeolocationErrorMessage(error));
       return null;
     } finally {
       setIsLocating(false);
@@ -147,7 +124,9 @@ export default function ListRecyclablesPage() {
     e.preventDefault();
 
     const coords = await ensureResidentCoordinates();
-    if (!coords) return;
+    if (!coords) {
+      toast.info('Live coordinates unavailable. Listing with your saved location instead.');
+    }
 
     try {
       await createRecyclableListingDb({
@@ -155,7 +134,7 @@ export default function ListRecyclablesPage() {
         residentName: user.name,
         residentPhone: user.phone,
         residentLocation: user.location,
-        residentCoordinates: coords,
+        residentCoordinates: coords || undefined,
         materialType: formData.materialType,
         estimatedWeight: parseFloat(formData.estimatedWeight),
         description: formData.description,

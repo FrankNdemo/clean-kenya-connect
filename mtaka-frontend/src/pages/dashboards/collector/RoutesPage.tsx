@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { getUser, WasteRequest } from '@/lib/store';
+import { getGeolocationErrorMessage, getLiveCoordinates } from '@/lib/geolocation';
 import { MapPin, Navigation, Clock, Truck, Route, Phone, LocateFixed, ExternalLink, Flag, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -240,28 +241,18 @@ export default function RoutesPage() {
     toast.success('Route recalculated from road data');
   };
 
-  const handleUseLiveLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported on this device');
-      return;
-    }
+  const handleUseLiveLocation = async () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLiveCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setUsingLiveLocation(true);
-        setIsLocating(false);
-        toast.success('Live location enabled');
-      },
-      () => {
-        setIsLocating(false);
-        toast.error('Unable to fetch live location');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const coords = await getLiveCoordinates();
+      setLiveCoords(coords);
+      setUsingLiveLocation(true);
+      toast.success('Live location enabled');
+    } catch (error) {
+      toast.error(getGeolocationErrorMessage(error));
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const buildMapsDirectionsUrl = (destination: string, destinationCoords?: { lat: number; lng: number }) => {

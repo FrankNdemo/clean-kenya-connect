@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { useAuth } from '@/hooks/useAuth';
 import type { WasteRequest } from '@/lib/store';
 import { getApiErrorMessage } from '@/api';
+import { getMpesaFailureMessage } from '@/lib/mpesaMessages';
 import {
   createCollectorTransactionDb,
   fetchCollectorTransactionsDb,
@@ -190,9 +191,9 @@ export default function CollectorTransactionsPage() {
           });
 
           setPaymentStatusText(
-            payment.customerMessage || `STK push sent to ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
+            payment.customerMessage || `STK push sent to resident phone ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
           );
-          toast.success(payment.customerMessage || 'M-Pesa prompt sent to the payer phone');
+          toast.success(payment.customerMessage || 'M-Pesa prompt sent to the resident phone');
 
           const settledPayment = await waitForCollectorMpesaPaymentDb(payment.id, {
             pollMs: 4000,
@@ -201,7 +202,7 @@ export default function CollectorTransactionsPage() {
               if (nextPayment.status === 'pending') {
                 setPaymentStatusText(
                   nextPayment.customerMessage ||
-                    `Waiting for payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
+                    `Waiting for resident payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
                 );
               }
             },
@@ -227,8 +228,7 @@ export default function CollectorTransactionsPage() {
             setPaymentStatusText('Payment request is still pending.');
             return;
           } else {
-            const failureMessage =
-              settledPayment.resultDesc || settledPayment.responseDescription || 'M-Pesa payment was not completed.';
+            const failureMessage = getMpesaFailureMessage(settledPayment, 'resident');
             setPaymentStatusText(failureMessage);
             toast.error(failureMessage);
             return;
@@ -255,7 +255,10 @@ export default function CollectorTransactionsPage() {
       setSearchParams({});
       void refreshData(true);
     } catch (error) {
-      const message = getApiErrorMessage(error, 'Failed to save transaction');
+      const rawMessage = getApiErrorMessage(error, 'Failed to save transaction');
+      const message = paymentMethod === 'mpesa'
+        ? getMpesaFailureMessage({ resultDesc: rawMessage, responseDescription: rawMessage }, 'resident')
+        : rawMessage;
       setPaymentStatusText(message);
       toast.error(message);
     } finally {

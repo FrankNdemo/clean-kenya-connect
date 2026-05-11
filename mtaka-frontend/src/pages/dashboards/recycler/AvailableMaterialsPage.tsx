@@ -14,6 +14,8 @@ import {
   RecyclableListing,
   PriceOffer
 } from '@/lib/store';
+import { getGeolocationErrorMessage, getLiveCoordinates } from '@/lib/geolocation';
+import { getMpesaFailureMessage } from '@/lib/mpesaMessages';
 import {
   completeRecyclablePickupDb,
   createPriceOfferDb,
@@ -22,6 +24,7 @@ import {
   initiateRecyclerMpesaPaymentDb,
   saveRecyclerMpesaPaymentCompletionNotesDb,
   scheduleRecyclablePickupDb,
+  updateRecyclableListingDb,
   waitForRecyclerMpesaPaymentDb,
 } from '@/lib/recyclablesDb';
 import { 
@@ -114,6 +117,7 @@ export default function AvailableMaterialsPage() {
   const [completeForm, setCompleteForm] = useState({
     actualWeight: '',
     paymentMethod: 'cash' as 'cash' | 'mpesa',
+    residentPhone: '',
     useOtherPhone: false,
     phoneNumber: '',
     completionNotes: '',
@@ -166,27 +170,17 @@ export default function AvailableMaterialsPage() {
     return `${base}&destination=${destination.lat},${destination.lng}&travelmode=driving`;
   };
 
-  const handleUseLiveLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported on this device');
-      return;
-    }
+  const handleUseLiveLocation = async () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLiveStartCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setIsLocating(false);
-        toast.success('Live route start enabled');
-      },
-      () => {
-        setIsLocating(false);
-        toast.error('Unable to fetch your live location');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const coords = await getLiveCoordinates();
+      setLiveStartCoords(coords);
+      toast.success('Live route start enabled');
+    } catch (error) {
+      toast.error(getGeolocationErrorMessage(error));
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const getMaterialInfo = (type: string) => {
@@ -234,9 +228,13 @@ export default function AvailableMaterialsPage() {
     return pricePerKg * weight;
   };
 
-  const residentPaymentPhone = (completeDialog.listing?.residentPhone || '').trim();
+  const residentPayeePhone = (
+    completeForm.residentPhone || completeDialog.listing?.residentPhone || ''
+  ).trim();
+  const residentPayeeName = (completeDialog.listing?.residentName || '').trim();
+  const recyclerPaymentPhone = (user.phone || '').trim();
   const effectivePaymentPhone = (
-    completeForm.useOtherPhone ? completeForm.phoneNumber : residentPaymentPhone
+    completeForm.useOtherPhone ? completeForm.phoneNumber : recyclerPaymentPhone
   ).trim();
   const showRecyclerCompletionNotes =
     completeForm.paymentMethod === 'cash' || isMpesaPaymentConfirmed;
@@ -290,11 +288,16 @@ export default function AvailableMaterialsPage() {
       return;
     }
 
+    if (completeForm.paymentMethod === 'mpesa' && !residentPayeePhone) {
+      toast.error('Enter the resident M-Pesa receiver number');
+      return;
+    }
+
     if (completeForm.paymentMethod === 'mpesa' && !isMpesaPaymentConfirmed && !effectivePaymentPhone) {
       toast.error(
         completeForm.useOtherPhone
-          ? 'Enter the M-Pesa number to charge'
-          : 'Resident phone number is missing. Use another number instead.'
+          ? 'Enter the recycler M-Pesa number to pay from'
+          : 'Recycler M-Pesa number is missing. Use another number instead.'
       );
       return;
     }
@@ -303,6 +306,13 @@ export default function AvailableMaterialsPage() {
     setCompletePaymentStatus('');
 
     try {
+      const currentResidentPhone = (completeDialog.listing.residentPhone || '').trim();
+      if (completeForm.residentPhone.trim() && completeForm.residentPhone.trim() !== currentResidentPhone) {
+        await updateRecyclableListingDb(completeDialog.listing.id, {
+          residentPhone: completeForm.residentPhone.trim(),
+        });
+      }
+
       if (completeForm.paymentMethod === 'cash') {
         const result = await completeRecyclablePickupDb(
           completeDialog.listing.id,
@@ -325,9 +335,9 @@ export default function AvailableMaterialsPage() {
           });
 
           setCompletePaymentStatus(
-            payment.customerMessage || `STK push sent to ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
+            payment.customerMessage || `STK push sent to recycler phone ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
           );
-          toast.success(payment.customerMessage || 'M-Pesa prompt sent to the payer phone');
+          toast.success(payment.customerMessage || 'M-Pesa prompt sent to the recycler phone');
 
           const settledPayment = await waitForRecyclerMpesaPaymentDb(payment.id, {
             pollMs: 4000,
@@ -336,7 +346,7 @@ export default function AvailableMaterialsPage() {
               if (nextPayment.status === 'pending') {
                 setCompletePaymentStatus(
                   nextPayment.customerMessage ||
-                    `Waiting for payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
+                    `Waiting for recycler payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
                 );
               }
             },
@@ -362,8 +372,7 @@ export default function AvailableMaterialsPage() {
             setCompletePaymentStatus('Payment request is still pending.');
             return;
           } else {
-            const failureMessage =
-              settledPayment.resultDesc || settledPayment.responseDescription || 'M-Pesa payment was not completed.';
+            const failureMessage = getMpesaFailureMessage(settledPayment, 'recycler');
             setCompletePaymentStatus(failureMessage);
             toast.error(failureMessage);
             return;
@@ -375,6 +384,7 @@ export default function AvailableMaterialsPage() {
       setCompleteForm({
         actualWeight: '',
         paymentMethod: 'cash',
+        residentPhone: '',
         useOtherPhone: false,
         phoneNumber: '',
         completionNotes: '',
@@ -385,7 +395,10 @@ export default function AvailableMaterialsPage() {
       setPendingRecyclerTransaction(null);
       await refreshData();
     } catch (error) {
-      const message = getApiErrorMessage(error, 'Failed to complete pickup');
+      const rawMessage = getApiErrorMessage(error, 'Failed to complete pickup');
+      const message = completeForm.paymentMethod === 'mpesa'
+        ? getMpesaFailureMessage({ resultDesc: rawMessage, responseDescription: rawMessage }, 'recycler')
+        : rawMessage;
       setCompletePaymentStatus(message);
       toast.error(message);
     } finally {
@@ -445,66 +458,66 @@ export default function AvailableMaterialsPage() {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
           <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0">
-                  <Package className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-center gap-3 text-left sm:justify-start">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/20 sm:h-10 sm:w-10">
+                  <Package className="h-4 w-4 text-success sm:h-5 sm:w-5" />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Available</p>
-                  <p className="text-xl sm:text-2xl font-bold">{availableListings.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-info/20 flex items-center justify-center flex-shrink-0">
-                  <Send className="w-5 h-5 sm:w-6 sm:h-6 text-info" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">My Offers</p>
-                  <p className="text-xl sm:text-2xl font-bold">{pendingOffers.length}</p>
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-xs text-muted-foreground">Available</p>
+                  <p className="text-xl font-bold leading-tight sm:text-2xl">{availableListings.length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
-                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-center gap-3 text-left sm:justify-start">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-info/20 sm:h-10 sm:w-10">
+                  <Send className="h-4 w-4 text-info sm:h-5 sm:w-5" />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Rejected</p>
-                  <p className="text-xl sm:text-2xl font-bold">{rejectedOffers.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-warning/20 flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-warning" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">To Schedule</p>
-                  <p className="text-xl sm:text-2xl font-bold">{acceptedOfferListings.length}</p>
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-xs text-muted-foreground">My Offers</p>
+                  <p className="text-xl font-bold leading-tight sm:text-2xl">{pendingOffers.length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-center gap-3 text-left sm:justify-start">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/20 sm:h-10 sm:w-10">
+                  <XCircle className="h-4 w-4 text-destructive sm:h-5 sm:w-5" />
                 </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Scheduled</p>
-                  <p className="text-xl sm:text-2xl font-bold">{myScheduledPickups.length}</p>
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-xs text-muted-foreground">Rejected</p>
+                  <p className="text-xl font-bold leading-tight sm:text-2xl">{rejectedOffers.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-center gap-3 text-left sm:justify-start">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning/20 sm:h-10 sm:w-10">
+                  <Clock className="h-4 w-4 text-warning sm:h-5 sm:w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-xs text-muted-foreground">To Schedule</p>
+                  <p className="text-xl font-bold leading-tight sm:text-2xl">{acceptedOfferListings.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-center gap-3 text-left sm:justify-start">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 sm:h-10 sm:w-10">
+                  <Truck className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-xs text-muted-foreground">Scheduled</p>
+                  <p className="text-xl font-bold leading-tight sm:text-2xl">{myScheduledPickups.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -773,6 +786,7 @@ export default function AvailableMaterialsPage() {
                             setCompleteForm({
                               actualWeight: String(listing.estimatedWeight),
                               paymentMethod: 'cash',
+                              residentPhone: listing.residentPhone || '',
                               useOtherPhone: false,
                               phoneNumber: '',
                               completionNotes: '',
@@ -1036,6 +1050,7 @@ export default function AvailableMaterialsPage() {
             setCompleteForm({
               actualWeight: '',
               paymentMethod: 'cash',
+              residentPhone: '',
               useOtherPhone: false,
               phoneNumber: '',
               completionNotes: '',
@@ -1047,7 +1062,7 @@ export default function AvailableMaterialsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md gap-3 overflow-y-auto p-4 sm:p-5">
           <DialogHeader>
             <DialogTitle>Complete Pickup</DialogTitle>
           </DialogHeader>
@@ -1102,18 +1117,34 @@ export default function AvailableMaterialsPage() {
                 <div className="space-y-4 rounded-lg border border-primary/15 bg-primary/5 p-4">
                   <div className="space-y-1 text-sm">
                     <p className="font-medium text-foreground">
-                      STK push amount: KES {Number(completeDialog.listing.offeredPrice || 0).toLocaleString()}
+                      Amount to be paid: KES {Number(completeDialog.listing.offeredPrice || 0).toLocaleString()}
                     </p>
                     <p className="text-muted-foreground">
-                      The resident phone is selected automatically. Enable the option below if you want to charge another M-Pesa number.
+                      The resident is the receiver. The STK prompt is sent to the recycler number below so you can authorize payment.
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Resident Phone</Label>
+                    <Label>Pay To</Label>
+                    <Input value={residentPayeeName || 'Resident'} readOnly />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Resident M-Pesa Number</Label>
                     <Input
-                      value={residentPaymentPhone || 'No resident phone available'}
+                      placeholder="e.g. 0712345678"
+                      value={completeForm.residentPhone}
+                      onChange={(e) => setCompleteForm({ ...completeForm, residentPhone: e.target.value })}
+                      disabled={isCompletingPickup || isMpesaPaymentConfirmed}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Update this if the resident receiver number is incorrect.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>STK Sent To Recycler Number</Label>
+                    <Input
+                      value={recyclerPaymentPhone || 'No recycler phone available'}
                       readOnly
-                      disabled={!residentPaymentPhone}
+                      disabled={!recyclerPaymentPhone}
                     />
                   </div>
                   <div className="flex items-center space-x-2">
@@ -1128,11 +1159,11 @@ export default function AvailableMaterialsPage() {
                         }))
                       }
                     />
-                    <Label htmlFor="recycler-other-phone">Use another M-Pesa number</Label>
+                    <Label htmlFor="recycler-other-phone">Pay from another M-Pesa number</Label>
                   </div>
                   {completeForm.useOtherPhone && (
                     <div className="space-y-2">
-                      <Label>Other M-Pesa Number</Label>
+                      <Label>Other Recycler M-Pesa Number</Label>
                       <Input
                         placeholder="e.g. 0712345678"
                         value={completeForm.phoneNumber}
@@ -1174,7 +1205,7 @@ export default function AvailableMaterialsPage() {
                 : completeForm.paymentMethod === 'mpesa'
                 ? isMpesaPaymentConfirmed
                   ? 'Finish Pickup'
-                  : 'Push Payment'
+                  : 'Pay Resident'
                 : 'Complete Pickup'}
             </Button>
           </DialogFooter>

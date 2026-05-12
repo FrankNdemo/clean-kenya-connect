@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Recycle, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 import { createComplaintApi } from '@/api';
 import { AuthError, useAuth } from '@/hooks/useAuth';
 import { isStandaloneAppMode } from '@/lib/appMode';
@@ -201,11 +202,8 @@ export default function LoginPage() {
 
               <div className="relative flex h-full flex-col justify-between gap-10">
                 <div className="flex items-start gap-3">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-primary shadow-lg">
-                    <Recycle className="h-6 w-6" />
-                  </div>
-                  <div className="pt-1">
-                    <p className="text-sm font-semibold uppercase tracking-[0.35em] text-white/85">M-Taka</p>
+                  <div className="inline-flex rounded-2xl bg-white px-4 py-3 shadow-lg ring-1 ring-white/70">
+                    <BrandLogo className="h-24 w-28 opacity-80 sm:h-28 sm:w-32" />
                   </div>
                 </div>
 

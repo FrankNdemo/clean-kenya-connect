@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Recycle, 
   Home, 
   Calendar, 
   MapPin, 
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/store';
 
@@ -79,7 +79,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex items-center gap-3 text-muted-foreground">
-          <Recycle className="w-5 h-5 animate-spin" />
+          <BrandLogo variant="icon" className="h-6 w-6 animate-pulse" />
           <span className="text-sm font-medium">Loading dashboard...</span>
         </div>
       </div>
@@ -113,10 +113,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 bg-card border-b border-border flex items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Recycle className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="font-bold">M-Taka</span>
+          <BrandLogo className="h-12 w-28" />
+          <span className="sr-only">M-Taka</span>
         </Link>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -135,10 +133,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="h-16 flex items-center gap-2 px-4 border-b border-border">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Recycle className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-lg">M-Taka</span>
+            <BrandLogo className="h-14 w-32" />
+            <span className="sr-only">M-Taka</span>
           </div>
 
           {/* User Info */}

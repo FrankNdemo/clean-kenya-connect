@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Recycle, ArrowLeft, Lock, Eye, EyeOff, Check, X, XCircle } from 'lucide-react';
+import { ArrowLeft, Lock, Eye, EyeOff, Check, X, XCircle } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 import { toast } from 'sonner';
 import { validatePasswordResetToken } from '@/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -187,9 +188,7 @@ export default function ResetPasswordPage() {
 
         <Card className={cardClassName}>
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-              <Recycle className="h-8 w-8" />
-            </div>
+            <BrandLogo className="mx-auto mb-4 h-20 w-40" />
             <CardTitle className={`text-2xl font-semibold ${accentTextClassName}`}>Reset Password</CardTitle>
             <CardDescription className="text-slate-500">
               {accountEmail ? `Choose a new password for ${accountEmail}` : 'Enter your new password below'}

@@ -1,22 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">M-Taka logo</title>
+  <desc id="desc">A green recycling logo with city, leaves, and the M-Taka wordmark.</desc>
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#16a34a" />
-      <stop offset="100%" stop-color="#15803d" />
+    <linearGradient id="leaf" x1="74" y1="122" x2="392" y2="333" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#075f2d" />
+      <stop offset="0.55" stop-color="#45b82e" />
+      <stop offset="1" stop-color="#b7f34c" />
     </linearGradient>
+    <linearGradient id="dark" x1="112" y1="134" x2="352" y2="321" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#044f24" />
+      <stop offset="1" stop-color="#0f7f31" />
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#073b1d" flood-opacity="0.22" />
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="96" fill="#f6fcf7" />
-  <circle cx="256" cy="256" r="205" fill="url(#g)" />
-  <circle cx="256" cy="256" r="205" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="10" />
-  <text
-    x="256"
-    y="302"
-    text-anchor="middle"
-    font-family="Segoe UI, Arial, sans-serif"
-    font-size="236"
-    font-weight="800"
-    fill="#ffffff"
-  >
-    M
-  </text>
+
+  <g filter="url(#softShadow)">
+    <path d="M155 120c40-66 117-78 190-51 18 7 20 28 26 48l33-10-41 70-78-20 35-16c-50-43-112-41-159 1l-6-22Z" fill="url(#leaf)" />
+    <path d="M91 221c35-74 97-111 172-123l-16 35c-55 11-95 40-117 89l36 4-76 49-43-77 44 23Z" fill="url(#leaf)" />
+    <path d="M109 297c-22-47-6-104 39-145l20 25c-30 33-40 74-20 109 22 39 70 49 124 31l10 31c-77 34-144 12-173-51Z" fill="url(#dark)" />
+    <path d="M334 321c59-6 98-41 112-91l-36 3 43-75 47 73-34-2c-14 72-69 121-146 130l14-38Z" fill="url(#leaf)" />
+
+    <path d="M145 301c45-34 92-46 149-34-42 24-84 39-149 34Z" fill="#0b6d2f" />
+    <path d="M275 305c55-20 105-15 151 14-58 11-105 6-151-14Z" fill="#75c941" />
+    <path d="M171 325c70 14 139 14 210-1-66 41-139 41-210 1Z" fill="#064f24" />
+
+    <path d="M227 218c-22-12-33-32-28-55 22-7 47 4 60 26-8 17-17 26-32 29Z" fill="#fff" opacity="0.92" />
+    <path d="M216 164c18-2 36 7 45 24 13-1 26 5 34 15 6 9 7 19 3 30 15 9 22 23 18 40-36 9-72 7-107-6-12-19-14-38-6-58 4-11 10-20 18-27-5-5-7-11-5-18Z" fill="#fff" opacity="0.9" />
+    <path d="M221 173c10 0 16 6 22 15-11 2-22 2-33 0 2-8 5-13 11-15Zm-17 43c10-7 22-7 36 0-8 11-19 16-33 14-3-4-4-9-3-14Zm51-2c13-6 26-3 38 8-7 10-17 15-31 14-7-5-9-13-7-22Zm-21 48c15-10 32-11 51-4-14 16-31 22-51 16-3-4-3-8 0-12Z" fill="#399b32" />
+
+    <path d="M257 174h22v107h-22V174Zm32 34h19v73h-19v-73Zm-65 38h19v35h-19v-35Zm97-46 16 81h-26l10-81Z" fill="#117334" />
+    <path d="M179 240h15v43h-15v-43Zm-22 20h16v23h-16v-23Zm201-26 13 49h-21l8-49Zm31-39 5 88h-12l5-88Zm-31 42 33-35 27 35" fill="none" stroke="#117334" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+
+    <text x="256" y="421" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="82" font-weight="900" fill="#086325">mTAKA</text>
+    <path d="M133 450c58-16 160-18 246-8-86 7-154 13-224 36 18-17 32-23-22-28Z" fill="#086325" />
+  </g>
 </svg>

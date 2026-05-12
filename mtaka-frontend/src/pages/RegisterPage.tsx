@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, Recycle, Truck, User, X } from 'lucide-react';
+import { ArrowLeft, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, Truck, User, X } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { UserRole } from '@/lib/store';
@@ -241,9 +242,7 @@ export default function RegisterPage() {
     <div className="min-h-[100dvh] bg-background px-3 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8">
       <main className={registerCardClassName}>
         <div className="flex w-full flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[16px] bg-primary text-primary-foreground">
-            <Recycle className="h-7 w-7" />
-          </div>
+          <BrandLogo className="mb-4 h-20 w-40" />
 
           <div className={titleBadgeClass}>
             <h1 className="text-[28px] font-semibold leading-none tracking-tight text-primary">

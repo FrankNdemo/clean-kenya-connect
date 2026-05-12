@@ -116,7 +116,7 @@ export default function AvailableMaterialsPage() {
   });
   const [completeForm, setCompleteForm] = useState({
     actualWeight: '',
-    paymentMethod: 'cash' as 'cash' | 'mpesa',
+    paymentMethod: 'mpesa' as 'cash' | 'mpesa',
     residentPhone: '',
     useOtherPhone: false,
     phoneNumber: '',
@@ -323,67 +323,65 @@ export default function AvailableMaterialsPage() {
         );
 
         toast.success(`Pickup completed! ${result.inventory.stock}kg of ${result.transaction.materialType} now in inventory`);
+      } else if (isMpesaPaymentConfirmed && mpesaPaymentId) {
+        await saveRecyclerMpesaPaymentCompletionNotesDb(mpesaPaymentId, completeForm.completionNotes);
+        toast.success('Pickup finished successfully');
       } else {
-        if (isMpesaPaymentConfirmed && mpesaPaymentId) {
-          await saveRecyclerMpesaPaymentCompletionNotesDb(mpesaPaymentId, completeForm.completionNotes);
-          toast.success('Pickup finished successfully');
-        } else {
-          const payment = await initiateRecyclerMpesaPaymentDb({
-            listingId: completeDialog.listing.id,
-            actualWeight: actualWeightValue,
-            phoneNumber: effectivePaymentPhone,
-          });
+        const payment = await initiateRecyclerMpesaPaymentDb({
+          listingId: completeDialog.listing.id,
+          actualWeight: actualWeightValue,
+          phoneNumber: effectivePaymentPhone,
+        });
 
+        setCompletePaymentStatus(
+          payment.customerMessage || `STK push sent to recycler phone ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
+        );
+        toast.success(payment.customerMessage || 'M-Pesa prompt sent to the recycler phone');
+
+        const settledPayment = await waitForRecyclerMpesaPaymentDb(payment.id, {
+          pollMs: 4000,
+          maxAttempts: 30,
+          onUpdate: (nextPayment) => {
+            if (nextPayment.status === 'pending') {
+              setCompletePaymentStatus(
+                nextPayment.customerMessage ||
+                  `Waiting for recycler payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
+              );
+            }
+          },
+        });
+
+        if (settledPayment.status === 'success' && settledPayment.recyclerTransaction) {
+          setMpesaPaymentId(settledPayment.id);
+          setIsMpesaPaymentConfirmed(true);
+          setPendingRecyclerTransaction(settledPayment.recyclerTransaction);
           setCompletePaymentStatus(
-            payment.customerMessage || `STK push sent to recycler phone ${payment.phoneNumberMasked || payment.phoneNumber}. Waiting for approval...`
+            settledPayment.mpesaReceiptNumber
+              ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber} recorded. You can now add optional completion notes and finish pickup.`
+              : 'Payment confirmed. You can now add optional completion notes and finish pickup.'
           );
-          toast.success(payment.customerMessage || 'M-Pesa prompt sent to the recycler phone');
-
-          const settledPayment = await waitForRecyclerMpesaPaymentDb(payment.id, {
-            pollMs: 4000,
-            maxAttempts: 30,
-            onUpdate: (nextPayment) => {
-              if (nextPayment.status === 'pending') {
-                setCompletePaymentStatus(
-                  nextPayment.customerMessage ||
-                    `Waiting for recycler payment approval on ${nextPayment.phoneNumberMasked || nextPayment.phoneNumber}...`
-                );
-              }
-            },
-          });
-
-          if (settledPayment.status === 'success' && settledPayment.recyclerTransaction) {
-            setMpesaPaymentId(settledPayment.id);
-            setIsMpesaPaymentConfirmed(true);
-            setPendingRecyclerTransaction(settledPayment.recyclerTransaction);
-            setCompletePaymentStatus(
-              settledPayment.mpesaReceiptNumber
-                ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber} recorded. You can now add optional completion notes and finish pickup.`
-                : 'Payment confirmed. You can now add optional completion notes and finish pickup.'
-            );
-            toast.success(
-              settledPayment.mpesaReceiptNumber
-                ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber}`
-                : 'Payment confirmed. Finish the pickup to close the dialog.'
-            );
-            return;
-          } else if (settledPayment.status === 'pending') {
-            toast('Payment request is still pending. Keep the page open or refresh shortly.');
-            setCompletePaymentStatus('Payment request is still pending.');
-            return;
-          } else {
-            const failureMessage = getMpesaFailureMessage(settledPayment, 'recycler');
-            setCompletePaymentStatus(failureMessage);
-            toast.error(failureMessage);
-            return;
-          }
+          toast.success(
+            settledPayment.mpesaReceiptNumber
+              ? `Payment confirmed. Receipt ${settledPayment.mpesaReceiptNumber}`
+              : 'Payment confirmed. Finish the pickup to close the dialog.'
+          );
+          return;
+        } else if (settledPayment.status === 'pending') {
+          toast('Payment request is still pending. Keep the page open or refresh shortly.');
+          setCompletePaymentStatus('Payment request is still pending.');
+          return;
+        } else {
+          const failureMessage = getMpesaFailureMessage(settledPayment, 'recycler');
+          setCompletePaymentStatus(failureMessage);
+          toast.error(failureMessage);
+          return;
         }
       }
 
       setCompleteDialog({ open: false, listing: null });
       setCompleteForm({
         actualWeight: '',
-        paymentMethod: 'cash',
+        paymentMethod: 'mpesa',
         residentPhone: '',
         useOtherPhone: false,
         phoneNumber: '',
@@ -785,7 +783,7 @@ export default function AvailableMaterialsPage() {
                           onClick={() => {
                             setCompleteForm({
                               actualWeight: String(listing.estimatedWeight),
-                              paymentMethod: 'cash',
+                              paymentMethod: 'mpesa',
                               residentPhone: listing.residentPhone || '',
                               useOtherPhone: false,
                               phoneNumber: '',
@@ -1049,7 +1047,7 @@ export default function AvailableMaterialsPage() {
           if (!open) {
             setCompleteForm({
               actualWeight: '',
-              paymentMethod: 'cash',
+              paymentMethod: 'mpesa',
               residentPhone: '',
               useOtherPhone: false,
               phoneNumber: '',
@@ -1097,14 +1095,19 @@ export default function AvailableMaterialsPage() {
                 <Label>Payment Method</Label>
                 <select
                   value={completeForm.paymentMethod}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const nextPaymentMethod = e.target.value as 'cash' | 'mpesa';
+                    setCompletePaymentStatus('');
+                    setMpesaPaymentId('');
+                    setIsMpesaPaymentConfirmed(false);
+                    setPendingRecyclerTransaction(null);
                     setCompleteForm({
                       ...completeForm,
-                      paymentMethod: e.target.value as 'cash' | 'mpesa',
-                      useOtherPhone: e.target.value === 'cash' ? false : completeForm.useOtherPhone,
-                      phoneNumber: e.target.value === 'cash' ? '' : completeForm.phoneNumber,
-                    })
-                  }
+                      paymentMethod: nextPaymentMethod,
+                      useOtherPhone: nextPaymentMethod === 'cash' ? false : completeForm.useOtherPhone,
+                      phoneNumber: nextPaymentMethod === 'cash' ? '' : completeForm.phoneNumber,
+                    });
+                  }}
                   disabled={isCompletingPickup || isMpesaPaymentConfirmed}
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                 >
@@ -1119,23 +1122,23 @@ export default function AvailableMaterialsPage() {
                     <p className="font-medium text-foreground">
                       Amount to be paid: KES {Number(completeDialog.listing.offeredPrice || 0).toLocaleString()}
                     </p>
-                    <p className="text-muted-foreground">
-                      The resident is the receiver. The STK prompt is sent to the recycler number below so you can authorize payment.
-                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Pay To</Label>
-                    <Input value={residentPayeeName || 'Resident'} readOnly />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Resident M-Pesa Number</Label>
-                    <Input
-                      placeholder="e.g. 0712345678"
-                      value={completeForm.residentPhone}
-                      onChange={(e) => setCompleteForm({ ...completeForm, residentPhone: e.target.value })}
-                      disabled={isCompletingPickup || isMpesaPaymentConfirmed}
-                    />
-                    <p className="text-xs text-muted-foreground">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <Label className="block text-[11px] leading-tight sm:text-sm">Pay To</Label>
+                      <Input value={residentPayeeName || 'Resident'} readOnly className="min-w-0" />
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <Label className="block text-[11px] leading-tight sm:text-sm">mobile</Label>
+                      <Input
+                        placeholder="e.g. 0712345678"
+                        value={completeForm.residentPhone}
+                        onChange={(e) => setCompleteForm({ ...completeForm, residentPhone: e.target.value })}
+                        disabled={isCompletingPickup || isMpesaPaymentConfirmed}
+                        className="min-w-0"
+                      />
+                    </div>
+                    <p className="col-span-2 text-xs text-muted-foreground">
                       Update this if the resident receiver number is incorrect.
                     </p>
                   </div>

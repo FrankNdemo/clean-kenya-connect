@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { isStandaloneAppMode } from "@/lib/appMode";
 import { UserRole } from "@/lib/store";
 import { getDashboardPathForUser } from "@/lib/dashboardPaths";
-import { Recycle } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
@@ -67,7 +67,7 @@ function FullScreenLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex items-center gap-3 text-muted-foreground">
-        <Recycle className="w-5 h-5 animate-spin" />
+        <BrandLogo variant="icon" className="h-6 w-6 animate-pulse" />
         <span className="text-sm font-medium">Loading M-Taka...</span>
       </div>
     </div>

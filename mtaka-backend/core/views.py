@@ -261,8 +261,6 @@ def _finalize_mpesa_payment(payment):
 
         weight_value = payment.recorded_weight or listing.actual_weight or listing.estimated_weight or Decimal('0')
         recycler_transaction = payment.recycler_transaction
-        if not recycler_transaction:
-            recycler_transaction = RecyclerTransaction.objects.filter(listing=listing).order_by('-created_at').first()
 
         created_transaction = False
         if recycler_transaction:
@@ -1689,11 +1687,16 @@ class RecyclableListingViewSet(viewsets.ModelViewSet):
 
         payment_method = request.data.get('payment_method', 'cash')
         actual_weight = request.data.get('actual_weight') or listing.estimated_weight
-        mpesa_code = request.data.get('mpesa_code', '')
         completion_notes = request.data.get('completion_notes', '')
 
-        if payment_method == 'mpesa' and not str(mpesa_code or '').strip():
-            return Response({'error': 'M-Pesa transaction code is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if payment_method == 'mpesa':
+            return Response(
+                {'detail': 'Use the M-Pesa STK payment flow to complete recycler pickups.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if payment_method != 'cash':
+            return Response({'error': 'Unsupported payment method.'}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             listing.actual_weight = actual_weight
@@ -1708,8 +1711,8 @@ class RecyclableListingViewSet(viewsets.ModelViewSet):
                 weight=actual_weight,
                 price=listing.offered_price or 0,
                 source=f'{listing.resident_name} - {listing.resident_location}',
-                payment_method=payment_method,
-                mpesa_code=mpesa_code or '',
+                payment_method='cash',
+                mpesa_code='',
             )
 
             # +5 points per kg recycled for resident households.

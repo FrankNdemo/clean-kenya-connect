@@ -1,5 +1,5 @@
-import { Recycle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { BrandLogo } from '@/components/BrandLogo';
 import { isStandaloneAppMode } from '@/lib/appMode';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -21,10 +21,8 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Recycle className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold">M-Taka</span>
+              <BrandLogo className="h-24 w-56" />
+              <span className="sr-only">M-Taka</span>
             </Link>
             <p className="text-muted-foreground text-sm max-w-md">
               Smart Waste Management & Community Engagement System. Together, we're building cleaner, 

@@ -181,8 +181,8 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="relative min-h-[100dvh] overflow-hidden bg-background">
-        <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col items-center justify-center gap-4 px-3 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:items-stretch lg:px-8 lg:py-10">
+      <div className="relative min-h-[100dvh] overflow-x-hidden bg-background">
+        <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col items-center justify-center gap-3 px-4 py-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:gap-4 sm:px-6 lg:items-stretch lg:px-8 lg:py-10">
           {!isStandaloneApp && (
             <Link
               to="/"
@@ -193,31 +193,31 @@ export default function LoginPage() {
             </Link>
           )}
 
-          <div className="mx-auto grid w-full max-w-[22.5rem] gap-0 overflow-hidden rounded-[2rem] bg-white shadow-[0_28px_70px_-32px_rgba(15,23,42,0.45)] sm:max-w-[24rem] lg:max-w-[50rem] lg:grid-cols-[0.95fr_0.82fr] lg:items-stretch xl:max-w-[54rem]">
-            <section className="relative min-h-[18rem] overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/90 p-5 text-primary-foreground sm:p-8 lg:min-h-[32rem] lg:p-8 xl:min-h-[34rem]">
+          <div className="mx-auto grid w-full max-w-[21rem] gap-0 overflow-hidden rounded-[1.5rem] bg-white shadow-[0_28px_70px_-32px_rgba(15,23,42,0.45)] sm:max-w-[24rem] sm:rounded-[2rem] lg:max-w-[50rem] lg:grid-cols-[0.95fr_0.82fr] lg:items-stretch xl:max-w-[54rem]">
+            <section className="relative min-h-[12rem] overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/90 p-4 text-primary-foreground sm:min-h-[18rem] sm:p-8 lg:min-h-[32rem] lg:p-8 xl:min-h-[34rem]">
               <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10" />
               <div className="absolute -left-6 bottom-0 h-[28rem] w-[28rem] rounded-full bg-black/12" />
               <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-white/10" />
               <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full bg-black/15 blur-2xl" />
 
-              <div className="relative flex h-full flex-col justify-between gap-10">
+              <div className="relative flex h-full flex-col justify-between gap-5 sm:gap-10">
                 <div className="flex items-start gap-3">
-                  <div className="inline-flex rounded-2xl bg-white px-4 py-3 shadow-lg ring-1 ring-white/70">
-                    <BrandLogo className="h-24 w-28 opacity-80 sm:h-28 sm:w-32" />
+                  <div className="inline-flex rounded-2xl bg-white px-3 py-2 shadow-lg ring-1 ring-white/70 sm:px-4 sm:py-3">
+                    <BrandLogo className="h-16 w-20 opacity-80 sm:h-28 sm:w-32" />
                   </div>
                 </div>
 
-                <div className="max-w-md space-y-4">
-                  <div className="space-y-2">
-                    <p className="text-4xl font-semibold leading-tight sm:text-5xl">Welcome Back!</p>
-                    <p className="text-sm leading-6 text-white/75 sm:text-base">
+                <div className="max-w-md space-y-3 sm:space-y-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <p className="text-2xl font-semibold leading-tight sm:text-5xl">Welcome Back!</p>
+                    <p className="text-xs leading-5 text-white/75 sm:text-base sm:leading-6">
                       To stay connected with us, please log in with your personal info
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleScrollToForm}
-                    className="inline-flex h-10 items-center justify-center rounded-full border border-white/35 px-8 text-xs font-semibold uppercase tracking-[0.3em] text-white transition-colors hover:bg-white/10"
+                    className="inline-flex h-9 items-center justify-center rounded-full border border-white/35 px-6 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/10 sm:h-10 sm:px-8 sm:text-xs sm:tracking-[0.3em]"
                   >
                     Sign In
                   </button>
@@ -225,7 +225,7 @@ export default function LoginPage() {
               </div>
             </section>
 
-            <section className="flex items-center justify-center bg-white px-5 py-6 sm:px-8 sm:py-8 lg:px-8 lg:py-10">
+            <section className="flex items-center justify-center bg-white px-5 py-5 sm:px-8 sm:py-8 lg:px-8 lg:py-10">
               <Card className="w-full max-w-sm border-0 bg-transparent shadow-none lg:max-w-[19.5rem]">
                 <CardHeader className="hidden space-y-2 p-0 text-center sm:block">
                   <CardTitle className="text-3xl font-semibold capitalize text-primary">welcome</CardTitle>

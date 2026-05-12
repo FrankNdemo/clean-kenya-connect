@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -74,6 +75,16 @@ function FullScreenLoader() {
   );
 }
 
+function ScrollToTop() {
+  const { hash, key, pathname, search } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [hash, key, pathname, search]);
+
+  return null;
+}
+
 function RootRoute() {
   const { user, isLoading } = useAuth();
 
@@ -148,6 +159,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <HashRouter>
+          <ScrollToTop />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<RootRoute />} />

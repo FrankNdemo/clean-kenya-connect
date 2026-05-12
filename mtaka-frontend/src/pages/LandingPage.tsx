@@ -246,13 +246,8 @@ export default function LandingPage() {
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary shadow-sm animate-fade-in">
-              <Leaf className="h-4 w-4" />
-              Smart Waste Management for Kenya
-            </div>
-
             <h1
-              className="mt-6 text-4xl font-extrabold leading-tight text-foreground md:text-6xl animate-fade-in"
+              className="text-4xl font-extrabold leading-tight text-foreground md:text-6xl animate-fade-in"
               style={{ animationDelay: '0.08s' }}
             >
               Building a <span className="text-gradient">Cleaner Tomorrow</span>, Together

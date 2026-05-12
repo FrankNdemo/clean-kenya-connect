@@ -42,9 +42,9 @@ export function Navbar() {
             <span className="sr-only">M-Taka</span>
           </Link>
 
-          <div className="hidden items-center gap-6 md:flex">
+          <div className="hidden items-center gap-8 md:mr-4 md:flex lg:mr-8">
             {/* Desktop Navigation */}
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-7">
               {navigationItems.map((item) => (
                 <Link
                   key={item.to}
@@ -59,7 +59,7 @@ export function Navbar() {
             </div>
 
             {/* Auth Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               {user ? (
                 <>
                   <Link to={getDashboardPathForUser(user)}>

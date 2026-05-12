@@ -89,7 +89,7 @@ export default function RegisterPage() {
   const hasRequiredBusinessDetails =
     !isBusinessRole || (formData.companyName.trim().length > 0 && formData.licenseNumber.trim().length > 0);
   const isSubmitReady = hasRequiredIdentityDetails && hasRequiredBusinessDetails && passwordValidation.isValid && passwordsMatch;
-  const formColumnStyle = { width: '100%', maxWidth: '360px' } as const;
+  const formColumnStyle = { width: '100%', maxWidth: '720px' } as const;
   const dividerBarClass = 'h-[8px] w-[78px] rounded-[2px] border border-primary/30 bg-primary/20';
   const titleBadgeClass = 'inline-flex items-center justify-center rounded-[10px] bg-primary/10 px-8 py-2';
   const roleCardBaseClass =
@@ -103,10 +103,10 @@ export default function RegisterPage() {
   const inputWithIconStyle = { paddingLeft: '3rem' } as const;
   const inputWithDualIconsStyle = { paddingLeft: '3rem', paddingRight: '2.75rem' } as const;
   const registerCardClassName = cn(
-    'mx-auto flex w-full flex-col items-center rounded-[2rem] border border-primary/5 bg-white px-5 py-6 shadow-[0_28px_70px_-36px_rgba(15,23,42,0.4)] sm:px-7 sm:py-8',
+    'mx-auto flex w-full flex-col items-center rounded-[1.5rem] border border-primary/5 bg-white px-4 py-5 shadow-[0_28px_70px_-36px_rgba(15,23,42,0.4)] sm:rounded-[2rem] sm:px-7 sm:py-8',
     isChoosingRole
       ? 'max-w-[22.5rem] sm:max-w-[24rem] lg:max-w-[40rem] lg:px-8'
-      : 'max-w-[22.5rem] sm:max-w-[24rem] lg:max-w-[25rem] lg:px-8'
+      : 'max-w-[22.5rem] sm:max-w-[42rem] lg:max-w-[46rem] lg:px-8'
   );
 
   const getErrorMessage = (error: unknown) => {
@@ -239,10 +239,10 @@ export default function RegisterPage() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-background px-3 py-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8">
+    <div className="flex min-h-[100dvh] items-start justify-center bg-background px-4 py-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8">
       <main className={registerCardClassName}>
         <div className="flex w-full flex-col items-center text-center">
-          <BrandLogo className="mb-4 h-20 w-40" />
+          <BrandLogo className="mb-3 h-16 w-32 sm:mb-4 sm:h-20 sm:w-40" />
 
           <div className={titleBadgeClass}>
             <h1 className="text-[28px] font-semibold leading-none tracking-tight text-primary">
@@ -348,7 +348,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="name" className={formLabelClass}>
                   Full Name
@@ -581,7 +581,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 className={[
-                  'mt-2 inline-flex h-11 w-full appearance-none items-center justify-center rounded-[10px] border border-transparent text-[13px] font-semibold shadow-[0_16px_28px_-22px_hsl(var(--primary)/0.75)] transition-colors',
+                  'mt-2 inline-flex h-11 w-full appearance-none items-center justify-center rounded-[10px] border border-transparent text-[13px] font-semibold shadow-[0_16px_28px_-22px_hsl(var(--primary)/0.75)] transition-colors sm:col-span-2',
                   isSubmitReady
                     ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                     : 'bg-primary/40 text-primary-foreground hover:bg-primary/40',

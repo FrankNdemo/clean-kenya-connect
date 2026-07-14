@@ -21,9 +21,9 @@ export function EventCoverMedia({
   className,
   children,
   fallbackIcon: FallbackIcon = Calendar,
-  loading = 'lazy',
-  deferLoad = true,
-  deferDelayMs = 120,
+  loading = 'eager',
+  deferLoad = false,
+  deferDelayMs = 0,
 }: EventCoverMediaProps) {
   const resolvedSrc = resolveEventCoverUrl(src);
   const [hasImageError, setHasImageError] = useState(false);
@@ -60,12 +60,9 @@ export function EventCoverMedia({
         <img
           src={resolvedSrc}
           alt={alt}
-          className={cn(
-            'absolute inset-0 z-0 h-full w-full object-cover transition-opacity duration-300',
-            isImageLoaded ? 'opacity-100' : 'opacity-0'
-          )}
+          className={cn('absolute inset-0 z-0 h-full w-full object-cover', isImageLoaded ? 'opacity-100' : 'opacity-0')}
           loading={loading}
-          decoding="async"
+          decoding={loading === 'eager' ? 'sync' : 'async'}
           fetchPriority={loading === 'eager' ? 'high' : 'low'}
           onLoad={() => setIsImageLoaded(true)}
           onError={() => setHasImageError(true)}

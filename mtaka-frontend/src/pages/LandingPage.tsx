@@ -412,7 +412,8 @@ export default function LandingPage() {
                       className={`w-full object-cover transition-transform duration-500 group-hover:scale-105 ${
                         index === 0 ? 'aspect-[16/8] sm:aspect-[16/7]' : 'aspect-[4/3]'
                       }`}
-                      loading="lazy"
+                      loading="eager"
+                      fetchPriority={index === 0 ? 'high' : 'auto'}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-background/35 via-transparent to-transparent" />
                     <Badge className="absolute left-4 top-4 bg-background/90 text-foreground shadow-sm backdrop-blur">

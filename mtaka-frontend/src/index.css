@@ -125,6 +125,23 @@
 }
 
 @layer utilities {
+  @keyframes soft-glow {
+    0%, 100% {
+      opacity: 0.55;
+      text-shadow: 0 0 0 hsl(var(--primary) / 0);
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+      text-shadow: 0 0 14px hsl(var(--primary) / 0.45), 0 0 28px hsl(var(--success) / 0.32);
+      transform: translateY(-1px);
+    }
+  }
+
+  .animate-soft-glow {
+    animation: soft-glow 1.8s ease-in-out infinite;
+  }
+
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: var(--gradient-hero);

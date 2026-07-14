@@ -37,7 +37,7 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex h-24 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="-ml-2 flex items-center gap-2 group md:ml-0">
             <BrandLogo className="h-20 w-48 transition-transform group-hover:scale-105 md:h-24 md:w-56" />
             <span className="sr-only">M-Taka</span>
           </Link>

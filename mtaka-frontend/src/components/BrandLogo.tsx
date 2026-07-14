@@ -11,6 +11,9 @@ export function BrandLogo({ className, variant = 'full' }: BrandLogoProps) {
       src={variant === 'icon' ? '/mtaka-logo-icon.png' : '/mtaka-logo.png'}
       alt="M-Taka"
       className={cn('block object-contain', className)}
+      loading="eager"
+      decoding="sync"
+      fetchPriority="high"
       draggable={false}
     />
   );

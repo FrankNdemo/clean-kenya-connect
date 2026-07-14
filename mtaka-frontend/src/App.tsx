@@ -67,9 +67,14 @@ const queryClient = new QueryClient();
 function FullScreenLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="flex items-center gap-3 text-muted-foreground">
-        <BrandLogo variant="icon" className="h-6 w-6 animate-pulse" />
-        <span className="text-sm font-medium">Loading M-Taka...</span>
+      <div className="flex flex-col items-center text-center">
+        <BrandLogo variant="icon" className="h-28 w-28 animate-pulse sm:h-32 sm:w-32" />
+        <span className="mt-3 text-sm font-semibold uppercase tracking-[0.28em] text-primary animate-soft-glow">
+          Clean Connect
+        </span>
+        <span className="mt-24 text-4xl font-medium tracking-tight text-foreground">
+          M-Taka
+        </span>
       </div>
     </div>
   );

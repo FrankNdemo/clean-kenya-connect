@@ -112,8 +112,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 bg-card border-b border-border flex items-center justify-between px-4">
-        <Link to="/" className="-ml-2 flex items-center gap-2">
-          <BrandLogo className="h-12 w-28" />
+        <Link to="/" className="-ml-6 flex items-center gap-2">
+          <BrandLogo className="-translate-x-2 h-12 w-28" />
           <span className="sr-only">M-Taka</span>
         </Link>
         <button

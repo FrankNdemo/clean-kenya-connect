@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Layout } from '@/components/layout/Layout';
 import { isStandaloneAppMode } from '@/lib/appMode';
 import heroBg from '@/assets/hero-bg.jpg';
+import { toast } from 'sonner';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -196,7 +197,9 @@ export default function LandingPage() {
   const handleInstallClick = async () => {
     if (isStandalone) {
       setShowIosHint(false);
-      setInstallHelpMessage('M-Taka is already installed on this device.');
+      const message = 'M-Taka is already installed on this device.';
+      setInstallHelpMessage(message);
+      toast.info(message);
       return;
     }
 
@@ -209,25 +212,35 @@ export default function LandingPage() {
       setInstallPromptEvent(null);
       setIsInstalling(false);
       if (choice.outcome === 'accepted') {
-        setInstallHelpMessage('Install started. Open M-Taka from your Home Screen once complete.');
+        const message = 'Install started. Open M-Taka from your Home Screen once complete.';
+        setInstallHelpMessage(message);
+        toast.success(message);
       } else {
-        setInstallHelpMessage('Install was dismissed. Tap Download App again whenever you are ready.');
+        const message = 'Install was dismissed. Tap Download App again whenever you are ready.';
+        setInstallHelpMessage(message);
+        toast.info(message);
       }
       return;
     }
 
     if (isIosSafariLike) {
       setShowIosHint(true);
-      setInstallHelpMessage('');
+      const message = 'On iPhone: tap Share, then select Add to Home Screen to install M-Taka.';
+      setInstallHelpMessage(message);
+      toast.info(message);
       return;
     }
 
     setShowIosHint(false);
     if (!window.isSecureContext) {
-      setInstallHelpMessage('Install is blocked on non-HTTPS pages. Open M-Taka on a secure HTTPS domain, then tap Download App.');
+      const message = 'Install is blocked on non-HTTPS pages. Open M-Taka on a secure HTTPS domain, then tap Download App.';
+      setInstallHelpMessage(message);
+      toast.error(message);
       return;
     }
-    setInstallHelpMessage('Open your browser menu and tap Install app or Add to Home Screen.');
+    const message = 'Your browser did not show the install popup. Open the browser menu and tap Install app or Add to Home Screen.';
+    setInstallHelpMessage(message);
+    toast.info(message);
   };
 
   return (
@@ -575,7 +588,7 @@ export default function LandingPage() {
           </p>
           {showIosHint && (
             <p className="mt-4 text-sm opacity-90">
-              On iPhone: tap Share, then select Add to Home Screen to install M-Taka.
+              {installHelpMessage || 'On iPhone: tap Share, then select Add to Home Screen to install M-Taka.'}
             </p>
           )}
           {!showIosHint && installHelpMessage && (

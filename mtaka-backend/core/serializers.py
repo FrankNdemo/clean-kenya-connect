@@ -189,7 +189,21 @@ class RegisterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'county_of_operation': 'This field is required for authority users.'
                 })
-            attrs['county_of_operation'] = county_of_operation
+            normalized_county = resolve_county_from_location(county_of_operation) or county_of_operation
+            existing_authorities = Authority.objects.filter(
+                user__is_active=True,
+                user__is_superuser=False,
+            ).only('county')
+            for authority in existing_authorities:
+                existing_county = resolve_county_from_location(authority.county or '') or (authority.county or '').strip()
+                if existing_county and existing_county.lower() == normalized_county.lower():
+                    raise serializers.ValidationError({
+                        'county_of_operation': (
+                            'Only one county authority account can be approved per county. '
+                            'Contact the admin to create a liaison account for this county.'
+                        )
+                    })
+            attrs['county_of_operation'] = normalized_county
 
         username = attrs.get('username', '') or ''
         full_name = attrs.get('full_name', '') or ''

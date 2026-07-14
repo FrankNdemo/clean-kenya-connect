@@ -457,6 +457,9 @@ export default function RegisterPage() {
                       required
                     />
                   </div>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    One county authority account is approved per county. If one already exists, contact the admin to create a liaison account.
+                  </p>
                 </div>
               )}
 

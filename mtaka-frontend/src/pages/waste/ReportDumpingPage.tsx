@@ -125,14 +125,14 @@ export default function ReportDumpingPage() {
 
   return (
     <Layout showFooter={false}>
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background py-12 px-4">
-        <div className="container max-w-2xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background px-2 py-8 sm:px-4 sm:py-12">
+        <div className="mx-auto w-full max-w-none sm:max-w-2xl">
           <Link to={user ? '/dashboard/resident' : '/'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </Link>
 
-          <Card className="shadow-lg">
+          <Card className="w-full shadow-lg">
             <CardHeader>
               <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
                 <AlertTriangle className="w-7 h-7 text-destructive" />
@@ -173,7 +173,7 @@ export default function ReportDumpingPage() {
                     ) : (
                       <>
                         <Navigation className="w-8 h-8 text-primary mb-2" />
-                        <p className="text-sm text-muted-foreground">Share your location for accurate reporting</p>
+                        <p className="px-4 text-center text-sm text-muted-foreground">Share your location for accurate reporting</p>
                       </>
                     )}
                     <Button

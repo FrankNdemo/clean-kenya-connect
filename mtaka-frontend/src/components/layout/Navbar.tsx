@@ -88,10 +88,10 @@ export function Navbar() {
 
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-primary transition-colors hover:bg-secondary md:hidden"
             onClick={() => setIsOpen(!isOpen)}
           >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {isOpen ? <X className="h-8 w-8" strokeWidth={3} /> : <Menu className="h-8 w-8" strokeWidth={3} />}
           </button>
         </div>
 

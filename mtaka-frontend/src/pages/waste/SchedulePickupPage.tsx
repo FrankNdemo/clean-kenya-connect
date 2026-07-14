@@ -245,14 +245,14 @@ export default function SchedulePickupPage() {
 
   return (
     <Layout showFooter={false}>
-      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background py-12 px-4">
-        <div className="container max-w-2xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background px-2 py-8 sm:px-4 sm:py-12">
+        <div className="mx-auto w-full max-w-none sm:max-w-2xl">
           <Link to={user ? '/dashboard/resident' : '/'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </Link>
 
-          <Card className="shadow-lg">
+          <Card className="w-full shadow-lg">
             <CardHeader>
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                 <Truck className="w-7 h-7 text-primary" />
@@ -265,7 +265,7 @@ export default function SchedulePickupPage() {
                 {/* Waste Type Selection */}
                 <div className="space-y-3">
                   <Label>Waste Type</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {wasteTypes.map((type) => (
                       <button
                         key={type.value}
@@ -286,7 +286,7 @@ export default function SchedulePickupPage() {
                 </div>
 
                 {/* Date & Time */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="date">Pickup Date</Label>
                     <div className="relative">

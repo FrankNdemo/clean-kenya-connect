@@ -174,6 +174,38 @@ class AuthFlowTests(TestCase):
         self.assertEqual(mail.outbox[0].from_email, 'M-Taka No-Reply <no-reply@example.com>')
         self.assertIn('Welcome to M-Taka', mail.outbox[0].subject)
 
+    def test_registration_rejects_duplicate_authority_for_same_county(self):
+        authority_user = self.user_model.objects.create_user(
+            username='nairobi-authority',
+            email='nairobi-authority@example.com',
+            password='StrongPass!1',
+            user_type='authority',
+            phone='+254700000010',
+        )
+        Authority.objects.create(
+            user=authority_user,
+            staff_name='Nairobi Authority',
+            county='Nairobi',
+        )
+
+        response = self.client.post(
+            '/api/auth/register/',
+            data=json.dumps({
+                'email': 'liaison-request@example.com',
+                'password': 'StrongPass!1',
+                'password2': 'StrongPass!1',
+                'user_type': 'authority',
+                'phone': '+254700000011',
+                'full_name': 'Second Authority',
+                'county_of_operation': 'Nairobi County',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('liaison account', response.json()['county_of_operation'][0])
+        self.assertFalse(self.user_model.objects.filter(email='liaison-request@example.com').exists())
+
     def test_refresh_accepts_refresh_token_from_request_body(self):
         register_response = self.client.post(
             '/api/auth/register/',

@@ -118,9 +118,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </Link>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-lg hover:bg-secondary"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-primary hover:bg-secondary"
         >
-          {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          {sidebarOpen ? <X className="h-8 w-8" strokeWidth={3} /> : <Menu className="h-8 w-8" strokeWidth={3} />}
         </button>
       </header>
 

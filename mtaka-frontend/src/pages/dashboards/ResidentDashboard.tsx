@@ -265,24 +265,24 @@ export default function ResidentDashboard() {
         {/* Quick Actions */}
         <div className="dashboard-section">
           <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Link to="/waste/schedule" className="p-4 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors text-center group">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-5">
+            <Link to="/waste/schedule" className="w-full p-4 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors text-center group">
               <Truck className="w-8 h-8 mx-auto mb-2 text-primary" />
               <div className="text-sm font-medium">Schedule Pickup</div>
             </Link>
-            <Link to="/dashboard/resident/recyclables" className="p-4 rounded-xl bg-success/5 hover:bg-success/10 transition-colors text-center group">
+            <Link to="/dashboard/resident/recyclables" className="w-full p-4 rounded-xl bg-success/5 hover:bg-success/10 transition-colors text-center group">
               <Recycle className="w-8 h-8 mx-auto mb-2 text-success" />
               <div className="text-sm font-medium">List Recyclables</div>
             </Link>
-            <Link to="/waste/report" className="p-4 rounded-xl bg-destructive/5 hover:bg-destructive/10 transition-colors text-center group">
+            <Link to="/waste/report" className="w-full p-4 rounded-xl bg-destructive/5 hover:bg-destructive/10 transition-colors text-center group">
               <MapPin className="w-8 h-8 mx-auto mb-2 text-destructive" />
               <div className="text-sm font-medium">Report Dumping</div>
             </Link>
-            <Link to="/events/create" className="p-4 rounded-xl bg-info/5 hover:bg-info/10 transition-colors text-center group">
+            <Link to="/events/create" className="w-full p-4 rounded-xl bg-info/5 hover:bg-info/10 transition-colors text-center group">
               <Calendar className="w-8 h-8 mx-auto mb-2 text-info" />
               <div className="text-sm font-medium">Create Event</div>
             </Link>
-            <Link to="/dashboard/resident/rewards" className="p-4 rounded-xl bg-accent/10 hover:bg-accent/20 transition-colors text-center group">
+            <Link to="/dashboard/resident/rewards" className="w-full p-4 rounded-xl bg-accent/10 hover:bg-accent/20 transition-colors text-center group">
               <Award className="w-8 h-8 mx-auto mb-2 text-accent" />
               <div className="text-sm font-medium">My Rewards</div>
             </Link>

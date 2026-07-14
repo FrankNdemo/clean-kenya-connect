@@ -59,9 +59,6 @@ export function Footer() {
           <p className="text-sm text-muted-foreground">
             © 2026 M-Taka. All rights reserved.
           </p>
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            Made for all Kenyan's
-          </p>
         </div>
       </div>
     </footer>

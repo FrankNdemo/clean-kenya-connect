@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
@@ -170,6 +170,7 @@ export default function LandingPage() {
   const [showIosHint, setShowIosHint] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [installHelpMessage, setInstallHelpMessage] = useState('');
+  const installPromptEventRef = useRef<BeforeInstallPromptEvent | null>(null);
 
   const isIosSafariLike = useMemo(() => {
     if (typeof navigator === 'undefined') return false;
@@ -191,12 +192,70 @@ export default function LandingPage() {
   useEffect(() => {
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
-      setInstallPromptEvent(event as BeforeInstallPromptEvent);
+      const promptEvent = event as BeforeInstallPromptEvent;
+      installPromptEventRef.current = promptEvent;
+      setInstallPromptEvent(promptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
   }, []);
+
+  const waitForInstallPrompt = async () => {
+    if (installPromptEventRef.current) return installPromptEventRef.current;
+
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.ready;
+      } catch {
+        // The fallback message below is more useful than exposing this browser detail.
+      }
+    }
+
+    return new Promise<BeforeInstallPromptEvent | null>((resolve) => {
+      if (installPromptEventRef.current) {
+        resolve(installPromptEventRef.current);
+        return;
+      }
+
+      const timeout = window.setTimeout(() => {
+        window.removeEventListener('beforeinstallprompt', onPromptReady);
+        resolve(null);
+      }, 2500);
+
+      const onPromptReady = (event: Event) => {
+        event.preventDefault();
+        window.clearTimeout(timeout);
+        const promptEvent = event as BeforeInstallPromptEvent;
+        installPromptEventRef.current = promptEvent;
+        setInstallPromptEvent(promptEvent);
+        window.removeEventListener('beforeinstallprompt', onPromptReady);
+        resolve(promptEvent);
+      };
+
+      window.addEventListener('beforeinstallprompt', onPromptReady);
+    });
+  };
+
+  const promptInstall = async (promptEvent: BeforeInstallPromptEvent) => {
+    setShowIosHint(false);
+    setInstallHelpMessage('');
+    setIsInstalling(true);
+    await promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
+    installPromptEventRef.current = null;
+    setInstallPromptEvent(null);
+    setIsInstalling(false);
+    if (choice.outcome === 'accepted') {
+      const message = 'Install started. Open M-Taka from your Home Screen once complete.';
+      setInstallHelpMessage(message);
+      toast.success(message);
+    } else {
+      const message = 'Install was dismissed. Tap Download App again whenever you are ready.';
+      setInstallHelpMessage(message);
+      toast.info(message);
+    }
+  };
 
   const handleInstallClick = async () => {
     if (isStandalone) {
@@ -207,23 +266,9 @@ export default function LandingPage() {
       return;
     }
 
-    if (installPromptEvent) {
-      setShowIosHint(false);
-      setInstallHelpMessage('');
-      setIsInstalling(true);
-      await installPromptEvent.prompt();
-      const choice = await installPromptEvent.userChoice;
-      setInstallPromptEvent(null);
-      setIsInstalling(false);
-      if (choice.outcome === 'accepted') {
-        const message = 'Install started. Open M-Taka from your Home Screen once complete.';
-        setInstallHelpMessage(message);
-        toast.success(message);
-      } else {
-        const message = 'Install was dismissed. Tap Download App again whenever you are ready.';
-        setInstallHelpMessage(message);
-        toast.info(message);
-      }
+    const promptEvent = installPromptEvent || (await waitForInstallPrompt());
+    if (promptEvent) {
+      await promptInstall(promptEvent);
       return;
     }
 

@@ -181,6 +181,11 @@ export default function LandingPage() {
     return isIos && isWebkit && !isCriOS && !isFxiOS;
   }, []);
 
+  const isAndroid = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    return /Android/i.test(navigator.userAgent || '');
+  }, []);
+
   const isStandalone = isStandaloneAppMode();
 
   useEffect(() => {
@@ -237,7 +242,9 @@ export default function LandingPage() {
       toast.error(message);
       return;
     }
-    const message = 'Your browser did not show the install popup. Open the browser menu and tap Install app or Add to Home Screen.';
+    const message = isAndroid
+      ? 'Your browser did not show the install popup. Open this page in Chrome, tap the browser menu, then tap Install app or Add to Home Screen.'
+      : 'Your browser did not show the install popup. Open the browser menu and tap Install app or Add to Home Screen.';
     setInstallHelpMessage(message);
     toast.info(message);
   };
@@ -581,7 +588,7 @@ export default function LandingPage() {
           </div>
           <p className="mt-4 text-sm opacity-80">
             Need help?{' '}
-            <a href="mailto:support@mtaka.co.ke" className="underline underline-offset-4 hover:opacity-100">
+            <a href="mailto:linkentnerg@gmail.com" className="underline underline-offset-4 hover:opacity-100">
               Contact support
             </a>
           </p>

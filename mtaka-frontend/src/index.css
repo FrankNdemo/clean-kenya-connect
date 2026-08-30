@@ -203,6 +203,7 @@
   }
 
   .splash-loader {
+    margin-top: clamp(1.5rem, 4vh, 3rem);
     width: 2rem;
     height: 2rem;
     border-radius: 9999px;
@@ -238,6 +239,10 @@
     .splash-visual {
       width: min(88vw, 27rem);
       max-height: 30svh;
+    }
+
+    .splash-loader {
+      margin-top: clamp(2.5rem, 8vh, 5rem);
     }
 
     .splash-copy {

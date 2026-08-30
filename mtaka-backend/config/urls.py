@@ -15,7 +15,7 @@ urlpatterns = [
 
     path('api/auth/', include('core.urls')),
     re_path(
-        r'^(?P<path>(favicon\.ico|robots\.txt|sw\.js|manifest\.webmanifest|pwa-192x192\.png|pwa-512x512\.png))$',
+        r'^(?P<path>(favicon\.ico|robots\.txt|sw\.js|manifest\.webmanifest|pwa-192x192\.png|pwa-512x512\.png|m-waste\.png))$',
         serve,
         {'document_root': settings.BASE_DIR / 'dist'},
     ),

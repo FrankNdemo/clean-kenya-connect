@@ -9,6 +9,10 @@ __pycache__/
 # Local database snapshots
 *.sqlite3
 
+# User-uploaded/generated media
+mtaka-backend/dumping_reports/
+mtaka-backend/event_covers/
+
 # Virtual environments
 venv/
 mtaka-backend/venv/

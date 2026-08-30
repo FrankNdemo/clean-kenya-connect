@@ -6,12 +6,11 @@ from django.core.management.base import BaseCommand
 from core.models import Authority
 
 
-DEFAULT_SUPERUSER_USERNAME = 'ndemo frank'
-DEFAULT_SUPERUSER_EMAIL = 'linkentnerg@gmail.com'
-DEFAULT_SUPERUSER_PASSWORD = 'Ombogo1234.'
-DEFAULT_SUPERUSER_PHONE = '+254768241871'
-DEFAULT_SUPERUSER_FIRST_NAME = 'ndemo'
-DEFAULT_SUPERUSER_LAST_NAME = 'frank'
+DEFAULT_SUPERUSER_USERNAME = 'admin'
+DEFAULT_SUPERUSER_EMAIL = 'admin@example.com'
+DEFAULT_SUPERUSER_PHONE = ''
+DEFAULT_SUPERUSER_FIRST_NAME = 'Admin'
+DEFAULT_SUPERUSER_LAST_NAME = 'User'
 
 
 class Command(BaseCommand):
@@ -22,14 +21,16 @@ class Command(BaseCommand):
 
         username = os.getenv('DJANGO_SUPERUSER_USERNAME', DEFAULT_SUPERUSER_USERNAME).strip()
         email = os.getenv('DJANGO_SUPERUSER_EMAIL', DEFAULT_SUPERUSER_EMAIL).strip().lower()
-        password = os.getenv('DJANGO_SUPERUSER_PASSWORD', DEFAULT_SUPERUSER_PASSWORD)
+        password = os.getenv('DJANGO_SUPERUSER_PASSWORD', '')
         phone = os.getenv('DJANGO_SUPERUSER_PHONE', DEFAULT_SUPERUSER_PHONE).strip()
         first_name = os.getenv('DJANGO_SUPERUSER_FIRST_NAME', DEFAULT_SUPERUSER_FIRST_NAME).strip()
         last_name = os.getenv('DJANGO_SUPERUSER_LAST_NAME', DEFAULT_SUPERUSER_LAST_NAME).strip()
         user_type = os.getenv('DJANGO_SUPERUSER_USER_TYPE', 'authority').strip() or 'authority'
 
         if not password:
-            self.stderr.write(self.style.ERROR('DJANGO_SUPERUSER_PASSWORD is empty.'))
+            self.stdout.write(self.style.WARNING(
+                'DJANGO_SUPERUSER_PASSWORD is not set; skipping superuser creation.'
+            ))
             return
 
         user = User.objects.filter(username=username).first()

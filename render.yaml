@@ -30,7 +30,7 @@ services:
       - key: DJANGO_EMAIL_TIMEOUT
         value: "20"
       - key: DJANGO_DEFAULT_FROM_EMAIL
-        value: "M-Taka No-Reply <linkentnerg@gmail.com>"
+        value: "M-Taka No-Reply <no-reply@mtaka.example>"
       - key: MTAKA_FRONTEND_URL
         value: "https://mtaka-frontend.onrender.com"
       - key: MTAKA_API_PUBLIC_URL

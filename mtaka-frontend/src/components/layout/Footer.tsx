@@ -49,8 +49,8 @@ export function Footer() {
             <h4 className="font-semibold mb-4">Contact</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>City Hall, Nairobi</li>
-              <li>linkentnerg@gmail.com</li>
-              <li>+254 114 470 441</li>
+              <li>contact@mtaka.example</li>
+              <li>+254 700 000 000</li>
             </ul>
           </div>
         </div>

@@ -19,7 +19,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Layout } from '@/components/layout/Layout';
 import { isStandaloneAppMode } from '@/lib/appMode';
-import heroBg from '@/assets/hero-bg.jpg';
 import { toast } from 'sonner';
 
 type BeforeInstallPromptEvent = Event & {
@@ -250,7 +249,7 @@ export default function LandingPage() {
         <div
           className="absolute inset-0 z-0 bg-cover bg-center"
           style={{
-            backgroundImage: `url(${heroBg})`,
+            backgroundImage: 'url(/landing/cleanup-truck.jpg)',
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-background/40" />

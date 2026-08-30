@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +8,6 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { isStandaloneAppMode } from "@/lib/appMode";
 import { UserRole } from "@/lib/store";
 import { getDashboardPathForUser } from "@/lib/dashboardPaths";
-import { BrandLogo } from "@/components/BrandLogo";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
@@ -66,15 +65,22 @@ const queryClient = new QueryClient();
 
 function FullScreenLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="flex flex-col items-center text-center">
-        <BrandLogo variant="icon" className="h-28 w-28 animate-pulse sm:h-32 sm:w-32" />
-        <span className="mt-3 text-sm font-semibold uppercase tracking-[0.28em] text-primary animate-soft-glow">
-          Clean Connect
-        </span>
-        <span className="mt-24 text-4xl font-medium tracking-tight text-foreground">
-          M-Taka
-        </span>
+    <div className="splash-screen min-h-[100svh] bg-primary text-primary-foreground">
+      <div className="splash-vignette" />
+      <div className="splash-content">
+        <img
+          src="/m-waste.png"
+          alt="M-Taka waste management"
+          className="splash-visual"
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
+        />
+        <div className="splash-loader" aria-label="Loading" role="status" />
+        <div className="splash-copy">
+          <p>Your waste management platform</p>
+          <span>M-TAKA • KENYA</span>
+        </div>
       </div>
     </div>
   );
@@ -157,12 +163,24 @@ function ProtectedRoute({
   return element;
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
+const App = () => {
+  const [isBooting, setIsBooting] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsBooting(false), 1800);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          {isBooting ? (
+            <FullScreenLoader />
+          ) : (
+            <>
+              <Toaster />
+              <Sonner />
         <HashRouter>
           <ScrollToTop />
           <Routes>
@@ -220,10 +238,13 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </HashRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+              </HashRouter>
+            </>
+          )}
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

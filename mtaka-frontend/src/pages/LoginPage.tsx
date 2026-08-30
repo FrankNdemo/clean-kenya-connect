@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
@@ -89,10 +89,6 @@ export default function LoginPage() {
       window.removeEventListener('pageshow', handlePageShow);
     };
   }, [clearLoginForm]);
-
-  const handleScrollToForm = useCallback(() => {
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,48 +189,29 @@ export default function LoginPage() {
             </Link>
           )}
 
-          <div className="mx-auto grid w-full max-w-[21rem] gap-0 overflow-hidden rounded-[1.5rem] bg-white shadow-[0_28px_70px_-32px_rgba(15,23,42,0.45)] sm:max-w-[24rem] sm:rounded-[2rem] lg:max-w-[50rem] lg:grid-cols-[0.95fr_0.82fr] lg:items-stretch xl:max-w-[54rem]">
-            <section className="relative min-h-[12rem] overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/90 p-4 text-primary-foreground sm:min-h-[18rem] sm:p-8 lg:min-h-[32rem] lg:p-8 xl:min-h-[34rem]">
+          <div className="mx-auto grid w-full max-w-[25rem] gap-0 overflow-hidden rounded-[1.5rem] bg-transparent sm:max-w-[28rem] sm:rounded-[2rem] lg:max-w-[50rem] lg:grid-cols-[0.95fr_0.82fr] lg:items-stretch xl:max-w-[54rem]">
+            <section className="relative min-h-[14rem] overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/90 p-6 text-primary-foreground sm:min-h-[18rem] sm:p-8 lg:min-h-[32rem] lg:p-8 xl:min-h-[34rem]">
               <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10" />
               <div className="absolute -left-6 bottom-0 h-[28rem] w-[28rem] rounded-full bg-black/12" />
               <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-white/10" />
               <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full bg-black/15 blur-2xl" />
 
-              <div className="relative flex h-full flex-col justify-between gap-5 sm:gap-10">
-                <div className="flex items-start gap-3">
-                  <div className="inline-flex rounded-2xl bg-white px-3 py-2 shadow-lg ring-1 ring-white/70 sm:px-4 sm:py-3">
-                    <BrandLogo className="h-16 w-20 opacity-80 sm:h-28 sm:w-32" />
-                  </div>
+              <div className="relative flex h-full flex-col justify-between gap-6 lg:justify-start lg:gap-36 xl:gap-40">
+                <div className="flex items-start">
+                  <BrandLogo className="h-12 w-32 opacity-95 drop-shadow-[0_8px_18px_rgba(0,0,0,0.18)] sm:h-16 sm:w-44" />
                 </div>
-
-                <div className="max-w-md space-y-3 sm:space-y-4">
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <p className="text-2xl font-semibold leading-tight sm:text-5xl">Welcome Back!</p>
-                    <p className="text-xs leading-5 text-white/75 sm:text-base sm:leading-6">
-                      To stay connected with us, please log in with your personal info
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleScrollToForm}
-                    className="inline-flex h-9 items-center justify-center rounded-full border border-white/35 px-6 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-white transition-colors hover:bg-white/10 sm:h-10 sm:px-8 sm:text-xs sm:tracking-[0.3em]"
-                  >
-                    Sign In
-                  </button>
+                <div className="max-w-md space-y-1.5 sm:space-y-2">
+                  <p className="text-4xl font-semibold leading-tight sm:text-5xl">Welcome Back!</p>
+                  <p className="text-sm leading-6 text-white/75 sm:text-base">
+                    To stay connected with us, please log in with your personal info
+                  </p>
                 </div>
               </div>
             </section>
 
-            <section className="flex items-center justify-center bg-white px-5 py-5 sm:px-8 sm:py-8 lg:px-8 lg:py-10">
-              <Card className="w-full max-w-sm border-0 bg-transparent shadow-none lg:max-w-[19.5rem]">
-                <CardHeader className="hidden space-y-2 p-0 text-center sm:block">
-                  <CardTitle className="text-3xl font-semibold capitalize text-primary">welcome</CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground">
-                    Login to your account to continue
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="p-0 pt-0 sm:pt-8">
+            <section className="flex items-center justify-center bg-transparent px-5 py-5 sm:px-8 sm:py-8 lg:px-8 lg:py-10">
+              <Card className="w-full max-w-sm border-0 bg-transparent shadow-none lg:max-w-[19.5rem] lg:-translate-y-10 xl:-translate-y-12">
+                <CardContent className="p-0">
                   <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                     <div className="sr-only" aria-hidden="true">
                       <input type="text" name="mtaka_fake_username" autoComplete="username" tabIndex={-1} />

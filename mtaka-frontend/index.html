@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#f8f5ee" />
+    <meta name="theme-color" content="#0f311f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -11,6 +11,132 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <link rel="preload" as="image" href="/m-waste.png" fetchpriority="high" />
+    <style>
+      @keyframes initial-splash-darken {
+        0%,
+        100% {
+          opacity: 0.06;
+        }
+        50% {
+          opacity: 0.18;
+        }
+      }
+
+      @keyframes initial-splash-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background: #0f311f;
+      }
+
+      .initial-splash {
+        position: fixed;
+        inset: 0;
+        isolation: isolate;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #0f311f;
+        color: #ffffff;
+        font-family:
+          "Plus Jakarta Sans",
+          system-ui,
+          sans-serif;
+      }
+
+      .initial-splash::after {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        background: #000000;
+        content: "";
+        pointer-events: none;
+        animation: initial-splash-darken 2.2s ease-in-out infinite;
+      }
+
+      .initial-splash__content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        width: 100vw;
+        min-height: 100svh;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(1.35rem, 3.4vh, 2.4rem);
+        padding: clamp(2rem, 6vh, 4.5rem) clamp(1rem, 4vw, 3rem);
+        text-align: center;
+      }
+
+      .initial-splash__image {
+        width: clamp(30rem, 52vw, 52rem);
+        max-width: calc(100vw - 2rem);
+        max-height: 46svh;
+        border: 0;
+        border-radius: 0;
+        object-fit: contain;
+        object-position: center;
+        image-rendering: auto;
+      }
+
+      .initial-splash__loader {
+        width: 2rem;
+        height: 2rem;
+        border: 0.2rem solid rgb(255 255 255 / 0.28);
+        border-top-color: #ffffff;
+        border-radius: 9999px;
+        animation: initial-splash-spin 0.8s linear infinite;
+      }
+
+      .initial-splash__title {
+        margin: 0;
+        font-size: clamp(1rem, 2.6vw, 1.38rem);
+        font-weight: 800;
+        line-height: 1.25;
+      }
+
+      .initial-splash__meta {
+        display: block;
+        margin-top: 0.65rem;
+        color: rgb(255 255 255 / 0.72);
+        font-size: clamp(0.68rem, 1.8vw, 0.82rem);
+        font-weight: 800;
+        letter-spacing: 0.42em;
+      }
+
+      @media (max-width: 640px) {
+        .initial-splash__content {
+          justify-content: center;
+          gap: clamp(1.55rem, 5.4vh, 3.5rem);
+          padding: clamp(4rem, 9vh, 6rem) clamp(1rem, 5vw, 1.5rem) clamp(6rem, 14vh, 8rem);
+        }
+
+        .initial-splash__image {
+          width: min(88vw, 27rem);
+          max-height: 30svh;
+        }
+
+        .initial-splash__copy {
+          margin-top: 1.5rem;
+        }
+
+        .initial-splash__meta {
+          letter-spacing: 0.34em;
+        }
+      }
+    </style>
     <title>M-Taka</title>
     <meta name="description" content="M-Taka connects communities, collectors, recyclers, and authorities for cleaner waste management." />
     <meta name="author" content="M-Taka" />
@@ -26,7 +152,24 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="initial-splash" aria-label="Loading M-Taka">
+        <div class="initial-splash__content">
+          <img
+            src="/m-waste.png"
+            alt="M-Taka waste management"
+            class="initial-splash__image"
+            fetchpriority="high"
+            decoding="sync"
+          />
+          <div class="initial-splash__loader" aria-hidden="true"></div>
+          <div class="initial-splash__copy">
+            <p class="initial-splash__title">Your waste management platform</p>
+            <span class="initial-splash__meta">M-TAKA • KENYA</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

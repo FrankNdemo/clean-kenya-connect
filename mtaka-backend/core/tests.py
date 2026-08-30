@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import re
 from io import BytesIO
 from datetime import date, time
@@ -55,17 +56,27 @@ class SuperuserBootstrapTests(TestCase):
     def setUp(self):
         self.user_model = get_user_model()
 
+    @patch.dict(
+        os.environ,
+        {
+            'DJANGO_SUPERUSER_USERNAME': 'test-admin',
+            'DJANGO_SUPERUSER_EMAIL': 'admin@example.test',
+            'DJANGO_SUPERUSER_PASSWORD': 'TestPassword123!',
+            'DJANGO_SUPERUSER_FIRST_NAME': 'Test',
+            'DJANGO_SUPERUSER_LAST_NAME': 'Admin',
+        },
+    )
     def test_ensure_superuser_creates_or_repairs_seed_account(self):
         call_command('ensure_superuser')
 
-        user = self.user_model.objects.get(username='ndemo frank')
+        user = self.user_model.objects.get(username='test-admin')
         self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_active)
-        self.assertTrue(user.check_password('Ombogo1234.'))
+        self.assertTrue(user.check_password('TestPassword123!'))
 
         authority = Authority.objects.get(user=user)
-        self.assertEqual(authority.staff_name, 'ndemo frank')
+        self.assertEqual(authority.staff_name, 'Test Admin')
 
 
 @override_settings(

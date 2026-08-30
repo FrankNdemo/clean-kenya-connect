@@ -5,6 +5,9 @@ import hashlib
 import os
 from urllib.parse import urlparse, parse_qs
 
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,9 +30,13 @@ def env_bool(name: str, default: bool = False) -> bool:
         return default
     return raw.strip().lower() in ('1', 'true', 'yes', 'on')
 
-
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-vc3x4(p@&nd47a4g!6$@5o%!qcjbm@&cw+$f8@e_)c$#vc4+bk')
 DEBUG = env_bool('DJANGO_DEBUG', True)
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '').strip()
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = get_random_secret_key()
+    else:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.')
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv('DJANGO_ALLOWED_HOSTS', '192.168.0.101,localhost,127.0.0.1').split(',')

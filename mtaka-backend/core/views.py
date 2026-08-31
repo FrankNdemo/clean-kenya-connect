@@ -756,6 +756,12 @@ def password_reset_request(request):
     delivery_status = get_email_delivery_status()
     if not delivery_status.get('configured'):
         if delivery_status.get('provider') == 'brevo':
+            sender_email = str(delivery_status.get('sender_email') or '').strip()
+            sender_name = str(delivery_status.get('sender_name') or '').strip()
+            sender_label = sender_email
+            if sender_name and sender_email:
+                sender_label = f'{sender_name} <{sender_email}>'
+
             if not delivery_status.get('api_key_valid'):
                 detail = 'Brevo API key is invalid or revoked. Generate a new API key in Brevo and update Render.'
             elif delivery_status.get('sender_found') and not delivery_status.get('sender_active'):
@@ -766,6 +772,8 @@ def password_reset_request(request):
                 detail = 'Brevo sender was not found in your account. Create or verify it in Brevo.'
             else:
                 detail = 'Set DJANGO_BREVO_API_KEY in Render and verify the sender in Brevo.'
+            if sender_label:
+                detail = f'{detail} Sender checked: {sender_label}.'
             api_error = str(delivery_status.get('error') or '').strip()
             if api_error:
                 detail = f'{detail} {api_error}'

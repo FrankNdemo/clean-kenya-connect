@@ -747,6 +747,38 @@ class EventImageUploadTests(TestCase):
             r'https://mtaka\.example/#/reset-password\?uid=[^&\s]+&token=[^\s]+',
         )
 
+    @patch(
+        'core.views.get_email_delivery_status',
+        return_value={
+            'configured': False,
+            'provider': 'brevo',
+            'api_key_valid': True,
+            'sender_found': False,
+            'sender_name': 'M-Taka No-Reply',
+            'sender_email': 'no-reply@mtaka.co.ke',
+        },
+    )
+    def test_password_reset_brevo_sender_error_names_checked_sender(self, mock_delivery_status):
+        user = self.user_model.objects.create_user(
+            username='reset-sender-user',
+            email='reset-sender@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700001204',
+        )
+
+        response = self.client.post(
+            '/api/auth/password-reset/request/',
+            data={'email': user.email},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('Brevo sender was not found', response.json()['detail'])
+        self.assertIn('M-Taka No-Reply <no-reply@mtaka.co.ke>', response.json()['detail'])
+        self.assertEqual(len(mail.outbox), 0)
+        mock_delivery_status.assert_called_once()
+
     def test_password_reset_confirm_updates_password_and_returns_auth_payload(self):
         user = self.user_model.objects.create_user(
             username='reset-confirm-user',

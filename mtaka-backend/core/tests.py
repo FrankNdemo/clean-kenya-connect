@@ -6,6 +6,7 @@ from io import BytesIO
 from datetime import date, time
 from decimal import Decimal
 from tempfile import TemporaryDirectory
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from unittest.mock import MagicMock, patch
 
@@ -1526,11 +1527,49 @@ class BrevoEmailTests(TestCase):
 
         request = mock_urlopen.call_args[0][0]
         payload = json.loads(request.data.decode('utf-8'))
+        self.assertEqual(request.get_header('User-agent'), 'M-Taka/1.0 (+https://mtaka-frontend.onrender.com)')
         self.assertEqual(payload['sender']['email'], 'sender@example.com')
         self.assertEqual(payload['to'][0]['email'], user.email)
         self.assertEqual(payload['subject'], 'Reset your M-Taka password')
         self.assertIn('uid=', payload['textContent'])
         self.assertIn('token=', payload['textContent'])
+
+    @patch('core.auth_email.urlopen')
+    def test_password_reset_reports_brevo_sender_verification_failure(self, mock_urlopen):
+        def side_effect(request, timeout=20):
+            if request.full_url.endswith('/v3/account'):
+                response = MagicMock()
+                response.read.return_value = json.dumps({'email': 'owner@example.com'}).encode('utf-8')
+                context_manager = MagicMock()
+                context_manager.__enter__.return_value = response
+                context_manager.__exit__.return_value = False
+                return context_manager
+            raise HTTPError(
+                request.full_url,
+                403,
+                'Forbidden',
+                hdrs=None,
+                fp=BytesIO(b'{"title":"Error 1010: Access denied"}'),
+            )
+
+        mock_urlopen.side_effect = side_effect
+        user = self.user_model.objects.create_user(
+            username='brevo-blocked-reset-user',
+            email='brevo-blocked-reset@example.com',
+            password='StrongPass!1',
+            user_type='household',
+            phone='+254700009003',
+        )
+
+        response = self.client.post(
+            '/api/auth/password-reset/request/',
+            data={'email': user.email},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('Brevo could not verify the sender right now.', response.json()['detail'])
+        self.assertIn('Brevo API returned HTTP 403', response.json()['detail'])
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'])

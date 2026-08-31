@@ -43,6 +43,7 @@ def _brevo_request_json(method: str, path: str, payload: dict | None = None) -> 
             "accept": "application/json",
             "api-key": api_key,
             "content-type": "application/json",
+            "user-agent": "M-Taka/1.0 (+https://mtaka-frontend.onrender.com)",
         },
         method=method,
     )

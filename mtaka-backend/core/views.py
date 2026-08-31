@@ -760,6 +760,8 @@ def password_reset_request(request):
                 detail = 'Brevo API key is invalid or revoked. Generate a new API key in Brevo and update Render.'
             elif delivery_status.get('sender_found') and not delivery_status.get('sender_active'):
                 detail = 'Brevo sender exists but is not active. Verify it in Brevo, then redeploy.'
+            elif delivery_status.get('error'):
+                detail = 'Brevo could not verify the sender right now. Check Brevo service access and try again.'
             elif not delivery_status.get('sender_found'):
                 detail = 'Brevo sender was not found in your account. Create or verify it in Brevo.'
             else:

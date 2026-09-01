@@ -28,7 +28,7 @@ services:
       - key: DJANGO_BREVO_API_KEY
         sync: false
       - key: DJANGO_EMAIL_TIMEOUT
-        value: "20"
+        value: "8"
       - key: DJANGO_DEFAULT_FROM_EMAIL
         value: "M-Taka No-Reply <no-reply@mtaka.co.ke>"
       - key: MTAKA_FRONTEND_URL

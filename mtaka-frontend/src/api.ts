@@ -96,7 +96,7 @@ const API = axios.create({
 const API_GET_CACHE_TTL_MS = 20_000;
 const apiGetCache = new Map<string, { expiresAt: number; value: unknown }>();
 const apiGetInFlight = new Map<string, Promise<unknown>>();
-const LOGIN_REQUEST_TIMEOUT_MS = 30_000;
+const LOGIN_REQUEST_TIMEOUT_MS = 12_000;
 
 const stableStringify = (value: unknown): string => {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -318,7 +318,7 @@ API.interceptors.response.use(
 export const loginUser = async (username: string, password: string) => {
   const response = await withRetry(
     () => API.post("login/", { username, password }, { timeout: LOGIN_REQUEST_TIMEOUT_MS }),
-    2,
+    1,
     isTransientLoginError
   );
   return response.data; // { user, profile }

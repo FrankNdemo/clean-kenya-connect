@@ -11,7 +11,7 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.db.models import Q
-from django.db.models import Count, Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch, Subquery
 from django.db import transaction
 from django.utils import timezone
 from django.utils.encoding import force_bytes
@@ -32,6 +32,7 @@ from .route_planner import build_collector_route_summary, calculate_distance_km,
 from .auth_email import (
     build_password_reset_link,
     dispatch_email,
+    email_delivery_is_configured,
     get_email_delivery_status,
     send_password_reset_email,
     send_payment_confirmation_email,
@@ -636,17 +637,14 @@ def register_user(request):
         user = serializer.save()
         resp = _build_auth_response_for_user(user, status_code=201)
         cache.delete("api:list_users:v2")
-        delivery_status = get_email_delivery_status()
-        if delivery_status.get("configured"):
+        if getattr(user, "email", "") and email_delivery_is_configured():
             try:
                 dispatch_email(send_welcome_email, user, description=f"welcome email for user_id={user.id}")
             except Exception:
                 logger.exception("Failed to queue welcome email for user_id=%s", user.id)
         else:
             logger.warning(
-                "Welcome email skipped because production email delivery is not configured "
-                "(%s) for user_id=%s",
-                delivery_status.get('error') or ', '.join(delivery_status.get('notes', [])),
+                "Welcome email skipped because email delivery is not configured or user_id=%s has no email address.",
                 user.id,
             )
 
@@ -686,12 +684,17 @@ def login_user(request):
     user = None
     if identifier:
         if '@' in identifier:
-            # Email may not be unique in legacy data; pick the account whose password matches.
-            candidates = User.objects.filter(email__iexact=identifier, is_active=True).order_by('-id')
-            for candidate in candidates:
-                if candidate.check_password(normalized_password):
-                    user = candidate
-                    break
+            normalized_identifier = identifier.lower()
+            candidate = User.objects.filter(email=normalized_identifier, is_active=True).order_by('-id').first()
+            if candidate and candidate.check_password(normalized_password):
+                user = candidate
+            elif not candidate or candidate.email != normalized_identifier:
+                # Compatibility for legacy mixed-case emails, without scanning unlimited duplicate rows.
+                candidates = User.objects.filter(email__iexact=identifier, is_active=True).order_by('-id')[:5]
+                for candidate in candidates:
+                    if candidate.check_password(normalized_password):
+                        user = candidate
+                        break
         else:
             # Username login remains compatible with default auth backend.
             user = authenticate(username=identifier, password=normalized_password)
@@ -753,32 +756,20 @@ def password_reset_request(request):
     if not matching_users.exists():
         return Response(success_message, status=status.HTTP_200_OK)
 
-    delivery_status = get_email_delivery_status()
-    if not delivery_status.get('configured'):
+    if not email_delivery_is_configured():
+        delivery_status = get_email_delivery_status()
+        detail = 'Email delivery is not configured yet.'
         if delivery_status.get('provider') == 'brevo':
             sender_email = str(delivery_status.get('sender_email') or '').strip()
             sender_name = str(delivery_status.get('sender_name') or '').strip()
             sender_label = sender_email
             if sender_name and sender_email:
                 sender_label = f'{sender_name} <{sender_email}>'
-
-            if not delivery_status.get('api_key_valid'):
-                detail = 'Brevo API key is invalid or revoked. Generate a new API key in Brevo and update Render.'
-            elif delivery_status.get('sender_found') and not delivery_status.get('sender_active'):
-                detail = 'Brevo sender exists but is not active. Verify it in Brevo, then redeploy.'
-            elif delivery_status.get('error'):
-                detail = 'Brevo could not verify the sender right now. Check Brevo service access and try again.'
-            elif not delivery_status.get('sender_found'):
-                detail = 'Brevo sender was not found in your account. Create or verify it in Brevo.'
-            else:
-                detail = 'Set DJANGO_BREVO_API_KEY in Render and verify the sender in Brevo.'
+            detail = 'Set DJANGO_BREVO_API_KEY in Render and verify the sender in Brevo.'
             if sender_label:
                 detail = f'{detail} Sender checked: {sender_label}.'
-            api_error = str(delivery_status.get('error') or '').strip()
-            if api_error:
-                detail = f'{detail} {api_error}'
-        else:
-            detail = 'Email delivery is not configured yet.'
+        elif delivery_status.get('notes'):
+            detail = ' '.join(str(note) for note in delivery_status.get('notes', []) if note)
 
         logger.error("Password reset email requested but email delivery is not configured: %s", detail)
         return Response(
@@ -1407,14 +1398,28 @@ class EventViewSet(viewsets.ModelViewSet):
             'changed_by__last_name',
         ).order_by('-changed_at')
 
-        queryset = Event.objects.select_related('creator').prefetch_related(
-            Prefetch(
-                'schedule_changes',
-                queryset=schedule_changes_queryset,
-            )
-        ).annotate(
-            participant_count_cached=Count('participants')
+        latest_schedule_change = EventScheduleChange.objects.filter(event_id=OuterRef('pk')).order_by('-changed_at')
+        queryset = Event.objects.select_related('creator').annotate(
+            participant_count_cached=Count('participants', distinct=True),
+            schedule_change_count_cached=Count('schedule_changes', distinct=True),
+            latest_schedule_previous_date=Subquery(latest_schedule_change.values('previous_event_date')[:1]),
+            latest_schedule_new_date=Subquery(latest_schedule_change.values('new_event_date')[:1]),
+            latest_schedule_previous_time=Subquery(latest_schedule_change.values('previous_start_time')[:1]),
+            latest_schedule_new_time=Subquery(latest_schedule_change.values('new_start_time')[:1]),
+            latest_schedule_reason=Subquery(latest_schedule_change.values('reason')[:1]),
+            latest_schedule_changed_at=Subquery(latest_schedule_change.values('changed_at')[:1]),
+            latest_schedule_changed_by_username=Subquery(latest_schedule_change.values('changed_by__username')[:1]),
+            latest_schedule_changed_by_first_name=Subquery(latest_schedule_change.values('changed_by__first_name')[:1]),
+            latest_schedule_changed_by_last_name=Subquery(latest_schedule_change.values('changed_by__last_name')[:1]),
         )
+
+        if include_participants:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'schedule_changes',
+                    queryset=schedule_changes_queryset,
+                )
+            )
 
         if self.action in ['list', 'my_events', 'my_expired_created']:
             queryset = queryset.defer('cover_image_data', 'cover_image_content_type')

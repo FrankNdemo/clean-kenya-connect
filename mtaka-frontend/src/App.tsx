@@ -167,7 +167,7 @@ const App = () => {
   const [isBooting, setIsBooting] = useState(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsBooting(false), 2600);
+    const timer = window.setTimeout(() => setIsBooting(false), 900);
     return () => window.clearTimeout(timer);
   }, []);
 

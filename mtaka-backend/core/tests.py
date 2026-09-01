@@ -401,7 +401,7 @@ class EventImageUploadTests(TestCase):
                     'type': 'cleanup',
                     'title': 'Community Cleanup Day',
                     'description': 'Bring gloves and join the cleanup.',
-                    'date': '2026-03-31',
+                    'date': '2027-03-31',
                     'time': '10:30',
                     'location': 'Siriba campus',
                     'maxParticipants': 50,
@@ -444,7 +444,7 @@ class EventImageUploadTests(TestCase):
             event_type='cleanup',
             description='Pending event for filter testing.',
             location='Siriba campus',
-            event_date=date(2026, 4, 8),
+            event_date=date(2027, 4, 8),
             start_time=time(10, 0),
             max_participants=20,
             status='pending',
@@ -456,7 +456,7 @@ class EventImageUploadTests(TestCase):
             event_type='cleanup',
             description='Approved event for filter testing.',
             location='Siriba campus',
-            event_date=date(2026, 4, 9),
+            event_date=date(2027, 4, 9),
             start_time=time(11, 0),
             max_participants=20,
             status='approved',
@@ -477,7 +477,7 @@ class EventImageUploadTests(TestCase):
             event_type='cleanup',
             description='This event should be removable by its creator.',
             location='Siriba campus',
-            event_date=date(2026, 3, 31),
+            event_date=date(2027, 3, 31),
             start_time=time(10, 30),
             max_participants=25,
             status='pending',
@@ -503,7 +503,7 @@ class EventImageUploadTests(TestCase):
             event_type='cleanup',
             description='Only the creator should be able to delete this event.',
             location='Siriba campus',
-            event_date=date(2026, 4, 2),
+            event_date=date(2027, 4, 2),
             start_time=time(9, 0),
             max_participants=30,
             status='approved',
@@ -530,7 +530,7 @@ class EventImageUploadTests(TestCase):
             event_type='cleanup',
             description='Weekend cleanup',
             location='Kisumu',
-            event_date=date(2026, 4, 10),
+            event_date=date(2027, 4, 10),
             start_time=time(9, 0),
             max_participants=40,
             status='approved',
@@ -541,7 +541,7 @@ class EventImageUploadTests(TestCase):
         response = self.client.patch(
             f'/api/auth/events/{event.id}/',
             data={
-                'date': '2026-04-12',
+                'date': '2027-04-12',
                 'time': '10:30',
                 'scheduleChangeReason': 'Rain forecast moved the cleanup to Sunday.',
             },
@@ -550,13 +550,13 @@ class EventImageUploadTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         event.refresh_from_db()
-        self.assertEqual(event.event_date, date(2026, 4, 12))
+        self.assertEqual(event.event_date, date(2027, 4, 12))
         self.assertEqual(event.start_time, time(10, 30))
         self.assertEqual(EventScheduleChange.objects.filter(event=event, changed_by=creator).count(), 1)
 
         payload = response.json()
-        self.assertEqual(payload['latestScheduleChange']['previousDate'], '2026-04-10')
-        self.assertEqual(payload['latestScheduleChange']['newDate'], '2026-04-12')
+        self.assertEqual(payload['latestScheduleChange']['previousDate'], '2027-04-10')
+        self.assertEqual(payload['latestScheduleChange']['newDate'], '2027-04-12')
         self.assertEqual(payload['latestScheduleChange']['reason'], 'Rain forecast moved the cleanup to Sunday.')
 
     def test_event_schedule_change_requires_reason(self):
@@ -566,7 +566,7 @@ class EventImageUploadTests(TestCase):
             event_type='cleanup',
             description='Reason check',
             location='Siriba campus',
-            event_date=date(2026, 4, 5),
+            event_date=date(2027, 4, 5),
             start_time=time(8, 0),
             max_participants=20,
             status='pending',
@@ -576,7 +576,7 @@ class EventImageUploadTests(TestCase):
         response = self.client.patch(
             f'/api/auth/events/{event.id}/',
             data={
-                'date': '2026-04-06',
+                'date': '2027-04-06',
                 'time': '08:30',
             },
             format='json',
@@ -603,7 +603,7 @@ class EventImageUploadTests(TestCase):
             event_type='cleanup',
             description='County-wide cleanup event.',
             location='Kisumu CBD',
-            event_date=date(2026, 4, 15),
+            event_date=date(2027, 4, 15),
             start_time=time(9, 0),
             max_participants=60,
             status='pending',
@@ -613,7 +613,7 @@ class EventImageUploadTests(TestCase):
         response = self.client.patch(
             f'/api/auth/events/{event.id}/',
             data={
-                'date': '2026-04-16',
+                'date': '2027-04-16',
                 'time': '11:00',
                 'scheduleChangeReason': 'County authority moved the event to avoid a scheduling clash.',
             },
@@ -624,8 +624,8 @@ class EventImageUploadTests(TestCase):
         payload = response.json()
         self.assertEqual(payload['creatorEmail'], 'cleanup-creator@example.com')
         self.assertEqual(payload['creatorPhone'], '+254700009200')
-        self.assertEqual(payload['latestScheduleChange']['previousDate'], '2026-04-15')
-        self.assertEqual(payload['latestScheduleChange']['newDate'], '2026-04-16')
+        self.assertEqual(payload['latestScheduleChange']['previousDate'], '2027-04-15')
+        self.assertEqual(payload['latestScheduleChange']['newDate'], '2027-04-16')
         self.assertEqual(
             payload['latestScheduleChange']['reason'],
             'County authority moved the event to avoid a scheduling clash.',

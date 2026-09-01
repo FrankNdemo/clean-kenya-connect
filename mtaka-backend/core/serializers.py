@@ -656,12 +656,36 @@ class EventSerializer(serializers.ModelSerializer):
         return None
 
     def get_scheduleChangeCount(self, obj):
+        annotated_count = getattr(obj, 'schedule_change_count_cached', None)
+        if annotated_count is not None:
+            return annotated_count
+
         prefetched = getattr(obj, '_prefetched_objects_cache', {}).get('schedule_changes')
         if prefetched is not None:
             return len(prefetched)
         return obj.schedule_changes.count()
 
     def get_latestScheduleChange(self, obj):
+        annotated_changed_at = getattr(obj, 'latest_schedule_changed_at', None)
+        if annotated_changed_at is not None:
+            first_name = getattr(obj, 'latest_schedule_changed_by_first_name', '') or ''
+            last_name = getattr(obj, 'latest_schedule_changed_by_last_name', '') or ''
+            changed_by_name = f'{first_name} {last_name}'.strip()
+            if not changed_by_name:
+                changed_by_name = getattr(obj, 'latest_schedule_changed_by_username', '') or ''
+
+            previous_time = getattr(obj, 'latest_schedule_previous_time', None)
+            new_time = getattr(obj, 'latest_schedule_new_time', None)
+            return {
+                'previousDate': getattr(obj, 'latest_schedule_previous_date').isoformat(),
+                'newDate': getattr(obj, 'latest_schedule_new_date').isoformat(),
+                'previousTime': previous_time.strftime('%H:%M') if previous_time else '',
+                'newTime': new_time.strftime('%H:%M') if new_time else '',
+                'reason': getattr(obj, 'latest_schedule_reason', '') or '',
+                'changedByName': changed_by_name,
+                'changedAt': annotated_changed_at.isoformat(),
+            }
+
         latest = self._latest_schedule_change(obj)
         if not latest:
             return None

@@ -8,6 +8,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.mail import EmailMultiAlternatives
 
 
@@ -48,7 +49,7 @@ def _brevo_request_json(method: str, path: str, payload: dict | None = None) -> 
         method=method,
     )
 
-    timeout = int(getattr(settings, "EMAIL_TIMEOUT", 20) or 20)
+    timeout = int(getattr(settings, "EMAIL_TIMEOUT", 8) or 8)
     try:
         with urlopen(request, timeout=timeout) as response:
             raw_body = response.read().decode("utf-8", errors="replace").strip()
@@ -124,6 +125,10 @@ def _get_brevo_delivery_status() -> dict:
         ]
         return status_payload
 
+    cached_status = cache.get("email:brevo-delivery-status")
+    if isinstance(cached_status, dict):
+        return cached_status
+
     try:
         _brevo_request_json("GET", "/v3/account")
     except Exception as exc:
@@ -132,6 +137,7 @@ def _get_brevo_delivery_status() -> dict:
             "Brevo rejected the API key.",
             "Generate a new Brevo API key in Brevo and update Render.",
         ]
+        cache.set("email:brevo-delivery-status", status_payload, timeout=60)
         return status_payload
 
     status_payload["api_key_valid"] = True
@@ -143,6 +149,7 @@ def _get_brevo_delivery_status() -> dict:
         status_payload["notes"] = [
             "Unable to verify the sender in Brevo.",
         ]
+        cache.set("email:brevo-delivery-status", status_payload, timeout=60)
         return status_payload
 
     sender_found = sender is not None
@@ -177,12 +184,18 @@ def _get_brevo_delivery_status() -> dict:
             "notes": notes,
         }
     )
+    cache.set("email:brevo-delivery-status", status_payload, timeout=300)
     return status_payload
 
 
 def email_delivery_is_configured() -> bool:
     if _uses_brevo_api():
-        return bool(_get_brevo_delivery_status().get("configured"))
+        _, sender_email = _get_sender_identity()
+        return bool(
+            getattr(settings, "BREVO_API_KEY", "").strip()
+            and sender_email
+            and not sender_email.endswith(".local")
+        )
 
     backend = str(getattr(settings, "EMAIL_BACKEND", "") or "").strip().lower()
     if not backend:
@@ -203,7 +216,25 @@ def email_delivery_is_configured() -> bool:
 
 def get_email_delivery_status() -> dict:
     if _uses_brevo_api():
-        return _get_brevo_delivery_status()
+        if getattr(settings, "EMAIL_STATUS_VERIFY_REMOTE", False):
+            return _get_brevo_delivery_status()
+
+        frontend_url = str(getattr(settings, "FRONTEND_URL", "") or "").strip()
+        sender_name, sender_email = _get_sender_identity()
+        api_key = str(getattr(settings, "BREVO_API_KEY", "") or "").strip()
+        configured = bool(api_key and sender_email and not sender_email.endswith(".local"))
+        return {
+            "provider": "brevo",
+            "configured": configured,
+            "api_key_present": bool(api_key),
+            "api_key_valid": bool(api_key),
+            "sender_name": sender_name,
+            "sender_email": sender_email,
+            "sender_found": configured,
+            "sender_active": configured,
+            "frontend_url_configured": bool(frontend_url),
+            "notes": [] if configured else ["Set DJANGO_BREVO_API_KEY and DJANGO_DEFAULT_FROM_EMAIL in Render."],
+        }
 
     frontend_url = str(getattr(settings, "FRONTEND_URL", "") or "").strip()
 
